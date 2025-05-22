@@ -1,0 +1,4 @@
+[submodule "addons/account-payment"]
+	path = addons/account-payment
+	url = https://github.com/ingadhoc/account-payment.git
+	branch = 18.0
