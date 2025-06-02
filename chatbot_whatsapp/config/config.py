@@ -11,4 +11,4 @@ class Config:
             self.config = yaml.safe_load(file)
 
 
-general_responses = Config('config/general_config.yml').config
+general_config = Config('config/general_config.yml').config
