@@ -13,6 +13,7 @@
     'license': 'LGPL-3',
     'depends': [
         'base',
+        'mail',
         'sale',
         'account',
         'whatsapp'  # Asegurate que es el nombre técnico correcto del módulo de WhatsApp
