@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="PaymentScreen" t-inherit="point_of_sale.PaymentScreen" t-inherit-mode="extension" owl="1">
+        <xpath expr="//div[@class='d-flex flex-grow-1 flex-column overflow-y-auto gap-1']//PaymentScreenPaymentLines" position="replace">
+            <PaymentScreenPaymentLines 
+                paymentLines="paymentLines"
+                deleteLine.bind="deletePaymentLine"
+                sendForceDone.bind="sendForceDone"
+                sendPaymentReverse.bind="sendPaymentReverse"
+                sendPaymentCancel.bind="sendPaymentCancel"
+                sendPaymentRequest.bind="sendPaymentRequest"
+                selectLine.bind="selectPaymentLine"
+                updateSelectedPaymentline.bind="updateSelectedPaymentline"
+                addPayRefLine.bind="addPaymentRefLine"
+            />
+        </xpath>
+        <xpath expr="//div[@class='payment-summary d-flex flex-grow-1 flex-column gap-2 overflow-y-auto justify-content-center rounded-3 bg-view']//PaymentScreenPaymentLines" position="replace">
+            <PaymentScreenPaymentLines 
+                paymentLines="paymentLines"
+                deleteLine.bind="deletePaymentLine"
+                sendForceDone.bind="sendForceDone"
+                sendPaymentReverse.bind="sendPaymentReverse"
+                sendPaymentCancel.bind="sendPaymentCancel"
+                sendPaymentRequest.bind="sendPaymentRequest"
+                selectLine.bind="selectPaymentLine"
+                updateSelectedPaymentline.bind="updateSelectedPaymentline"
+                addPayRefLine.bind="addPaymentRefLine"
+            />
+        </xpath>
+    </t>
+
+    <t t-name="PaymentScreenPaymentLines" t-inherit="point_of_sale.PaymentScreenPaymentLines" t-inherit-mode="extension" owl="1">
+        <xpath expr="//span[@class='payment-name'][1]" position="after">
+            <t t-log="pos.config.payment_ref_method_ids"/>
+            <t t-log="line.payment_method_id"/>
+            <t t-set="payment_method_ids" t-value="pos.config.payment_ref_method_ids.map(ref => ref.id)"/>
+            <t t-if="pos.config.payment_reference_detail">
+                <t t-if="payment_method_ids.includes(line.payment_method_id.id)">
+                    <div class="payment-ref-button"
+    t-on-click="() => this.props.addPayRefLine(line.uuid)"
+    aria-label="Referencia de pago" title="Cargar referencia de esta transacción">
+    <i class="fa fa-edit"/> Añadir referencia
+</div>
+
+                </t>
+            </t>
+        </xpath>
+    </t>
+
+</templates>

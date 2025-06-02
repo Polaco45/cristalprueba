@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="PaymentScreenPaymentLines" t-inherit="point_of_sale.PaymentScreenPaymentLines" t-inherit-mode="extension" owl="1">
+        <xpath expr="//div[@class='payment-name'][1]" position="after">
+            <t t-if="env.pos.config.payment_reference_detail">
+                <t t-if=" env.pos.config.payment_ref_method_ids.includes(line.payment_method.id)">
+                    <div class="payment-ref-button"
+                        t-on-click="() => this.trigger('add-pay_ref-payment-line', { cid: line.cid })"
+                        aria-label="Payment Reference" title="Payment Reference">
+                        <i class="fa fa-bank"/> Payment Reference
+                    </div>
+                </t>
+            </t>
+        </xpath>
+    </t>
+
+</templates>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pos_payment_tree_inherit_yc_pos_payment_ref" model="ir.ui.view">
+        <field name="name">pos.payment.list.inherit.yc_pos_payment_ref</field>
+        <field name="model">pos.payment</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_payment_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='payment_method_id']" position="after">
+                <field name="payment_reference"/>
+                <field name="payment_details"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_pos_order_tree_inherit_yc_pos_payment_ref" model="ir.ui.view">
+        <field name="name">pos.order.form.inherit.yc_pos_payment_ref</field>
+        <field name="model">pos.order</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='payment_ids']//list//field[@name='payment_method_id']" position="after">
+                <field name="payment_reference"/>
+                <field name="payment_details"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

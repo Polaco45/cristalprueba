@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="yc_pos_payment_ref.PaymentDetailPopup" owl="1">
+        <Dialog size="'md'">
+            <t t-set-slot="header">
+                <h4 class="modal-title text-break">
+                    Payment Details
+                </h4>
+            </t>
+            <div class="popup payment-details" style="text-align:left;">
+                <div class="payment-methods-overview" style="text-align:center;">
+                    <input class="payment-ref-popup" t-on-change="(ev) => this.paymentRefChanged(ev)" name="paymentRef" t-att-value="this.state.payment_ref" t-model="state.payment_ref" placeholder="Payment Reference"></input>
+                    <textarea class="payment-ref-popup" t-on-change="(ev) => this.paymentNoteChanged(ev)" name="paymentNote" t-att-value="this.state.payment_note" t-model="state.payment_note" placeholder="Payment Note"></textarea>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <button class="button highlight btn btn-lg btn-primary" t-on-click="confirm">Confirm</button>
+                <button class="button cancel button btn btn-lg btn-secondary" t-on-click="cancel">Discard</button>
+            </t>
+        </Dialog>
+    </t>
+</templates>

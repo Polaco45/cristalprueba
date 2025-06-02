@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="PaymentDetailPopup" owl="1">
+        <div class="popup payment-details" style="text-align:left;">
+            <header>
+                <div class="title" style="text-align:center;">Payment Details</div>
+            </header>
+            <main class="body">
+                <div class="payment-methods-overview" style="text-align:center;">
+                    <input class="payment-ref-popup" t-on-change="(ev) => this.paymentRefChanged(ev)" name="paymentRef" t-att-value="this.state.payment_ref" t-model="state.payment_ref" placeholder="Payment Reference"></input>
+                    <textarea class="payment-ref-popup" t-on-change="(ev) => this.paymentNoteChanged(ev)" name="paymentNote" t-att-value="this.state.payment_note" t-model="state.payment_note" placeholder="Payment Note"></textarea>
+                </div>
+            </main>
+            <footer class="footer">
+                <div class="button cancel" t-on-click="cancel">
+                    Discard
+                </div>
+                <div class="button confirm disable highlight dynamic-size" t-on-click="confirm">Confirm</div>
+            </footer>
+        </div>
+    </t>
+</templates>

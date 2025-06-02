@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_view_form_inherit_yc_pos_payment_ref" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.yc_pos_payment_ref</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="point_of_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@id='pos_payment_section']" position="inside">
+                <setting id="payment_reference_details_settings" string="Allow Payment Reference for Payment Methods" help="Allow POS user to enter Payment reference details for the payment methods selected below.">
+                    <field name="payment_reference_detail_settings"/>
+                    <div>
+                        <field name="payment_ref_method_ids_settings" domain="[('id', 'in', pos_payment_method_ids)]" placeholder="Payment methods..." widget="many2many_tags"  required="payment_reference_detail_settings == True" readonly="pos_has_active_session == True" invisible="payment_reference_detail_settings == False"/>
+                    </div>
+                </setting>
+            </xpath></field>
+    </record>
+
+    <record id="pos_config_view_form_inherit_yc_pos_payment_ref" model="ir.ui.view">
+        <field name="name">pos.config.view.form.inherit.yc_pos_payment_ref</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('o_settings_container') and hasclass('mt16') and hasclass('row')][2]" position="before">
+                <div class="row mt16 o_settings_container" invisible="has_active_session == True and context.get('pos_config_create_mode', False)" >
+                    <div class="col-12 col-lg-6 o_setting_box">
+                        <div class="o_setting_left_pane">
+                            <field name="payment_reference_detail"/>
+                        </div>
+                        <div class="o_setting_right_pane">
+                            <label for="payment_ref_method_ids"/>
+                            <div class="text-muted">
+                                Allow POS user to enter Payment reference details for the payment methods selected below 
+                            </div>
+                            <div class="mt8">
+                                <!-- Campo técnico: solo visible para el grupo “No one” -->
+                                <field name="payment_method_ids" groups="base.group_no_one"/>
+                                <field name="payment_ref_method_ids" domain="[('id', 'in', payment_method_ids)]" placeholder="Payment methods..." widget="many2many_tags" required="payment_reference_detail == True" invisible="payment_reference_detail == False"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

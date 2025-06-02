@@ -1,0 +1,12 @@
+.payment-ref-button{
+	text-align: center;
+	flex-grow: 1;
+  	white-space: nowrap;
+  	text-overflow: ellipsis;
+  	padding: 1rem;
+}
+
+.payment-ref-popup{
+	width: -moz-available !important;
+  	margin: 4px;
+}
