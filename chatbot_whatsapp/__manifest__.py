@@ -1,17 +1,29 @@
 {
     'name': "Chatbot WhatsApp",
     'version': '1.0',
-    'summary': "Integración de un chatbot (OpenAI) con el WhatsApp integrado en Odoo.",
+    'summary': "Chatbot de atención al cliente para WhatsApp usando OpenAI",
     'description': """
-        Este módulo extiende el modelo whatsapp.message para enviar respuestas automáticas
-        mediante OpenAI al recibir mensajes entrantes.
+        Este módulo extiende el modelo whatsapp.message para analizar mensajes entrantes de WhatsApp
+        y responder automáticamente según la intención detectada (OpenAI).
+        Soporta: pedidos, confirmaciones, facturas y FAQs.
     """,
-    'author': "Tu Nombre",
-    'website': "https://tusitio.com",
+    'author': "Felipe Martínez",
+    'website': "https://felipemartinezcv.com",
     'category': 'Tools',
     'license': 'LGPL-3',
-    'depends': ['whatsapp'],
-    'data': [],
+    'depends': [
+        'base',
+        'sale',
+        'account',
+        'whatsapp'  # Asegurate que es el nombre técnico correcto del módulo de WhatsApp
+    ],
+    'data': [
+        # XMLs si agregás vistas, acciones, parámetros de sistema, etc.
+        # Por ahora lo dejás vacío si todo es backend puro
+    ],
+    'assets': {
+        # Si en el futuro agregás JS/CSS para interfaz
+    },
     'installable': True,
     'application': False,
     'auto_install': False,
