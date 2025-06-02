@@ -8,13 +8,12 @@ from .intent_handlers import (
 )
 
 class WhatsAppMessage(models.Model):
-    _name = 'whatsapp.message'
-    _description = 'WhatsApp Message'
-
+    _inherit = 'whatsapp.message'
+    
     body = fields.Text()
     phone = fields.Char()
 
-    @api.model
+    @api.model_create_multi
     def create(self, vals):
         record = super().create(vals)
         plain_body = vals.get("body", "").strip()
