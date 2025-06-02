@@ -3,7 +3,7 @@
 import re
 import logging
 import openai
-from config.config import general_config
+from ..config.config import general_config
 import base64
 from odoo import _
 from odoo.exceptions import UserError

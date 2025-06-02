@@ -1,6 +1,6 @@
 import openai
 import logging
-from config.config import general_config
+from ..config.config import general_config
 
 _logger = logging.getLogger(__name__)
 
