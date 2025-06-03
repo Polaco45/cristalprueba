@@ -21,15 +21,16 @@ class WhatsAppMessage(models.Model):
         records = super().create(vals_list)
 
         for record in records:
-            # 2) Solo procesamos los que vienen con state='received'
+            # 2) Solo procesamos los mensajes que vienen con state='received'
             if record.state != 'received':
                 continue
 
-            # 3) Limpiamos HTML y normalizamos teléfono
+            # 3) Limpiamos cualquier etiqueta HTML, y normalizamos el teléfono
             plain_body = clean_html(record.body or "").strip()
-            raw_phone = record.mobile_number or record.phone or ""
+            raw_phone  = record.mobile_number or record.phone or ""
             phone = normalize_phone(raw_phone)
 
+            # Si no hay texto limpio o no hay un teléfono válido, saltamos
             if not plain_body or not phone:
                 _logger.info(
                     "WhatsAppMessage.create: salto porque body='%s' o phone='%s' no válido",
@@ -37,7 +38,7 @@ class WhatsAppMessage(models.Model):
                 )
                 continue
 
-            # 4) Buscamos partner
+            # 4) Buscamos el partner por número normalizado
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
@@ -45,7 +46,8 @@ class WhatsAppMessage(models.Model):
                 _logger.info("WhatsAppMessage.create: No partner para '%s'", phone)
                 continue
 
-            # 5) Detectamos intención (quitamos “Intención:” si devuelve algo así)
+            # 5) Detectamos intención. A veces ChatGPT devuelve algo como "Intención: saludo",
+            #    así que quitamos el prefijo en minúsculas.
             api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             raw_intent = detect_intention(plain_body.lower(), api_key) or ""
             intent = raw_intent.lower().replace("intención:", "").strip()
@@ -55,15 +57,29 @@ class WhatsAppMessage(models.Model):
                 partner.id, intent, plain_body
             )
 
-            # 6) Helper muy simple que delega a send_whatsapp_response()
+            # 6) Helper que “recrea” exactamente el flujo exitoso de tu código viejo:
+            #    - crea un registro outgoing en whatsapp.message
+            #    - luego llama a _send_message() para disparar la llamada a WhatsApp API
             def _send_text(to_record, text):
-                try:
-                    to_record.send_whatsapp_response(text)
-                    _logger.info("→ _send_text: se envió respuesta '%s' a %s", text, to_record.mobile_number)
-                except Exception as e:
-                    _logger.error("Error al enviar respuesta con send_whatsapp_response: %s", e)
+                _logger.info("→ _send_text: creando outgoing para %s, body='%s'",
+                             to_record.mobile_number, text)
+                outgoing_vals = {
+                    'mobile_number': to_record.mobile_number,
+                    'body': text,
+                    'state': 'outgoing',
+                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
+                    'create_uid': self.env.ref('base.user_admin').id,
+                }
+                outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
+                _logger.info("→ _send_text: creado outgoing id=%s", outgoing_msg.id)
+                if hasattr(outgoing_msg, '_send_message'):
+                    _logger.info("→ _send_text: llamando a _send_message()")
+                    outgoing_msg._send_message()
+                    _logger.info("→ _send_text: _send_message() completado")
+                else:
+                    _logger.warning("WhatsAppMessage: _send_message() NO existe en whatsapp.message")
 
-            # 7) Ruteamos por intención limpia
+            # 7) Dependiendo de la intención, delegamos al handler correspondiente
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
                 _send_text(record, result)
@@ -75,13 +91,16 @@ class WhatsAppMessage(models.Model):
             elif intent == "solicitar_factura":
                 result = handle_solicitar_factura(partner, plain_body)
                 if result.get('pdf_base64'):
+                    # Primero enviamos el texto avisando que viene un PDF
                     _send_text(record, result['message'])
-                    filename = f"{partner.name}_factura_{plain_body.replace(' ','_')}.pdf"
+                    # Luego adjuntamos el PDF codificado en base64
+                    filename = f"{partner.name}_factura_{plain_body.replace(' ', '_')}.pdf"
                     pdf_b64 = result['pdf_base64']
                     if hasattr(record, 'send_whatsapp_document'):
                         record.send_whatsapp_document(pdf_b64, filename, mime_type='application/pdf')
                     else:
-                        _logger.warning("WhatsAppMessage: send_whatsapp_document() no existe")
+                        _logger.warning("WhatsAppMessage: send_whatsapp_document() NO existe")
+
                 else:
                     _send_text(record, result['message'])
 
