@@ -1,5 +1,5 @@
 from odoo import models, api
-from ..utils.nlp import detect_intention, normalize_phone
+from ..utils.nlp import detect_intention, normalize_phon
 from .intent_handlers import (
     handle_crear_pedido,
     handle_confirmar_pedido,
