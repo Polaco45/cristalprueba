@@ -9,7 +9,6 @@ from .intent_handlers import (
 
 class WhatsAppMessage(models.Model):
     _inherit = 'whatsapp.message'
-    
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -27,9 +26,9 @@ class WhatsAppMessage(models.Model):
             intent = detect_intention(plain_body.lower(), api_key)
 
             # Helper para mandar respuesta
-            def _send_text(to_record, text):
+            def _send_text(to_record, text, phone_number):
                 outgoing_vals = {
-                    'phone': to_record.phone,  # ← CAMBIO AQUÍ
+                    'phone': phone_number,
                     'body': text,
                     'state': 'outgoing',
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
@@ -41,27 +40,27 @@ class WhatsAppMessage(models.Model):
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
-                _send_text(record, result)
+                _send_text(record, result, phone)
 
             elif intent == "confirmar_pedido":
                 result = handle_confirmar_pedido(partner, plain_body)
-                _send_text(record, result)
+                _send_text(record, result, phone)
 
             elif intent == "solicitar_factura":
                 result = handle_solicitar_factura(partner, plain_body)
                 if result.get('pdf_base64'):
-                    _send_text(record, result['message'])
+                    _send_text(record, result['message'], phone)
                     filename = f"{partner.name}_factura_{plain_body.strip()}.pdf"
                     pdf_b64 = result['pdf_base64']
                     record.send_whatsapp_document(pdf_b64, filename, mime_type='application/pdf')
                 else:
-                    _send_text(record, result['message'])
+                    _send_text(record, result['message'], phone)
 
             elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
                 response = handle_respuesta_faq(intent, partner, plain_body)
-                _send_text(record, response)
+                _send_text(record, response, phone)
 
             else:
-                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
+                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?", phone)
 
         return records
