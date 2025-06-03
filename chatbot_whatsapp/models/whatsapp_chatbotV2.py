@@ -1,5 +1,5 @@
 from odoo import models, api
-from ..utils.nlp import detect_intention 
+from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone
 from .intent_handlers import (
     handle_crear_pedido,
@@ -16,20 +16,19 @@ class WhatsAppMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Creamos primero los registros entrantes
+        # 1) Creamos primero los registros entrantes
         records = super().create(vals_list)
 
         for record in records:
-            # 1) Solo procesamos los que llegan como 'received'
+            # 2) Solo procesamos los que llegan como 'received'
             if record.state != 'received':
                 continue
 
-            # 2) Limpiamos el HTML antes de procesar texto
+            # 3) Limpiamos HTML y normalizamos teléfono
             plain_body = clean_html(record.body or "").strip()
-            raw_phone  = record.mobile_number or record.phone or ""
+            raw_phone = record.mobile_number or record.phone or ""
             phone = normalize_phone(raw_phone)
 
-            # Si no hay texto limpio o no hay teléfono, saltamos
             if not plain_body or not phone:
                 _logger.info(
                     "WhatsAppMessage.create: salto porque body='%s' o phone='%s' no válido",
@@ -37,7 +36,7 @@ class WhatsAppMessage(models.Model):
                 )
                 continue
 
-            # 3) Buscamos el partner normalizando número
+            # 4) Buscamos el partner por teléfono
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
@@ -45,9 +44,9 @@ class WhatsAppMessage(models.Model):
                 _logger.info("WhatsAppMessage.create: No partner para '%s'", phone)
                 continue
 
-            # 4) Detectamos intención y normalizamos el string (quitamos "Intención:")
+            # 5) Detectamos intención (y sacamos el prefijo "Intención:")
             api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-            raw_intent = detect_intention(plain_body.lower(), api_key) or ""
+            raw_intent = (detect_intention(plain_body.lower(), api_key) or "")
             intent = raw_intent.lower().replace("intención:", "").strip()
 
             _logger.info(
@@ -55,13 +54,14 @@ class WhatsAppMessage(models.Model):
                 partner.id, intent, plain_body
             )
 
+            # 6) Helper para enviar texto
             def _send_text(to_record, text):
                 outgoing_vals = {
                     'mobile_number': to_record.mobile_number,
                     'body': text,
                     'state': 'outgoing',
+                    'message_type': 'outbound',         # <--- clave: indicarle que es outbound
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
-                    'create_uid': self.env.ref('base.user_admin').id,
                 }
                 outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
                 if hasattr(outgoing_msg, '_send_message'):
@@ -69,7 +69,7 @@ class WhatsAppMessage(models.Model):
                 else:
                     _logger.warning("WhatsAppMessage: _send_message() no existe en whatsapp.message")
 
-            # 5) Enviamos respuesta según la intención limpia
+            # 7) Según la intención, enviamos la respuesta
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
                 _send_text(record, result)
