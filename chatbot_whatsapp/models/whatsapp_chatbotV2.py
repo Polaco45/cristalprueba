@@ -1,4 +1,4 @@
-from odoo import models, fields, api
+from odoo import models, api
 from ..utils.nlp import detect_intention
 from .intent_handlers import (
     handle_crear_pedido,
@@ -16,7 +16,7 @@ class WhatsAppMessage(models.Model):
 
         for record, vals in zip(records, vals_list):
             plain_body = vals.get("body", "").strip()
-            phone = vals.get("phone")
+            phone = vals.get("mobile_number") or vals.get("phone")  # preferimos mobile_number
             partner = self.env['res.partner'].sudo().search([('phone', 'ilike', phone)], limit=1)
 
             if not partner:
@@ -25,10 +25,10 @@ class WhatsAppMessage(models.Model):
             api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             intent = detect_intention(plain_body.lower(), api_key)
 
-            # Helper para mandar respuesta
-            def _send_text(to_record, text, phone_number):
+            # Helper para enviar texto
+            def _send_text(to_record, text):
                 outgoing_vals = {
-                    'phone': phone_number,
+                    'mobile_number': to_record.mobile_number,  # <-- Campo correcto
                     'body': text,
                     'state': 'outgoing',
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
@@ -40,27 +40,27 @@ class WhatsAppMessage(models.Model):
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
-                _send_text(record, result, phone)
+                _send_text(record, result)
 
             elif intent == "confirmar_pedido":
                 result = handle_confirmar_pedido(partner, plain_body)
-                _send_text(record, result, phone)
+                _send_text(record, result)
 
             elif intent == "solicitar_factura":
                 result = handle_solicitar_factura(partner, plain_body)
                 if result.get('pdf_base64'):
-                    _send_text(record, result['message'], phone)
+                    _send_text(record, result['message'])
                     filename = f"{partner.name}_factura_{plain_body.strip()}.pdf"
                     pdf_b64 = result['pdf_base64']
                     record.send_whatsapp_document(pdf_b64, filename, mime_type='application/pdf')
                 else:
-                    _send_text(record, result['message'], phone)
+                    _send_text(record, result['message'])
 
             elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
                 response = handle_respuesta_faq(intent, partner, plain_body)
-                _send_text(record, response, phone)
+                _send_text(record, response)
 
             else:
-                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?", phone)
+                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
 
         return records
