@@ -16,13 +16,17 @@ def detect_intention(user_text, api_key):
     )
 
     try:
-        result = openai.chat.completions.create(
+        result = openai.ChatCompletion.create(
             model=general_config['openai']['model'],
-            prompt=prompt,
+            messages=[
+                {"role": "system", "content": "Sos un clasificador de intenciones para un chatbot de productos de limpieza."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0,
             max_tokens=10
         )
         return result.choices[0].message.content.strip()
+
     except Exception as e:
         _logger.error("Error al detectar intención: %s", e)
         return "otro"
