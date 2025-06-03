@@ -30,7 +30,7 @@ class WhatsAppMessage(models.Model):
             result = handle_crear_pedido(partner, plain_body)
             record.send_whatsapp_response(result)
 
-        elif intent == "confirmar_pedido":  # <- NUEVO BLOQUE
+        elif intent == "confirmar_pedido":
             result = handle_confirmar_pedido(partner, plain_body)
             record.send_whatsapp_response(result)
 
