@@ -15,23 +15,31 @@ class WhatsAppMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # Primero creamos los registros (entrantes) normalmente
         records = super().create(vals_list)
 
-        for record, vals in zip(records, vals_list):
-            # 1) Si el registro no viene como "received", saltamos
-            if vals.get('state') != 'received':
+        for record in records:
+            # 1) Procesar solo si viene como 'received'
+            if record.state != 'received':
                 continue
 
-            # 2) Procesamos solo los entrantes
-            plain_body = (vals.get("body") or "").strip()
-            raw_phone = vals.get("mobile_number") or vals.get("phone") or ""
+            # 2) Tomamos el texto y el número directamente del registro
+            plain_body = (record.body or "").strip()
+            raw_phone  = record.mobile_number or record.phone or ""
             phone = normalize_phone(raw_phone)
 
+            # Si no hay texto ni número, saltamos
+            if not plain_body or not phone:
+                _logger.info("WhatsAppMessage.create: vacío o sin número (state=%s, body='%s', phone='%s')",
+                             record.state, plain_body, raw_phone)
+                continue
+
+            # 3) Buscamos el partner normalizando el número
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
             if not partner:
-                _logger.info("WhatsAppMessage.create: No partner for phone='%s'", phone)
+                _logger.info("WhatsAppMessage.create: No partner para '%s'", phone)
                 continue
 
             api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -52,8 +60,10 @@ class WhatsAppMessage(models.Model):
                 outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
+                else:
+                    _logger.warning("WhatsAppMessage: _send_message() no existe en whatsapp.message")
 
-            # 3) Según la intención, enviamos la respuesta
+            # 4) Según la intención, generamos la respuesta
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
                 _send_text(record, result)
