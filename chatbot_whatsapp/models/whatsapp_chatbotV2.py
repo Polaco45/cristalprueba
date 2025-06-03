@@ -10,8 +10,6 @@ from .intent_handlers import (
 class WhatsAppMessage(models.Model):
     _inherit = 'whatsapp.message'
     
-    body = fields.Text()
-    phone = fields.Char()
 
     @api.model_create_multi
     def create(self, vals_list):
