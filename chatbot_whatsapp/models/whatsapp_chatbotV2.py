@@ -1,11 +1,14 @@
 from odoo import models, api
-from ..utils.nlp import detect_intention
+from ..utils.nlp import detect_intention, normalize_phone
 from .intent_handlers import (
     handle_crear_pedido,
     handle_confirmar_pedido,
     handle_solicitar_factura,
     handle_respuesta_faq
 )
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class WhatsAppMessage(models.Model):
     _inherit = 'whatsapp.message'
@@ -15,20 +18,25 @@ class WhatsAppMessage(models.Model):
         records = super().create(vals_list)
 
         for record, vals in zip(records, vals_list):
-            plain_body = vals.get("body", "").strip()
-            phone = vals.get("mobile_number") or vals.get("phone")  # preferimos mobile_number
-            partner = self.env['res.partner'].sudo().search([('phone', 'ilike', phone)], limit=1)
+            plain_body = (vals.get("body") or "").strip()
+            raw_phone = vals.get("mobile_number") or vals.get("phone") or ""
+            phone = normalize_phone(raw_phone)
+
+            partner = self.env['res.partner'].sudo().search([
+                '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
+            ], limit=1)
 
             if not partner:
+                _logger.info("WhatsAppMessage.create: No partner for phone='%s'", phone)
                 continue
 
             api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             intent = detect_intention(plain_body.lower(), api_key)
+            _logger.info("WhatsAppMessage.create: partner_id=%s intent=%s text='%s'", partner.id, intent, plain_body)
 
-            # Helper para enviar texto
             def _send_text(to_record, text):
                 outgoing_vals = {
-                    'mobile_number': to_record.mobile_number,  # <-- Campo correcto
+                    'mobile_number': to_record.mobile_number,
                     'body': text,
                     'state': 'outgoing',
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
@@ -37,6 +45,8 @@ class WhatsAppMessage(models.Model):
                 outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
+                else:
+                    _logger.warning("WhatsAppMessage: _send_message() no existe en whatsapp.message")
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
@@ -50,9 +60,12 @@ class WhatsAppMessage(models.Model):
                 result = handle_solicitar_factura(partner, plain_body)
                 if result.get('pdf_base64'):
                     _send_text(record, result['message'])
-                    filename = f"{partner.name}_factura_{plain_body.strip()}.pdf"
+                    filename = f"{partner.name}_factura_{plain_body.replace(' ', '_')}.pdf"
                     pdf_b64 = result['pdf_base64']
-                    record.send_whatsapp_document(pdf_b64, filename, mime_type='application/pdf')
+                    if hasattr(record, 'send_whatsapp_document'):
+                        record.send_whatsapp_document(pdf_b64, filename, mime_type='application/pdf')
+                    else:
+                        _logger.warning("WhatsAppMessage: send_whatsapp_document() no existe")
                 else:
                     _send_text(record, result['message'])
 
