@@ -1,20 +1,9 @@
 import openai
 import logging
 from ..config.config import general_config
-import re
 
 _logger = logging.getLogger(__name__)
 
-
-def normalize_phone(phone: str) -> str:
-    """Quita todo lo que no sea dígito y deja solo el número en formato simple.
-    Ejemplo: '+54 9 11 1234-5678' -> '5491112345678'
-    """
-    if not phone:
-        return ''
-    # Sacar todo menos números
-    digits = re.sub(r'\D', '', phone)
-    return digits
 
 def detect_intention(user_text, api_key):
     openai.api_key = api_key
