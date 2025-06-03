@@ -45,7 +45,7 @@ class WhatsAppMessage(models.Model):
                 _logger.info("WhatsAppMessage.create: No partner para '%s'", phone)
                 continue
 
-            # 5) Detectamos intención (y quitamos el prefijo “Intención:” que a veces devuelve el modelo)
+            # 5) Detectamos intención (quitamos “Intención:” si devuelve algo así)
             api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             raw_intent = detect_intention(plain_body.lower(), api_key) or ""
             intent = raw_intent.lower().replace("intención:", "").strip()
@@ -55,25 +55,15 @@ class WhatsAppMessage(models.Model):
                 partner.id, intent, plain_body
             )
 
+            # 6) Helper muy simple que delega a send_whatsapp_response()
             def _send_text(to_record, text):
-                _logger.info("→ _send_text: creando outgoing para %s, body='%s'", to_record.mobile_number, text)
-                outgoing_vals = {
-                    'mobile_number': to_record.mobile_number,
-                    'body': text,
-                    'state': 'outgoing',
-                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
-                    'create_uid': self.env.ref('base.user_admin').id,
-                }
-                outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
-                _logger.info("→ _send_text: creado registro out id=%s", outgoing_msg.id)
-                if hasattr(outgoing_msg, '_send_message'):
-                    _logger.info("→ _send_text: llamando a _send_message()")
-                    outgoing_msg._send_message()
-                    _logger.info("→ _send_text: _send_message() completado")
-                else:
-                    _logger.warning("WhatsAppMessage: _send_message() no existe en whatsapp.message")
+                try:
+                    to_record.send_whatsapp_response(text)
+                    _logger.info("→ _send_text: se envió respuesta '%s' a %s", text, to_record.mobile_number)
+                except Exception as e:
+                    _logger.error("Error al enviar respuesta con send_whatsapp_response: %s", e)
 
-            # 6) Ruteamos por intención limpia
+            # 7) Ruteamos por intención limpia
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
                 _send_text(record, result)
