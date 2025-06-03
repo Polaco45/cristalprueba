@@ -1,5 +1,5 @@
 from odoo import models, api
-from ..utils.nlp import detect_intention, normalize_phon
+from ..utils.nlp import detect_intention, normalize_phone
 from .intent_handlers import (
     handle_crear_pedido,
     handle_confirmar_pedido,
@@ -18,6 +18,11 @@ class WhatsAppMessage(models.Model):
         records = super().create(vals_list)
 
         for record, vals in zip(records, vals_list):
+            # 1) Si el registro no viene como "received", saltamos
+            if vals.get('state') != 'received':
+                continue
+
+            # 2) Procesamos solo los entrantes
             plain_body = (vals.get("body") or "").strip()
             raw_phone = vals.get("mobile_number") or vals.get("phone") or ""
             phone = normalize_phone(raw_phone)
@@ -25,14 +30,16 @@ class WhatsAppMessage(models.Model):
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
-
             if not partner:
                 _logger.info("WhatsAppMessage.create: No partner for phone='%s'", phone)
                 continue
 
             api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             intent = detect_intention(plain_body.lower(), api_key)
-            _logger.info("WhatsAppMessage.create: partner_id=%s intent=%s text='%s'", partner.id, intent, plain_body)
+            _logger.info(
+                "WhatsAppMessage.create: partner_id=%s intent=%s text='%s'",
+                partner.id, intent, plain_body
+            )
 
             def _send_text(to_record, text):
                 outgoing_vals = {
@@ -45,9 +52,8 @@ class WhatsAppMessage(models.Model):
                 outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
-                else:
-                    _logger.warning("WhatsAppMessage: _send_message() no existe en whatsapp.message")
 
+            # 3) Según la intención, enviamos la respuesta
             if intent == "crear_pedido":
                 result = handle_crear_pedido(partner, plain_body)
                 _send_text(record, result)
