@@ -1,8 +1,8 @@
 # whatsapp_chatbotV2.py
 
 from odoo import models, api
-from ..utils.nlp import detect_intention
-from ..utils.utils import clean_html, normalize_phone
+from ..utils.nlp      import detect_intention
+from ..utils.utils    import clean_html, normalize_phone
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
@@ -18,33 +18,44 @@ class WhatsAppMessage(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
+
         for record in records:
             if record.state not in ('received', 'inbound'):
                 continue
-            body = clean_html(record.body or '').strip()
-            phone = normalize_phone(record.mobile_number or record.phone or '')
-            if not body or not phone:
+
+            plain_body = clean_html(record.body or "").strip()
+            raw_phone  = record.mobile_number or record.phone or ""
+            phone      = normalize_phone(raw_phone)
+
+            if not plain_body or not phone:
                 continue
+
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone','ilike', phone), ('mobile','ilike', phone)
             ], limit=1)
             if not partner:
                 continue
-            api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-            intent = (detect_intention(body.lower(), api_key) or '').lower().replace('intención:', '').strip()
 
-            def _send(to, text):
-                vals = {'mobile_number': to.mobile_number, 'body': text, 'state': 'outgoing',
-                        'wa_account_id': to.wa_account_id.id if to.wa_account_id else False,
-                        'create_uid': self.env.ref('base.user_admin').id}
-                msg = self.env['whatsapp.message'].sudo().create(vals)
-                msg.sudo().write({'body': text})
-                if hasattr(msg, '_send_message'):
-                    msg._send_message()
+            api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            raw_intent = detect_intention(plain_body.lower(), api_key) or ""
+            intent     = raw_intent.lower().replace("intención:", "").strip()
 
-            if intent == 'crear_pedido':
-                response = handle_crear_pedido(self.env, partner, body)
-                _send(record, response)
+            def _send_text(to_record, text_to_send):
+                outgoing_vals = {
+                    'mobile_number': to_record.mobile_number,
+                    'body':          text_to_send,
+                    'state':         'outgoing',
+                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
+                    'create_uid':    self.env.ref('base.user_admin').id,
+                }
+                outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
+                outgoing_msg.sudo().write({'body': text_to_send})
+                if hasattr(outgoing_msg, '_send_message'):
+                    outgoing_msg._send_message()
+
+            if intent == "crear_pedido":
+                result = handle_crear_pedido(self.env, partner, plain_body)
+                _send_text(record, result)
 
             elif intent == "solicitar_factura":
                 result = handle_solicitar_factura(partner, plain_body)
