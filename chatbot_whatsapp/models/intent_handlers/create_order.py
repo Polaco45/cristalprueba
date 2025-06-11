@@ -124,12 +124,14 @@ def handle_crear_pedido(env, partner, text):
         model="gpt-4o-mini",
         messages=[
             system_msg,
+            {"role": "user", "content": text},  # el mensaje original del usuario
             {"role": "function", "name": 'lookup_product_variants', "content": json.dumps(variants_info)}
         ],
         functions=FUNCTIONS,
         function_call="auto",
         temperature=0
     )
+
     follow_msg = followup.choices[0].message
 
     if not follow_msg.get('function_call'):
