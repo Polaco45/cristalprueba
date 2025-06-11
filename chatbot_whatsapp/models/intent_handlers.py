@@ -1,5 +1,3 @@
-# models/intent_handlers.py
-
 import re
 import logging
 import openai
@@ -12,14 +10,17 @@ _logger = logging.getLogger(__name__)
 def handle_crear_pedido(partner, text):
     """
     Extrae el producto y la cantidad desde el texto, crea un pedido de venta en estado 'borrador'.
-    Luego, pide confirmación al usuario.
+    Devuelve un mensaje informando éxito de creación.
     """
     # Extraer cantidad (opcional)
     cantidad_match = re.search(r'(\d+)', text)
     cantidad = int(cantidad_match.group(1)) if cantidad_match else 1
 
     # Extraer nombre de producto (simplificado)
-    producto_match = re.search(r'(lavandina|detergente|pisos|desinfectante|limpiador)', text, re.IGNORECASE)
+    producto_match = re.search(
+        r'(lavandina|detergente|pisos|desinfectante|limpiador)',
+        text, re.IGNORECASE
+    )
     producto = producto_match.group(1) if producto_match else None
 
     if not producto:
@@ -44,36 +45,9 @@ def handle_crear_pedido(partner, text):
     })
 
     return (
-        f"📝 Pedido generado con *{cantidad} x {product.name}*. "
-        f"Si querés confirmarlo, respondé con: *Confirmar pedido {order.name}*"
+        f"📝 Pedido generado con *{cantidad} x {product.name}* (ref. {order.name}). "
+        "Nuestro equipo lo procesará y te avisaremos cuando esté listo."
     )
-
-def handle_confirmar_pedido(partner, text):
-    """
-    Confirma un pedido si el cliente responde con 'Confirmar pedido SO123'
-    """
-    match = re.search(r'(SO\d+)', text, re.IGNORECASE)
-    if not match:
-        return "¿Podés decirme el número del pedido que querés confirmar? Ej: 'Confirmar pedido SO123'"
-
-    order_name = match.group(1).upper()
-    order = partner.env['sale.order'].sudo().search([
-        ('name', '=', order_name),
-        ('partner_id', '=', partner.id)
-    ], limit=1)
-
-    if not order:
-        return f"No encontré el pedido *{order_name}*. ¿Estás seguro que ese es el número correcto?"
-
-    if order.state != 'draft':
-        return f"El pedido *{order.name}* ya fue confirmado antes."
-
-    try:
-        order.action_confirm()
-        return f"✅ Pedido *{order.name}* confirmado. ¡Gracias por tu compra!"
-    except Exception as e:
-        _logger.error("Error al confirmar pedido %s: %s", order.name, e)
-        return "⚠️ Hubo un error al confirmar el pedido. Intentá de nuevo más tarde."
 
 def handle_solicitar_factura(partner, text):
     """
@@ -127,8 +101,7 @@ def handle_solicitar_factura(partner, text):
 def handle_faq_con_ai(partner, user_text):
     """
     Genera dinámicamente la respuesta a preguntas frecuentes
-    (horarios, productos, ubicación, etc.) usando OpenAI. 
-    Obtiene la API key desde ir.config_parameter.
+    (horarios, productos, ubicación, etc.) usando OpenAI.
     """
     try:
         # 1) Obtener datos de res.company
@@ -148,8 +121,7 @@ def handle_faq_con_ai(partner, user_text):
             f"- Tipos de productos: {product_list}\n\n"
             f"El cliente hace la siguiente consulta:\n"
             f"\"{user_text}\"\n\n"
-            f"Generá una respuesta amable, precisa y completa, basándote en la información anterior.\n"
-            f"Si la consulta no coincide exactamente con lo que tenemos, brindá orientación general."
+            f"Generá una respuesta amable, precisa y completa, basándote en la información anterior."
         )
 
         # 3) Obtener API key directamente de Odoo
@@ -160,7 +132,7 @@ def handle_faq_con_ai(partner, user_text):
 
         openai.api_key = api_key
         result = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # O bien tomar de general_config si quisiera
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Eres un asistente muy respetuoso y útil."},
                 {"role": "user", "content": prompt}
@@ -168,8 +140,7 @@ def handle_faq_con_ai(partner, user_text):
             temperature=0.7,
             max_tokens=250
         )
-        respuesta = result.choices[0].message.content.strip()
-        return respuesta
+        return result.choices[0].message.content.strip()
 
     except Exception as e:
         _logger.error("Error al generar respuesta con AI: %s", e)

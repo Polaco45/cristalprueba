@@ -11,7 +11,7 @@ def detect_intention(user_text, api_key):
     prompt = (
         "Eres un clasificador de intenciones para un chatbot de atención al cliente de una tienda de productos de limpieza.\n"
         "Clasifica el siguiente mensaje del usuario en una de estas categorías:\n"
-        "- saludo\n- consulta_horario\n- consulta_producto\n- crear_pedido\n- confirmar_pedido\n- solicitar_factura\n- otro\n\n"
+        "- saludo\n- consulta_horario\n- consulta_producto\n- crear_pedido\n- solicitar_factura\n- otro\n\n"
         f"Mensaje: \"{user_text}\"\n"
         "Intención:"
     )
