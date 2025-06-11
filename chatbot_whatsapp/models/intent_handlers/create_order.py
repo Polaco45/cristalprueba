@@ -45,14 +45,10 @@ FUNCTIONS = [
 # -----------------------
 
 def lookup_product_variants(env, query, limit=5):
-    """
-    Devuelve hasta `limit` variantes que coincidan con `query` y tengan stock (>0).
-    """
     Product = env['product.product'].sudo()
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
-    # Filtrar por stock
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"Lo siento, no hay stock disponible para '{query}'.")
@@ -63,9 +59,6 @@ def lookup_product_variants(env, query, limit=5):
 
 
 def create_sale_order(env, partner_id, product_id, quantity):
-    """
-    Crea pedido en borrador para la variante indicada.
-    """
     order = env['sale.order'].sudo().create({
         'partner_id': partner_id,
         'order_line': [(0, 0, {
@@ -81,12 +74,6 @@ def create_sale_order(env, partner_id, product_id, quantity):
 # -----------------------
 
 def handle_crear_pedido(env, partner, text):
-    """
-    Extrae intención con OpenAI y maneja stock:
-    - No stock: informa.
-    - Cantidad > stock: propone stock máximo.
-    - OK: crea pedido.
-    """
     openai.api_key = get_openai_api_key(env)
 
     system_msg = {"role": "system", "content": (
@@ -94,7 +81,7 @@ def handle_crear_pedido(env, partner, text):
         "Usa lookup_product_variants para buscar variantes y create_sale_order para crear pedidos."
     )}
 
-    # Llamada inicial
+    # Primer llamado: búsqueda del producto
     resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[system_msg, {"role": "user", "content": text}],
@@ -112,19 +99,18 @@ def handle_crear_pedido(env, partner, text):
         _logger.error("Esperando lookup_product_variants, vino: %s", msg['function_call']['name'])
         return "Algo salió mal al procesar el producto."
 
-    # Parámetros de búsqueda
     args = json.loads(msg['function_call']['arguments'])
     try:
         variants_info = lookup_product_variants(env, args['query'])
     except UserError as ue:
         return str(ue)
 
-    # Segundo llamado: LLM elige variante y qty
+    # Segundo llamado: elegir variante y cantidad
     followup = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[
             system_msg,
-            {"role": "user", "content": text},  # el mensaje original del usuario
+            {"role": "user", "content": text},
             {"role": "function", "name": 'lookup_product_variants', "content": json.dumps(variants_info)}
         ],
         functions=FUNCTIONS,
@@ -143,12 +129,36 @@ def handle_crear_pedido(env, partner, text):
     product_id = args2.get('product_id')
     requested_qty = args2.get('quantity')
 
-    # Validar vs stock
     variant = env['product.product'].browse(product_id)
     available = variant.qty_available or 0
-    if requested_qty > available:
-        return f"Lo siento, sólo hay {available} unidades de '{variant.display_name}'. ¿Querés pedir esa cantidad en su lugar?"
 
-    # Crear pedido
+    if requested_qty > available:
+        # Nueva conversación: proponer la cantidad máxima
+        new_user_msg = f"El cliente pidió {requested_qty} unidades pero sólo hay {available}. ¿Querés pedir {available} unidades de '{variant.display_name}'?"
+        confirm_resp = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[
+                system_msg,
+                {"role": "user", "content": text},
+                {"role": "function", "name": 'lookup_product_variants', "content": json.dumps(variants_info)},
+                follow_msg,
+                {"role": "assistant", "content": f"Solo hay {available} unidades disponibles de '{variant.display_name}'. ¿Querés que cree un pedido por {available} unidades?"},
+                {"role": "user", "content": "Sí, por favor."}
+            ],
+            functions=FUNCTIONS,
+            function_call="auto",
+            temperature=0
+        )
+        confirm_msg = confirm_resp.choices[0].message
+
+        if not confirm_msg.get('function_call') or confirm_msg['function_call']['name'] != 'create_sale_order':
+            _logger.error("No function_call o no es create_sale_order en confirmación: %s", confirm_resp)
+            return f"Solo hay {available} unidades de '{variant.display_name}'. ¿Querés que cree un pedido por esa cantidad?"
+
+        args3 = json.loads(confirm_msg['function_call']['arguments'])
+        product_id = args3.get('product_id')
+        requested_qty = args3.get('quantity')
+
+    # Crear pedido final
     order = create_sale_order(env, partner.id, product_id, requested_qty)
     return f"📝 Pedido {order.name} creado: {requested_qty}×{variant.display_name}."
