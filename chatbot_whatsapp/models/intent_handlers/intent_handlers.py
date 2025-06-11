@@ -7,48 +7,6 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-def handle_crear_pedido(partner, text):
-    """
-    Extrae el producto y la cantidad desde el texto, crea un pedido de venta en estado 'borrador'.
-    Devuelve un mensaje informando éxito de creación.
-    """
-    # Extraer cantidad (opcional)
-    cantidad_match = re.search(r'(\d+)', text)
-    cantidad = int(cantidad_match.group(1)) if cantidad_match else 1
-
-    # Extraer nombre de producto (simplificado)
-    producto_match = re.search(
-        r'(lavandina|detergente|pisos|desinfectante|limpiador)',
-        text, re.IGNORECASE
-    )
-    producto = producto_match.group(1) if producto_match else None
-
-    if not producto:
-        return "¿Qué producto querés? Por ejemplo: 'Quiero 2 botellas de lavandina'."
-
-    # Buscar producto en Odoo
-    product = partner.env['product.product'].sudo().search([
-        ('name', 'ilike', producto)
-    ], limit=1)
-
-    if not product:
-        return f"No encontré el producto *{producto}*. ¿Podés describirlo mejor?"
-
-    # Crear pedido en estado borrador
-    order = partner.env['sale.order'].sudo().create({
-        'partner_id': partner.id,
-        'order_line': [(0, 0, {
-            'product_id': product.id,
-            'product_uom_qty': cantidad,
-            'price_unit': product.list_price
-        })]
-    })
-
-    return (
-        f"📝 Pedido generado con *{cantidad} x {product.name}* (ref. {order.name}). "
-        "Nuestro equipo lo procesará y te avisaremos cuando esté listo."
-    )
-
 def handle_solicitar_factura(partner, text):
     """
     1) Busca en el texto un número de factura (al menos 4 dígitos).

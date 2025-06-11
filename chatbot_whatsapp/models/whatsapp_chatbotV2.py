@@ -3,11 +3,11 @@
 from odoo import models, api
 from ..utils.nlp      import detect_intention
 from ..utils.utils    import clean_html, normalize_phone
-from .intent_handlers import (
-    handle_crear_pedido,
+from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
 )
+from .intent_handlers.create_order import handle_crear_pedido
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class WhatsAppMessage(models.Model):
                     outgoing_msg._send_message()
 
             if intent == "crear_pedido":
-                result = handle_crear_pedido(partner, plain_body)
+                result = handle_crear_pedido(self.env, partner, plain_body)
                 _send_text(record, result)
 
             elif intent == "solicitar_factura":
