@@ -43,8 +43,10 @@ class ResPartner(models.Model):
                 continue
 
             # Solo los días 1 baja o revisa lista
-            if hoy.day != 1:
-                continue
+# FORZAR EJECUCIÓN PARA TESTEO (ignorar si no es 1 del mes)
+# if hoy.day != 1:
+#     continue
+
 
             # No bajar lista si el cliente fue creado el mes pasado o este
             if cliente.create_date.date() >= primero_mes_anterior:
