@@ -11,8 +11,11 @@ class ResPartner(models.Model):
         primero_mes_anterior = (primero_mes - relativedelta(months=1)).replace(day=1)
         ultimo_mes_anterior = primero_mes - timedelta(days=1)
 
-        lista_clientes = self.env.ref('product.list0')  # ID 19
-        lista_institucional = self.env.ref('product.list1')  # ID 20
+        # Búsqueda dinámica por nombre
+        lista_clientes = self.env['product.pricelist'].search([('name', 'ilike', 'Cliente')], limit=1)
+        lista_institucional = self.env['product.pricelist'].search([('name', 'ilike', 'Institucional')], limit=1)
+
+        # Usuario responsable (ID 155)
         usuario_operario = self.env['res.users'].browse(155)
 
         clientes = self.env['res.partner'].search([
@@ -25,6 +28,7 @@ class ResPartner(models.Model):
             if not cliente.property_product_pricelist:
                 continue
 
+            # Ventas en el mes actual
             ventas_mes_actual = self.env['sale.order'].search([
                 ('partner_id', '=', cliente.id),
                 ('state', 'in', ['sale', 'done']),
@@ -33,16 +37,20 @@ class ResPartner(models.Model):
             ])
             total_actual = sum(ventas_mes_actual.mapped('amount_total'))
 
+            # Si ya supera el objetivo en el mes actual, sube de lista
             if total_actual >= 200000 and cliente.property_product_pricelist.id != lista_institucional.id:
                 cliente.property_product_pricelist = lista_institucional
                 continue
 
+            # Solo los días 1 baja o revisa lista
             if hoy.day != 1:
                 continue
 
+            # No bajar lista si el cliente fue creado el mes pasado o este
             if cliente.create_date.date() >= primero_mes_anterior:
                 continue
 
+            # Ventas del mes anterior
             ventas_mes_anterior = self.env['sale.order'].search([
                 ('partner_id', '=', cliente.id),
                 ('state', 'in', ['sale', 'done']),
@@ -52,9 +60,11 @@ class ResPartner(models.Model):
             total_anterior = sum(ventas_mes_anterior.mapped('amount_total'))
 
             if total_anterior < 160000:
+                # Si bajó más de 20%, se baja a lista clientes
                 if cliente.property_product_pricelist.id != lista_clientes.id:
                     cliente.property_product_pricelist = lista_clientes
             elif total_anterior < 200000:
+                # Si está entre 160k y 200k, se crea una actividad de revisión
                 self.env['mail.activity'].create({
                     'res_model_id': self.env['ir.model']._get('res.partner').id,
                     'res_id': cliente.id,
