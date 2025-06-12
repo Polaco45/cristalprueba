@@ -25,7 +25,21 @@ class ResPartner(models.Model):
             total = sum(ventas.mapped('amount_total'))
             if total >= 300000 and cliente.property_product_pricelist.id != lista_mayorista.id:
     cliente.property_product_pricelist = lista_mayorista
+    cliente.message_post(
+        body=f"Se actualizó la lista de precios a <b>Lista Mayorista</b> por consumo mensual de ${total:,.2f}.",
+        message_type='notification'
+    )
+
 elif total >= 100000 and cliente.property_product_pricelist.id != lista_institucional.id:
     cliente.property_product_pricelist = lista_institucional
+    cliente.message_post(
+        body=f"Se actualizó la lista de precios a <b>Lista Institucional</b> por consumo mensual de ${total:,.2f}.",
+        message_type='notification'
+    )
+
 elif total < 100000 and cliente.property_product_pricelist.id != lista_cliente.id:
     cliente.property_product_pricelist = lista_cliente
+    cliente.message_post(
+        body=f"Se volvió a la <b>Lista de Cliente</b> por no superar los $100.000 en el mes. Total: ${total:,.2f}.",
+        message_type='notification'
+    )
