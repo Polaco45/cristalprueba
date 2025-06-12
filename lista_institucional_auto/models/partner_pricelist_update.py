@@ -9,7 +9,10 @@ class ResPartner(models.Model):
         hoy = date.today()
         inicio_mes = hoy.replace(day=1)
 
-        lista_institucional = self.env['product.pricelist'].browse(20)
+      lista_institucional = self.env['product.pricelist'].browse(20)  # ID real institucional
+      lista_mayorista = self.env['product.pricelist'].browse(6)       # ID real mayorista
+      lista_cliente = self.env['product.pricelist'].browse(19)        # ID real lista base
+
 
         clientes = self.env['res.partner'].search([('customer_rank', '>', 0)])
         for cliente in clientes:
@@ -20,5 +23,9 @@ class ResPartner(models.Model):
                 ('date_order', '<=', hoy)
             ])
             total = sum(ventas.mapped('amount_total'))
-            if total >= 100000 and cliente.property_product_pricelist.id != lista_institucional.id:
-                cliente.property_product_pricelist = lista_institucional
+            if total >= 300000 and cliente.property_product_pricelist.id != lista_mayorista.id:
+    cliente.property_product_pricelist = lista_mayorista
+elif total >= 100000 and cliente.property_product_pricelist.id != lista_institucional.id:
+    cliente.property_product_pricelist = lista_institucional
+elif total < 100000 and cliente.property_product_pricelist.id != lista_cliente.id:
+    cliente.property_product_pricelist = lista_cliente
