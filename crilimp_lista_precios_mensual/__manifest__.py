@@ -1,14 +1,10 @@
-# crilimp_lista_precios_mensual/__manifest__.py
 {
     'name': 'Lista de precios mensual automático',
     'version': '1.0',
     'category': 'Sales',
-    'summary': 'Sube, revisa o baja listas de precios según volumen de ventas mensual con tolerancia',
-    'depends': [
-        'base',
-        'sale',
-        'mail',
-    ],
+    'summary': 'Sube a Institutional en cuanto supere 200k y democión con tolerancia al mes siguiente',
+    'license': 'LGPL-3',
+    'depends': ['base', 'sale', 'mail'],
     'data': [
         'security/ir.model.access.csv',
         'data/cron_listas.xml',
