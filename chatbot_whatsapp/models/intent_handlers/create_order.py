@@ -8,7 +8,6 @@ _logger = logging.getLogger(__name__)
 def get_openai_api_key(env):
     return env['ir.config_parameter'].sudo().get_param('openai.api_key')
 
-
 FUNCTIONS = [
     {
         "name": "lookup_product_variants",
@@ -49,7 +48,6 @@ def lookup_product_variants(env, query, limit=5):
         for v in in_stock
     ]
 
-
 def create_sale_order(env, partner_id, product_id, quantity):
     order = env['sale.order'].sudo().create({
         'partner_id': partner_id,
@@ -61,35 +59,38 @@ def create_sale_order(env, partner_id, product_id, quantity):
     })
     return order
 
+def handle_crear_pedido(env, partner, context_messages):
+    """
+    context_messages: lista de mensajes (con roles) con últimos mensajes del chat + mensaje actual.
+    """
 
-def handle_crear_pedido(env, partner, chat_history):
     openai.api_key = get_openai_api_key(env)
 
+    # Mensaje sistema explícito para GPT
     system_msg = {
         "role": "system",
         "content": (
-            "Eres un asistente para pedidos de productos de limpieza en WhatsApp. "
-            "El cliente puede pedir productos, confirmar cantidades o responder preguntas. "
-            "Primero usa lookup_product_variants si hay dudas sobre el producto. "
-            "Luego, si hay stock suficiente, crea el pedido. "
-            "Si no hay suficiente stock, proponé el stock disponible y esperá confirmación. "
-            "Respondé solo con function_call si tenés los datos suficientes."
+            "Eres un asistente para pedidos de productos de limpieza. "
+            "Primero usa lookup_product_variants para buscar variantes con stock. "
+            "Luego, si la cantidad solicitada está disponible, llama a create_sale_order. "
+            "Si no, informa al usuario la cantidad máxima y espera confirmación."
+            "Siempre devuelve un function_call cuando tengas todos los datos necesarios."
         )
     }
 
-    # Llamado 1: entendemos el producto y llamamos a lookup_product_variants
-    response = openai.ChatCompletion.create(
+    # 1) Primer paso: GPT busca variantes con stock (function_call lookup_product_variants)
+    resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
-        messages=[system_msg] + chat_history,
+        messages=[system_msg] + context_messages,
         functions=FUNCTIONS,
         function_call="auto",
         temperature=0
     )
-    msg = response.choices[0].message
+    msg = resp.choices[0].message
 
     if not msg.get('function_call'):
-        _logger.error("No function_call en primera respuesta: %s", response)
-        return msg.get("content", "Perdón, no entendí qué producto querés pedir.")
+        _logger.error("No function_call en primera respuesta: %s", resp)
+        return "Perdón, no entendí qué producto querés pedir."
 
     if msg['function_call']['name'] != 'lookup_product_variants':
         _logger.error("Esperando lookup_product_variants, vino: %s", msg['function_call']['name'])
@@ -101,11 +102,13 @@ def handle_crear_pedido(env, partner, chat_history):
     except UserError as ue:
         return str(ue)
 
-    # Llamado 2: elegimos variante y cantidad
+    # 2) Segundo paso: GPT elige variante y cantidad, con contexto + variantes encontradas
     followup = openai.ChatCompletion.create(
         model="gpt-4o-mini",
-        messages=[system_msg] + chat_history + [
-            {"role": "function", "name": 'lookup_product_variants', "content": json.dumps(variants_info)}
+        messages=[
+            system_msg,
+            *context_messages,
+            {"role": "function", "name": "lookup_product_variants", "content": json.dumps(variants_info)}
         ],
         functions=FUNCTIONS,
         function_call="auto",
@@ -115,17 +118,22 @@ def handle_crear_pedido(env, partner, chat_history):
 
     if not follow_msg.get('function_call'):
         content = follow_msg.get('content', '').strip()
-        return content or "No entendí qué producto querés. ¿Podés repetir?"
+        if content:
+            return content
+        _logger.error("No function_call ni content en followup: %s", followup)
+        return "No entendí qué variante elegiste. ¿Podés indicar el producto y cantidad?"
 
-    fn = follow_msg['function_call']
-    args2 = json.loads(fn['arguments'])
+    fn2 = follow_msg['function_call']
+    args2 = json.loads(fn2['arguments'])
     product_id = args2.get('product_id')
     requested_qty = args2.get('quantity')
 
+    # Validar stock
     variant = env['product.product'].browse(product_id)
     available = variant.qty_available or 0
     if requested_qty > available:
-        return f"Solo hay {available} unidades de '{variant.display_name}'. ¿Querés pedir esa cantidad en su lugar?"
+        return f"Lo siento, sólo hay {available} unidades de '{variant.display_name}'. ¿Querés pedir esa cantidad en su lugar?"
 
+    # Crear pedido
     order = create_sale_order(env, partner.id, product_id, requested_qty)
     return f"📝 Pedido {order.name} creado: {requested_qty}×{variant.display_name}."
