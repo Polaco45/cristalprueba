@@ -10,7 +10,6 @@
       <field name="interval_number">1</field>
       <field name="interval_type">days</field>
       <!-- -1 = ilimitadas -->
-      <field name="numbercall" eval="-1"/>
       <field name="active" eval="True"/>
     </record>
   </data>
