@@ -1,6 +1,6 @@
 from odoo import models, api
-from ..utils.nlp import detect_intention_with_context
-from ..utils.utils import clean_html, normalize_phone
+from ..utils.nlp      import detect_intention
+from ..utils.utils    import clean_html, normalize_phone
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
@@ -34,36 +34,9 @@ class WhatsAppMessage(models.Model):
             if not partner:
                 continue
 
-            api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-
-            # --- Construir contexto de últimos 10 mensajes del chat entre usuario y bot ---
-
-            # Buscar últimos 10 mensajes (incluyendo el actual) de este contacto
-            last_msgs = self.env['whatsapp.message'].sudo().search([
-                ('mobile_number','=', raw_phone),
-                ('id','!=', record.id),
-                ('state','in', ['received', 'inbound', 'outgoing']),
-            ], order='create_date desc', limit=10)
-
-            # Ordenar cronológicamente (ascendente)
-            last_msgs = last_msgs.sorted(key=lambda m: m.create_date)
-
-            # Construir lista para openAI con roles y contenidos
-            context_messages = []
-
-            # Añadir todos los mensajes en orden
-            for msg in last_msgs:
-                role = 'user' if msg.state in ('received', 'inbound') else 'assistant'
-                content = clean_html(msg.body or "").strip()
-                if content:
-                    context_messages.append({"role": role, "content": content})
-
-            # Añadir el mensaje actual (que disparó esta creación)
-            context_messages.append({"role": "user", "content": plain_body})
-
-            # Detectar intención con contexto completo
-            raw_intent = detect_intention_with_context(context_messages, api_key)
-            intent = raw_intent.lower().replace("intención:", "").strip()
+            api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            raw_intent = detect_intention(plain_body.lower(), api_key) or ""
+            intent     = raw_intent.lower().replace("intención:", "").strip()
 
             def _send_text(to_record, text_to_send):
                 outgoing_vals = {
@@ -78,14 +51,11 @@ class WhatsAppMessage(models.Model):
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
 
-            # Ahora se pasa el contexto también a las funciones de intent
             if intent == "crear_pedido":
-                # Pasamos context_messages con todo el contexto al handler
-                result = handle_crear_pedido(self.env, partner, context_messages)
+                result = handle_crear_pedido(self.env, partner, plain_body)
                 _send_text(record, result)
 
             elif intent == "solicitar_factura":
-                # Aquí podrías pasar también contexto si quieres (opcional)
                 result = handle_solicitar_factura(partner, plain_body)
                 if result.get('pdf_base64'):
                     _send_text(record, result['message'])
