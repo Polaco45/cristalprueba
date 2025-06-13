@@ -4,10 +4,6 @@ import openai
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
-
-from ..models.partner_extension import ResPartner  # para actualizar campos
-from ..config.config import general_config
-
 # -----------------------
 # Configuración de OpenAI
 # -----------------------
@@ -88,7 +84,7 @@ def handle_crear_pedido(env, partner, text):
 
     # Primera llamada: buscar variantes
     resp = openai.ChatCompletion.create(
-        model=general_config['openai']['model'],
+        model='gpt-4o-mini',
         messages=[system_msg, {"role": "user", "content": text}],
         functions=FUNCTIONS,
         function_call="auto",
@@ -108,7 +104,7 @@ def handle_crear_pedido(env, partner, text):
 
     # Segunda llamada: elegir variante y cantidad
     followup = openai.ChatCompletion.create(
-        model=general_config['openai']['model'],
+        model='gpt-4o-mini',
         messages=[
             system_msg,
             {"role": "user", "content": text},
