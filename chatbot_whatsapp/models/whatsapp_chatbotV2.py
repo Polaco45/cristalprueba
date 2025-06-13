@@ -7,7 +7,7 @@ from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
 )
-from .intent_handlers.create_order import handle_crear_pedido
+from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -56,6 +56,17 @@ class WhatsAppMessage(models.Model):
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body)
                 _send_text(record, result)
+
+            elif intent == "confirmar_pedido":
+                product = partner.last_requested_product_id
+                qty = partner.last_requested_qty
+                if product and qty:
+                    order = create_sale_order(self.env, partner.id, product.id, qty)
+                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{product.display_name}.")
+                    partner.last_requested_product_id = False
+                    partner.last_requested_qty = 0
+                else:
+                    _send_text(record, "No tengo un pedido pendiente para confirmar. ¿Podés repetir qué querés pedir?")
 
             elif intent == "solicitar_factura":
                 result = handle_solicitar_factura(partner, plain_body)
