@@ -1,174 +1,78 @@
-import json
+# whatsapp_chatbotV2.py
+
+from odoo import models, api
+from ..utils.nlp      import detect_intention
+from ..utils.utils    import clean_html, normalize_phone
+from .intent_handlers.intent_handlers import (
+    handle_solicitar_factura,
+    handle_respuesta_faq
+)
+from .intent_handlers.create_order import handle_crear_pedido
 import logging
-import openai
-from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-# -----------------------
-# Configuración de OpenAI
-# -----------------------
+class WhatsAppMessage(models.Model):
+    _inherit = 'whatsapp.message'
 
-def get_openai_api_key(env):
-    return env['ir.config_parameter'].sudo().get_param('openai.api_key')
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
 
-# Defino los schemas que OpenAI podrá invocar
-FUNCTIONS = [
-    {
-        "name": "lookup_product_variants",
-        "description": "Busca variantes de producto en Odoo",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": { "type": "string", "description": "Término de búsqueda libre" }
-            },
-            "required": ["query"]
-        },
-    },
-    {
-        "name": "create_sale_order",
-        "description": "Crea un pedido de venta en borrador",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "partner_id": { "type": "integer" },
-                "product_id": { "type": "integer" },
-                "quantity": { "type": "integer" }
-            },
-            "required": ["partner_id", "product_id", "quantity"]
-        }
-    }
-]
+        for record in records:
+            if record.state not in ('received', 'inbound'):
+                continue
 
-# Memoria de confirmaciones pendientes: partner_id -> {'product_id', 'quantity'}
-PENDING_CONFIRMATIONS = {}
+            plain_body = clean_html(record.body or "").strip()
+            raw_phone  = record.mobile_number or record.phone or ""
+            phone      = normalize_phone(raw_phone)
 
-# -----------------------
-# Funciones Odoo
-# -----------------------
+            if not plain_body or not phone:
+                continue
 
-def lookup_product_variants(env, query, limit=5):
-    """
-    Devuelve hasta `limit` variantes que coincidan con `query` y tengan stock (>0).
-    """
-    Product = env['product.product'].sudo()
-    variants = Product.search([
-        '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
-    ], limit=limit)
-    in_stock = [v for v in variants if (v.qty_available or 0) > 0]
-    if not in_stock:
-        raise UserError(f"Lo siento, no hay stock disponible para '{query}'.")
-    return [
-        { 'id': v.id, 'name': v.display_name, 'stock': v.qty_available, 'price': v.list_price }
-        for v in in_stock
-    ]
+            partner = self.env['res.partner'].sudo().search([
+                '|', ('phone','ilike', phone), ('mobile','ilike', phone)
+            ], limit=1)
+            if not partner:
+                continue
 
+            api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            raw_intent = detect_intention(plain_body.lower(), api_key) or ""
+            intent     = raw_intent.lower().replace("intención:", "").strip()
 
-def create_sale_order(env, partner_id, product_id, quantity):
-    """
-    Crea pedido en borrador para la variante indicada.
-    """
-    order = env['sale.order'].sudo().create({
-        'partner_id': partner_id,
-        'order_line': [(0, 0, {
-            'product_id': product_id,
-            'product_uom_qty': quantity,
-            'price_unit': env['product.product'].browse(product_id).list_price,
-        })]
-    })
-    return order
+            def _send_text(to_record, text_to_send):
+                outgoing_vals = {
+                    'mobile_number': to_record.mobile_number,
+                    'body':          text_to_send,
+                    'state':         'outgoing',
+                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
+                    'create_uid':    self.env.ref('base.user_admin').id,
+                }
+                outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
+                outgoing_msg.sudo().write({'body': text_to_send})
+                if hasattr(outgoing_msg, '_send_message'):
+                    outgoing_msg._send_message()
 
-# -----------------------
-# Manejo de petición
-# -----------------------
+            if intent == "crear_pedido":
+                result = handle_crear_pedido(self.env, partner, plain_body)
+                _send_text(record, result)
 
-def handle_crear_pedido(env, partner, text):
-    """
-    Extrae intención con OpenAI y maneja stock y confirmaciones:
-    - Si hay confirmación pendiente y usuario confirma, crea el pedido.
-    - No stock: informa.
-    - Cantidad > stock: propone stock máximo y espera confirmación.
-    - OK: crea pedido.
-    """
-    openai.api_key = get_openai_api_key(env)
-    user_text = text.strip().lower()
+            elif intent == "solicitar_factura":
+                result = handle_solicitar_factura(partner, plain_body)
+                if result.get('pdf_base64'):
+                    _send_text(record, result['message'])
+                    filename = f"{partner.name}_factura_{plain_body.replace(' ','_')}.pdf"
+                    pdf_b64  = result['pdf_base64']
+                    if hasattr(record, 'send_whatsapp_document'):
+                        record.send_whatsapp_document(pdf_b64, filename, mime_type='application/pdf')
+                else:
+                    _send_text(record, result['message'])
 
-    # 1) Manejo de confirmación simple
-    if partner.id in PENDING_CONFIRMATIONS and user_text in ['si', 'sí', 'ok', 'dale']:
-        pending = PENDING_CONFIRMATIONS.pop(partner.id)
-        order = create_sale_order(env, partner.id, pending['product_id'], pending['quantity'])
-        return f"📝 Pedido {order.name} creado: {pending['quantity']}×{env['product.product'].browse(pending['product_id']).display_name}."
+            elif intent in ["consulta_horario","saludo","consulta_producto","ubicacion","agradecimiento"]:
+                response = handle_respuesta_faq(intent, partner, plain_body)
+                _send_text(record, response)
 
-    # Prompt de sistema más explícito
-    system_msg = {"role": "system", "content": (
-        "Eres un asistente para pedidos de productos de limpieza. "
-        "Primero usa lookup_product_variants para buscar variantes con stock. "
-        "Luego, si la cantidad solicitada está disponible, llama a create_sale_order. "
-        "Si no, informa al usuario la cantidad máxima y espera confirmación. "
-        "Siempre devuelve un function_call cuando tengas todos los datos necesarios."
-    )}
+            else:
+                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
 
-    # 2) Llamada inicial para buscar variantes
-    resp = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[system_msg, {"role": "user", "content": text}],
-        functions=FUNCTIONS,
-        function_call="auto",
-        temperature=0
-    )
-    msg = resp.choices[0].message
-
-    if not msg.get('function_call') or msg['function_call']['name'] != 'lookup_product_variants':
-        _logger.error("No function_call de búsqueda: %s", resp)
-        return "Perdón, no entendí qué producto querés pedir."
-
-    args = json.loads(msg['function_call']['arguments'])
-    try:
-        variants_info = lookup_product_variants(env, args['query'])
-    except UserError as ue:
-        return str(ue)
-
-    # 3) Segundo llamado: LLM elige variante y qty
-    followup = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            system_msg,
-            {"role": "user", "content": text},
-            {"role": "function", "name": 'lookup_product_variants', "content": json.dumps(variants_info)}
-        ],
-        functions=FUNCTIONS,
-        function_call="auto",
-        temperature=0
-    )
-    follow_msg = followup.choices[0].message
-
-    # Fallback: si no hay function_call, devolvemos el contenido al usuario
-    if not follow_msg.get('function_call'):
-        content = follow_msg.get('content', '').strip()
-        # extraer cantidad y id de variants_info[0] si es proposición de stock
-        if content and '¿Te gustaría' in content:
-            # asumimos primer variante
-            variant = variants_info[0]
-            qty = variant['stock']
-            PENDING_CONFIRMATIONS[partner.id] = { 'product_id': variant['id'], 'quantity': qty }
-            return content
-        _logger.error("No function_call ni contenido procesable: %s", followup)
-        return content or "No entendí qué variante elegiste. ¿Podés indicar el producto y cantidad?"
-
-    # 4) Si viene llamada a create_sale_order directamente
-    fn2 = follow_msg['function_call']
-    args2 = json.loads(fn2['arguments'])
-    product_id = args2.get('product_id')
-    requested_qty = args2.get('quantity')
-
-    # Validar vs stock
-    variant = env['product.product'].browse(product_id)
-    available = variant.qty_available or 0
-    if requested_qty > available:
-        # propuesta de stock máximo
-        PENDING_CONFIRMATIONS[partner.id] = { 'product_id': product_id, 'quantity': available }
-        return f"Lo siento, sólo hay {available} unidades de '{variant.display_name}'. ¿Querés pedir esa cantidad en su lugar?"
-
-    # Crear pedido
-    order = create_sale_order(env, partner.id, product_id, requested_qty)
-    return f"📝 Pedido {order.name} creado: {requested_qty}×{variant.display_name}."
+        return records
