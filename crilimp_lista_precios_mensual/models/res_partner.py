@@ -26,7 +26,7 @@ class ResPartner(models.Model):
 
         partners = self.search([
             ('customer_rank', '>', 0),
-            ('company_type', '=', 'company'),
+            ('is_company', '=', True),
             ('active', '=', True),
         ])
         for p in partners:
