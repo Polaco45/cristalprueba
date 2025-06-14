@@ -18,7 +18,7 @@ def detect_intention(user_text, api_key):
 
     try:
         result = openai.ChatCompletion.create(
-            model=general_config['openai']['model'],
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Sos un clasificador de intenciones para un chatbot de productos de limpieza."},
                 {"role": "user", "content": prompt}
