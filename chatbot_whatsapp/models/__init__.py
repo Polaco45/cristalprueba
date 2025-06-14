@@ -1,1 +1,1 @@
-from . import whatsapp_chatbot
+from . import whatsapp_chatbotV2
