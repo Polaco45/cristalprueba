@@ -39,6 +39,7 @@ class WhatsAppMessage(models.Model):
             api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             raw_intent = detect_intention(plain_body.lower(), api_key) or ""
             intent     = raw_intent.lower().replace("intención:", "").strip()
+            _logger.info("Intención detectada: %s", intent)
 
             def _send_text(to_record, text_to_send):
                 outgoing_vals = {
