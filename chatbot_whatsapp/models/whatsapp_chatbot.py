@@ -70,6 +70,22 @@ class WhatsAppMessage(models.Model):
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body)
+
+                # 🧠 Guardar memoria con última intención
+                memory = self.env['chatbot.whatsapp.memory'].sudo().search([
+                    ('partner_id', '=', partner.id)
+                ], limit=1)
+                if memory:
+                    memory.sudo().write({
+                        'last_intent': intent,
+                        'timestamp': self.env['chatbot.whatsapp.memory']._fields['timestamp'].default(self.env['chatbot.whatsapp.memory'])
+                    })
+                else:
+                    self.env['chatbot.whatsapp.memory'].sudo().create({
+                        'partner_id': partner.id,
+                        'last_intent': intent,
+                    })
+
                 _send_text(record, result)
 
             elif intent == "solicitar_factura":
