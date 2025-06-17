@@ -1,5 +1,3 @@
-# whatsapp_chatbot.py
-
 from odoo import models, api
 from ..utils.nlp      import detect_intention
 from ..utils.utils    import clean_html, normalize_phone
@@ -7,7 +5,7 @@ from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
 )
-from .intent_handlers.create_order import handle_crear_pedido
+from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -36,11 +34,6 @@ class WhatsAppMessage(models.Model):
             if not partner:
                 continue
 
-            api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-            raw_intent = detect_intention(plain_body.lower(), api_key) or ""
-            intent     = raw_intent.lower().replace("intención:", "").strip()
-            _logger.info("Intención detectada: %s", intent)
-
             def _send_text(to_record, text_to_send):
                 outgoing_vals = {
                     'mobile_number': to_record.mobile_number,
@@ -53,6 +46,27 @@ class WhatsAppMessage(models.Model):
                 outgoing_msg.sudo().write({'body': text_to_send})
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
+
+            # 🧠 Comprobación de contexto
+            memory = self.env['chatbot.whatsapp.memory'].sudo().search([
+                ('partner_id', '=', partner.id)
+            ], order='timestamp desc', limit=1)
+
+            if memory and memory.last_intent == 'esperando_confirmacion_stock':
+                affirmative = plain_body.lower() in ['sí', 'si', 'dale', 'ok', 'bueno', 'va', 'de una']
+                if affirmative:
+                    variant = memory.last_variant_id
+                    qty = memory.last_qty_suggested
+                    order = create_sale_order(self.env, partner.id, variant.id, qty)
+                    memory.unlink()
+                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
+                    continue
+
+            # 👉 Procesamiento estándar
+            api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            raw_intent = detect_intention(plain_body.lower(), api_key) or ""
+            intent     = raw_intent.lower().replace("intención:", "").strip()
+            _logger.info("Intención detectada: %s", intent)
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body)
