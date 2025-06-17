@@ -4,30 +4,29 @@ from ..config.config import general_config
 
 _logger = logging.getLogger(__name__)
 
-
 def detect_intention(user_text, api_key):
+    """Clasifica la intención del usuario."""
     openai.api_key = api_key
 
-    prompt = (
-        "Eres un clasificador de intenciones para un chatbot de atención al cliente de una tienda de productos de limpieza.\n"
-        "Clasifica el siguiente mensaje del usuario en una de estas categorías:\n"
-        "- saludo\n- consulta_horario\n- consulta_producto\n- crear_pedido\n- solicitar_factura\n- otro\n\n"
-        f"Mensaje: \"{user_text}\"\n"
-        "Intención:"
+    system = (
+        "Eres un clasificador de intenciones para un chatbot de atención al cliente "
+        "de una tienda de productos de limpieza.\n"
+        "Las categorías son: saludo, consulta_horario, consulta_producto, crear_pedido, "
+        "solicitar_factura, otro."
     )
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"Mensaje: \"{user_text}\""}
+    ]
 
     try:
-        result = openai.ChatCompletion.create(
+        resp = openai.ChatCompletion.create(
             model=general_config['openai']['model'],
-            messages=[
-                {"role": "system", "content": "Sos un clasificador de intenciones para un chatbot de productos de limpieza."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0,
             max_tokens=10
         )
-        return result.choices[0].message.content.strip()
-
+        return resp.choices[0].message.content.strip().lower()
     except Exception as e:
-        _logger.error("Error al detectar intención: %s", e)
+        _logger.error("Error detectando intención: %s", e)
         return "otro"
