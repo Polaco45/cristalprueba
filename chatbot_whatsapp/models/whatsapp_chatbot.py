@@ -48,7 +48,8 @@ class WhatsAppMessage(models.Model):
                     outgoing_msg._send_message()
 
             # 🧠 Comprobación de contexto
-            memory = self.env['chatbot.whatsapp.memory'].sudo().search([
+            memory_model = self.env['chatbot.whatsapp.memory'].sudo()
+            memory = memory_model.search([
                 ('partner_id', '=', partner.id)
             ], order='timestamp desc', limit=1)
 
@@ -61,6 +62,10 @@ class WhatsAppMessage(models.Model):
                     memory.unlink()
                     _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
                     continue
+                else:
+                    memory.unlink()
+                    _send_text(record, "Ok, cancelamos ese pedido entonces 😊.")
+                    continue
 
             # 👉 Procesamiento estándar
             api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -68,24 +73,21 @@ class WhatsAppMessage(models.Model):
             intent     = raw_intent.lower().replace("intención:", "").strip()
             _logger.info("Intención detectada: %s", intent)
 
+            # Actualizar o crear memoria con el nuevo intento
+            existing_mem = memory_model.search([('partner_id', '=', partner.id)], limit=1)
+            if existing_mem:
+                existing_mem.write({
+                    'last_intent': intent,
+                    'timestamp': fields.Datetime.now()
+                })
+            else:
+                memory_model.create({
+                    'partner_id': partner.id,
+                    'last_intent': intent
+                })
+
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body)
-
-                # 🧠 Guardar memoria con última intención
-                memory = self.env['chatbot.whatsapp.memory'].sudo().search([
-                    ('partner_id', '=', partner.id)
-                ], limit=1)
-                if memory:
-                    memory.sudo().write({
-                        'last_intent': intent,
-                        'timestamp': self.env['chatbot.whatsapp.memory']._fields['timestamp'].default(self.env['chatbot.whatsapp.memory'])
-                    })
-                else:
-                    self.env['chatbot.whatsapp.memory'].sudo().create({
-                        'partner_id': partner.id,
-                        'last_intent': intent,
-                    })
-
                 _send_text(record, result)
 
             elif intent == "solicitar_factura":
@@ -99,7 +101,7 @@ class WhatsAppMessage(models.Model):
                 else:
                     _send_text(record, result['message'])
 
-            elif intent in ["consulta_horario","saludo","consulta_producto","ubicacion","agradecimiento"]:
+            elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
                 response = handle_respuesta_faq(intent, partner, plain_body)
                 _send_text(record, response)
 
