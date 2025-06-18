@@ -46,20 +46,12 @@ class WhatsAppMessage(models.Model):
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
                 out.sudo().write({'body': text_to_send})
+                # Enviamos el texto
                 if hasattr(out, '_send_message'):
                     out._send_message()
 
             def _send_buttons(to_rec, text, buttons):
-                # Construye el payload interactivo
-                payload = {
-                    "type": "interactive",
-                    "interactive": {
-                        "type": "button",
-                        "body": {"text": text},
-                        "actions": {"buttons": buttons}
-                    }
-                }
-                # Crea un nuevo registro de mensaje de salida
+                # 1) Creamos el mensaje de salida (UI)
                 vals = {
                     'mobile_number': to_rec.mobile_number,
                     'body': text,
@@ -68,15 +60,32 @@ class WhatsAppMessage(models.Model):
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
-                _logger.info("📤 Enviando botones a WhatsApp:\n%s", payload)
-                # Primero enviamos el payload interactivo
-                if hasattr(out, 'send_whatsapp_interactive'):
-                    out.send_whatsapp_interactive(payload)
-                # Luego disparamos el envío real
+                out.sudo().write({'body': text})
+
+                # 2) Payload interactivo
+                payload = {
+                    "type": "interactive",
+                    "interactive": {
+                        "type": "button",
+                        "body": {"text": text},
+                        "actions": {"buttons": buttons}
+                    }
+                }
+                _logger.info("📤 Preparando botones WhatsApp:\n%s", payload)
+
+                # 3) Enviamos interactivo sobre el mensaje entrante
+                if hasattr(to_rec, 'send_whatsapp_interactive'):
+                    to_rec.send_whatsapp_interactive(payload)
+                    _logger.info("📤 Botones enviados via to_rec.send_whatsapp_interactive")
+                    # Forzamos envío
+                    if hasattr(to_rec, '_send_message'):
+                        to_rec._send_message()
+
+                # 4) También enviamos el texto de out para asegurar dispatch
                 if hasattr(out, '_send_message'):
                     out._send_message()
 
-            # 🚨 TEST MANUAL DE BOTONES
+            # 🚨 TEST manual
             if plain_body.lower() == "test botones":
                 buttons = [
                     {"type": "reply", "reply": {"id": "boton_1", "title": "Opción 1"}},
@@ -131,15 +140,15 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{variant.display_name}.")
                 continue
 
-            # ——— Contexto conversación ———
-            history_records = self.env['whatsapp.message'].sudo().search([
+            # ——— Contexto conversation ———
+            history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number', '=', record.mobile_number),
                 ('id', '<', record.id),
                 ('state', 'in', ['received', 'outgoing'])
             ], order='id desc', limit=3)
 
             conversation = []
-            for msg in reversed(history_records):
+            for msg in reversed(history):
                 role = "user" if msg.state in ("received", "inbound") else "assistant"
                 content = clean_html(msg.body or "").strip()
                 if content:
@@ -161,7 +170,7 @@ class WhatsAppMessage(models.Model):
                     send_buttons=lambda text, buttons: _send_buttons(record, text, buttons)
                 )
                 if result:
-                    # Si retorna texto, limpia la memoria previa y envía texto de confirmación
+                    # Limpio memoria previa y envío confirmación
                     self.env['chatbot.whatsapp.memory'].sudo().search(
                         [('partner_id', '=', partner.id)], limit=1
                     ).sudo().unlink()
