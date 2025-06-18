@@ -1,23 +1,24 @@
+# utils/nlp.py
 import openai
 import logging
 from ..config.config import general_config
 
 _logger = logging.getLogger(__name__)
 
-def detect_intention(user_text, api_key):
-    """Clasifica la intención del usuario."""
+def detect_intention(conversation_context, api_key):
+    """Clasifica la intención del último mensaje en una conversación."""
     openai.api_key = api_key
 
-    system = (
+    system_prompt = (
         "Eres un clasificador de intenciones para un chatbot de atención al cliente "
-        "de una tienda de productos de limpieza.\n"
-        "Las categorías son: saludo, consulta_horario, consulta_producto, crear_pedido, "
-        "solicitar_factura, otro."
+        "de una tienda de productos de limpieza. Tu tarea es analizar toda la conversación "
+        "y clasificar la intención del último mensaje del usuario.\n"
+        "Las categorías posibles son: saludo, consulta_horario, consulta_producto, "
+        "crear_pedido, solicitar_factura, otro.\n"
+        "Devuelve solo una palabra correspondiente a la categoría."
     )
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": f"Mensaje: \"{user_text}\""}
-    ]
+
+    messages = [{"role": "system", "content": system_prompt}] + conversation_context
 
     try:
         resp = openai.ChatCompletion.create(

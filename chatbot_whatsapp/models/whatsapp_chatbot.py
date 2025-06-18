@@ -1,6 +1,6 @@
 from odoo import models, api
-from ..utils.nlp      import detect_intention
-from ..utils.utils    import clean_html, normalize_phone
+from ..utils.nlp import detect_intention
+from ..utils.utils import clean_html, normalize_phone
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
@@ -47,7 +47,7 @@ class WhatsAppMessage(models.Model):
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
 
-            # 🧠 Comprobación de contexto
+            # 🧠 Comprobación de contexto de confirmación
             memory = self.env['chatbot.whatsapp.memory'].sudo().search([
                 ('partner_id', '=', partner.id)
             ], order='timestamp desc', limit=1)
@@ -62,29 +62,37 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
                     continue
 
-            # 👉 Procesamiento estándar
-            api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-            raw_intent = detect_intention(plain_body.lower(), api_key) or ""
-            intent     = raw_intent.lower().replace("intención:", "").strip()
+            # 🔍 Preparar historial para clasificación con contexto
+            history = self.env['whatsapp.message'].sudo().search([
+                ('mobile_number', '=', phone),
+                ('state', 'in', ['received', 'outgoing']),
+            ], order='create_date desc', limit=10)
+
+            context = []
+            for msg in reversed(history):  # de más viejo a más nuevo
+                role = "user" if msg.state == "received" else "assistant"
+                content = clean_html(msg.body or "").strip()
+                if content:
+                    context.append({"role": role, "content": content})
+
+            # 🚀 Clasificación de intención usando contexto
+            api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            raw_intent = detect_intention(context, api_key) or ""
+            intent = raw_intent.lower().replace("intención:", "").strip()
             _logger.info("Intención detectada: %s", intent)
 
+            # 📦 Manejo de intenciones
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body)
 
-                # 🧠 Guardar memoria con última intención
-                memory = self.env['chatbot.whatsapp.memory'].sudo().search([
+                self.env['chatbot.whatsapp.memory'].sudo().search([
                     ('partner_id', '=', partner.id)
-                ], limit=1)
-                if memory:
-                    memory.sudo().write({
-                        'last_intent': intent,
-                        'timestamp': self.env['chatbot.whatsapp.memory']._fields['timestamp'].default(self.env['chatbot.whatsapp.memory'])
-                    })
-                else:
-                    self.env['chatbot.whatsapp.memory'].sudo().create({
-                        'partner_id': partner.id,
-                        'last_intent': intent,
-                    })
+                ], limit=1).sudo().unlink()
+
+                self.env['chatbot.whatsapp.memory'].sudo().create({
+                    'partner_id': partner.id,
+                    'last_intent': intent,
+                })
 
                 _send_text(record, result)
 
@@ -99,7 +107,7 @@ class WhatsAppMessage(models.Model):
                 else:
                     _send_text(record, result['message'])
 
-            elif intent in ["consulta_horario","saludo","consulta_producto","ubicacion","agradecimiento"]:
+            elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
                 response = handle_respuesta_faq(intent, partner, plain_body)
                 _send_text(record, response)
 
