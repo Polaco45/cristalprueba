@@ -1,4 +1,5 @@
-# create_order.py
+# models/intent_handlers/create_order.py
+
 import json
 import logging
 import re
@@ -52,19 +53,18 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     """
     1) Usa GPT para buscar variantes disponibles.
     2) Extrae la cantidad del texto con regex.
-    3) Si qty > stock → crea memoria y envía botones.
+    3) Si qty > stock → crea memoria y devuelve texto con 3 opciones numeradas.
     4) Si qty <= stock → crea pedido y devuelve texto.
     """
     openai.api_key = get_openai_api_key(env)
 
-    # 1) Buscar variantes
+    # 1) function_call para buscar variantes
     system_msg = {
         "role": "system",
         "content": (
             "Eres un asistente para pedidos de productos de limpieza.\n"
             "Cuando recibas un texto, devuelve un function_call 'lookup_product_variants' "
-            "con el parámetro 'query' igual al nombre del producto solicitado.\n"
-            "No hagas nada más."
+            "con el parámetro 'query' igual al nombre del producto solicitado."
         )
     }
     resp = openai.ChatCompletion.create(
@@ -85,40 +85,34 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     except UserError as ue:
         return str(ue)
 
-    # Toma siempre la primera variante que haya stock
-    variant_info = variants[0]
-    pid   = variant_info['id']
-    avail = variant_info['stock']
-    name  = variant_info['name']
+    # Nos quedamos con la primera variante en stock
+    variant = variants[0]
+    pid   = variant['id']
+    avail = int(variant['stock'])
+    name  = variant['name']
 
-    # 2) Extraer cantidad del texto
+    # 2) Extraer cantidad
     m = re.search(r'\b(\d+)\b', text)
     if not m:
         return "¿Cuántas unidades querés?"
     qty = int(m.group(1))
 
-    # 3) Si pide más de lo disponible → botones
+    # 3) Si pide más de lo disponible → memoria + texto con opciones
     if qty > avail:
-        # guardo memoria para el flujo de confirmación
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_confirmacion_stock',
             'last_variant_id': pid,
             'last_qty_suggested': avail
         })
-        if send_buttons:
-            buttons = [
-                {"type": "reply", "reply": {"id": "confirm_all", "title": f"Sí, quiero las {avail}"}},
-                {"type": "reply", "reply": {"id": "choose_qty", "title": "Quiero otra cantidad"}},
-                {"type": "reply", "reply": {"id": "cancel_order", "title": "No, gracias"}}
-            ]
-            send_buttons(
-                f"Solo hay {avail} unidades de “{name}”. ¿Qué querés hacer?",
-                buttons
-            )
-            return None  # ya envié botones
-        return f"Solo hay {avail} unidades de '{name}'. ¿Querés esa cantidad?"
+        return (
+            f"Solo hay {avail} unidades de “{name}”.\n"
+            "Respondé con:\n"
+            "1) Sí, quiero las {avail}\n"
+            "2) Quiero otra cantidad\n"
+            "3) No, gracias"
+        )
 
-    # 4) Si alcanza el stock, creo el pedido
+    # 4) Si alcanza stock → crear pedido
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{name}."
