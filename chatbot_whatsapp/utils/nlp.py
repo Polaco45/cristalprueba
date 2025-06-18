@@ -1,24 +1,29 @@
-# utils/nlp.py
 import openai
 import logging
 from ..config.config import general_config
 
 _logger = logging.getLogger(__name__)
 
-def detect_intention(conversation_context, api_key):
-    """Clasifica la intención del último mensaje en una conversación."""
+def detect_intention(conversation_history, api_key):
+    """Clasifica la intención del último mensaje considerando el historial."""
     openai.api_key = api_key
 
-    system_prompt = (
-        "Eres un clasificador de intenciones para un chatbot de atención al cliente "
-        "de una tienda de productos de limpieza. Tu tarea es analizar toda la conversación "
-        "y clasificar la intención del último mensaje del usuario.\n"
-        "Las categorías posibles son: saludo, consulta_horario, consulta_producto, "
-        "crear_pedido, solicitar_factura, otro.\n"
-        "Devuelve solo una palabra correspondiente a la categoría."
-    )
+    system_message = {
+        "role": "system",
+        "content": (
+            "Eres un clasificador de intenciones para un chatbot de atención al cliente "
+            "de una tienda de productos de limpieza.\n"
+            "Las categorías son: saludo, consulta_horario, consulta_producto, crear_pedido, "
+            "solicitar_factura, otro.\n"
+            "Tu tarea es analizar la conversación y clasificar solo la intención del último "
+            "mensaje del usuario."
+        )
+    }
 
-    messages = [{"role": "system", "content": system_prompt}] + conversation_context
+    messages = [system_message] + conversation_history
+
+    # 📋 Log completo del prompt
+    _logger.info("🧠 Prompt de clasificación enviado a OpenAI:\n%s", messages)
 
     try:
         resp = openai.ChatCompletion.create(
@@ -29,5 +34,5 @@ def detect_intention(conversation_context, api_key):
         )
         return resp.choices[0].message.content.strip().lower()
     except Exception as e:
-        _logger.error("Error detectando intención: %s", e)
+        _logger.error("❌ Error detectando intención: %s", e)
         return "otro"
