@@ -47,7 +47,8 @@ class WhatsAppMessage(models.Model):
                 if hasattr(out, '_send_message'):
                     out._send_message()
 
-            def _send_buttons(to_record, text, buttons):
+            def _send_buttons(text, buttons):
+                # Construir payload interactivo
                 payload = {
                     "type": "interactive",
                     "interactive": {
@@ -56,9 +57,19 @@ class WhatsAppMessage(models.Model):
                         "actions": {"buttons": buttons}
                     }
                 }
-                _logger.info("📤 Enviando botones a WhatsApp:\n%s", payload)
-                if hasattr(to_record, 'send_whatsapp_interactive'):
-                    to_record.send_whatsapp_interactive(payload)
+                _logger.info("📤 Enviando botones a WhatsApp interactivo:%s", payload)
+                # Crear registro de mensaje saliente con payload interactivo
+                vals = {
+                    'mobile_number': record.mobile_number,
+                    'state': 'outgoing',
+                    'wa_account_id': record.wa_account_id.id if record.wa_account_id else False,
+                    'interactive_payload': payload,
+                    'create_uid': self.env.ref('base.user_admin').id,
+                }
+                out = self.env['whatsapp.message'].sudo().create(vals)
+                # Enviar mensaje interactivo
+                if hasattr(out, '_send_message'):
+                    out._send_message()
 
             # 🚨 TEST MANUAL DE BOTONES
             if plain_body.lower() == "test botones":
@@ -67,7 +78,7 @@ class WhatsAppMessage(models.Model):
                     {"type": "reply", "reply": {"id": "boton_2", "title": "Opción 2"}},
                     {"type": "reply", "reply": {"id": "boton_3", "title": "Cancelar"}}
                 ]
-                _send_buttons(record, "Este es un test de botones. Elegí una opción:", buttons)
+                _send_buttons("Este es un test de botones. Elegí una opción:", buttons)
                 continue
 
             # ——— Confirmación stock ———
@@ -108,7 +119,7 @@ class WhatsAppMessage(models.Model):
                         {"type": "reply", "reply": {"id": "choose_qty", "title": "Quiero otra cantidad"}},
                         {"type": "reply", "reply": {"id": "cancel_order", "title": "No, gracias"}}
                     ]
-                    _send_buttons(record, f"Sigue siendo más de lo que hay ({available}). ¿Qué querés hacer?", buttons)
+                    _send_buttons(f"Sigue siendo más de lo que hay ({available}). ¿Qué querés hacer?", buttons)
                     continue
                 order = create_sale_order(self.env, partner.id, variant.id, new_qty)
                 memory.unlink()
@@ -142,7 +153,7 @@ class WhatsAppMessage(models.Model):
                     self.env,
                     partner,
                     plain_body,
-                    send_buttons=lambda text, buttons: _send_buttons(record, text, buttons)
+                    send_buttons=lambda text, buttons: _send_buttons(text, buttons)
                 )
                 if result:
                     self.env['chatbot.whatsapp.memory'].sudo().search(
@@ -158,7 +169,7 @@ class WhatsAppMessage(models.Model):
                 r = handle_solicitar_factura(partner, plain_body)
                 if r.get('pdf_base64'):
                     _send_text(record, r['message'])
-                    fname = f"{partner.name}_factura_{plain_body.replace(' ','_')}.pdf"
+                    fname = f"{partner.name}_factura_{plain_body.replace(' ', '_')}.pdf"
                     if hasattr(record, 'send_whatsapp_document'):
                         record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
                 else:
