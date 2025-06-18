@@ -2,7 +2,6 @@ import json
 import logging
 import openai
 from odoo.exceptions import UserError
-from ..config.config import general_config
 
 _logger = logging.getLogger(__name__)
 
@@ -66,20 +65,23 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     system_msg = {
         "role": "system",
         "content": (
-            "Eres un asistente para pedidos de productos de limpieza. Primero usa "
-            "lookup_product_variants para buscar stock. Luego, si la cantidad solicitada "
-            "excede el stock, informa la cantidad máxima y espera confirmación. "
-            "Siempre devuelve un function_call."
+            "Eres un asistente para pedidos de productos de limpieza.\n"
+            "Tu flujo es:\n"
+            "1. Buscar productos usando 'lookup_product_variants'.\n"
+            "2. Si la cantidad pedida es mayor al stock, devolver la cantidad máxima disponible.\n"
+            "3. Siempre que detectes un pedido, usá function_call para devolver la cantidad y el producto seleccionado.\n"
+            "No respondas con texto explicativo. Nunca expliques. Solo ejecutá la función correspondiente.\n"
         )
     }
 
     # 1) Buscar variantes
     resp = openai.ChatCompletion.create(
-        model=general_config['openai']['model'],
+        model="gpt-4o-mini",
         messages=[system_msg, {"role": "user", "content": text}],
         functions=FUNCTIONS,
         function_call="auto",
-        temperature=0
+        temperature=0,
+        max_tokens=100
     )
     msg = resp.choices[0].message
     if msg.get('function_call', {}).get('name') != 'lookup_product_variants':
@@ -93,7 +95,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     # 2) Selección y cantidad
     follow = openai.ChatCompletion.create(
-        model=general_config['openai']['model'],
+        model="gpt-4o-mini",
         messages=[
             system_msg,
             {"role": "user", "content": text},
@@ -101,7 +103,8 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         ],
         functions=FUNCTIONS,
         function_call="auto",
-        temperature=0
+        temperature=0,
+        max_tokens=100
     )
     fmsg = follow.choices[0].message
     if not fmsg.get('function_call'):
@@ -137,8 +140,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         _logger.info("botones no enviados")
         
         return f"Solo hay {avail} unidades de '{variant.display_name}'. ¿Querés esa cantidad?"
-    # -------------------------------------------------------------
 
-    # 3) Si alcanza stock, creamos el pedido
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}."
