@@ -108,7 +108,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         return (
             f"Solo hay {avail} unidades de “{name}”.\n"
             "Respondé con:\n"
-            "1) Sí, quiero las {avail}\n"
+            f"1) Sí, quiero las {avail}\n"
             "2) Quiero otra cantidad\n"
             "3) No, gracias"
         )
