@@ -65,7 +65,7 @@ class WhatsAppMessage(models.Model):
                 ('mobile_number', '=', record.mobile_number),
                 ('id', '<', record.id),
                 ('state', 'in', ['received', 'outgoing'])
-            ], order='id desc', limit=10)
+            ], order='id desc', limit=20)
 
             conversation = []
             for msg in reversed(history_records):
@@ -74,7 +74,7 @@ class WhatsAppMessage(models.Model):
                 if content:
                     conversation.append({"role": role, "content": content})
 
-            # Añadimos el mensaje actual como último turno
+            # Añadir el mensaje actual como último mensaje del usuario
             conversation.append({"role": "user", "content": plain_body})
 
             # ——— Detectar intención con contexto ———
@@ -86,7 +86,6 @@ class WhatsAppMessage(models.Model):
             # ——— Routers de intención ———
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body)
-                # refrescamos memoria de intención
                 self.env['chatbot.whatsapp.memory'].sudo().search(
                     [('partner_id', '=', partner.id)], limit=1
                 ).sudo().unlink()

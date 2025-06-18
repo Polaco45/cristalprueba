@@ -15,8 +15,7 @@ def detect_intention(conversation_history, api_key):
             "de una tienda de productos de limpieza.\n"
             "Las categorías son: saludo, consulta_horario, consulta_producto, crear_pedido, "
             "solicitar_factura, otro.\n"
-            "Tu tarea es analizar la conversación y clasificar solo la intención del último "
-            "mensaje del usuario."
+            "Tu tarea es analizar la conversación y clasificar solo la intención del último mensaje del usuario teniendo en cuenta el contexto de los ultimos 3 mensajes.\n"
         )
     }
 
