@@ -22,14 +22,14 @@ class WhatsAppMessage(models.Model):
                 continue
 
             plain_body = clean_html(record.body or "").strip()
-            raw_phone  = record.mobile_number or record.phone or ""
-            phone      = normalize_phone(raw_phone)
+            raw_phone = record.mobile_number or record.phone or ""
+            phone = normalize_phone(raw_phone)
 
             if not plain_body or not phone:
                 continue
 
             partner = self.env['res.partner'].sudo().search([
-                '|', ('phone','ilike', phone), ('mobile','ilike', phone)
+                '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
             if not partner:
                 continue
@@ -37,10 +37,10 @@ class WhatsAppMessage(models.Model):
             def _send_text(to_record, text_to_send):
                 vals = {
                     'mobile_number': to_record.mobile_number,
-                    'body':          text_to_send,
-                    'state':         'outgoing',
+                    'body': text_to_send,
+                    'state': 'outgoing',
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
-                    'create_uid':    self.env.ref('base.user_admin').id,
+                    'create_uid': self.env.ref('base.user_admin').id,
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
                 out.sudo().write({'body': text_to_send})
@@ -56,6 +56,7 @@ class WhatsAppMessage(models.Model):
                         "actions": {"buttons": buttons}
                     }
                 }
+                _logger.info("📤 Enviando botones a WhatsApp:\n%s", payload)
                 to_record.send_whatsapp_interactive(payload)
 
             # ——— Contexto de confirmación de stock ———
@@ -67,8 +68,8 @@ class WhatsAppMessage(models.Model):
                 button_id = ir.get('id')
                 if button_id == 'confirm_all':
                     variant = memory.last_variant_id
-                    qty     = memory.last_qty_suggested
-                    order   = create_sale_order(self.env, partner.id, variant.id, qty)
+                    qty = memory.last_qty_suggested
+                    order = create_sale_order(self.env, partner.id, variant.id, qty)
                     memory.unlink()
                     _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
                     continue
@@ -125,25 +126,27 @@ class WhatsAppMessage(models.Model):
 
             # ——— Routing por intención ———
             if intent == "crear_pedido":
-                result = handle_crear_pedido(self.env, partner, plain_body, send_buttons=lambda text, buttons: _send_buttons(record, text, buttons))
-
-                # Solo guardar memoria o responder si `handle_crear_pedido` devolvió algo (o sea, no manejó botones)
-                if result is not None:
-                    self.env['chatbot.whatsapp.memory'].sudo().search(
-                        [('partner_id', '=', partner.id)], limit=1
-                    ).sudo().unlink()
-                    self.env['chatbot.whatsapp.memory'].sudo().create({
-                        'partner_id': partner.id,
-                        'last_intent': intent,
-                    })
+                result = handle_crear_pedido(
+                    self.env,
+                    partner,
+                    plain_body,
+                    send_buttons=lambda text, buttons: _send_buttons(record, text, buttons)
+                )
+                self.env['chatbot.whatsapp.memory'].sudo().search(
+                    [('partner_id', '=', partner.id)], limit=1
+                ).sudo().unlink()
+                self.env['chatbot.whatsapp.memory'].sudo().create({
+                    'partner_id': partner.id,
+                    'last_intent': intent,
+                })
+                if result:
                     _send_text(record, result)
-
 
             elif intent == "solicitar_factura":
                 r = handle_solicitar_factura(partner, plain_body)
                 if r.get('pdf_base64'):
                     _send_text(record, r['message'])
-                    fname = f"{partner.name}_factura_{plain_body.replace(' ','_')}.pdf"
+                    fname = f"{partner.name}_factura_{plain_body.replace(' ', '_')}.pdf"
                     if hasattr(record, 'send_whatsapp_document'):
                         record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
                 else:
