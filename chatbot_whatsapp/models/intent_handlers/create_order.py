@@ -121,9 +121,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         })
         if send_buttons:
             buttons = [
-                {"type":"reply","reply":{"id":"confirm_all","title":f"Sí, quiero las {avail}"}},
-                {"type":"reply","reply":{"id":"choose_qty","title":"Quiero otra cantidad"}},
-                {"type":"reply","reply":{"id":"cancel_order","title":"No, gracias"}}
+                {"type": "reply", "reply": {"id": "confirm_all", "title": f"Sí, quiero las {avail}"}},
+                {"type": "reply", "reply": {"id": "choose_qty", "title": "Quiero otra cantidad"}},
+                {"type": "reply", "reply": {"id": "cancel_order", "title": "No, gracias"}}
             ]
             send_buttons(f"Solo hay {avail} unidades de “{variant.display_name}”. ¿Qué querés hacer?", buttons)
             return None
