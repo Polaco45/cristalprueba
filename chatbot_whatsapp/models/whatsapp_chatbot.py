@@ -69,9 +69,12 @@ class WhatsAppMessage(models.Model):
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
                 _logger.info("📤 Enviando botones a WhatsApp:\n%s", payload)
-                # Llama al método de envío interactivo sobre el mensaje de salida
+                # Primero enviamos el payload interactivo
                 if hasattr(out, 'send_whatsapp_interactive'):
                     out.send_whatsapp_interactive(payload)
+                # Luego disparamos el envío real
+                if hasattr(out, '_send_message'):
+                    out._send_message()
 
             # 🚨 TEST MANUAL DE BOTONES
             if plain_body.lower() == "test botones":
