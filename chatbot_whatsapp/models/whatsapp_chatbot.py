@@ -126,15 +126,18 @@ class WhatsAppMessage(models.Model):
             # ——— Routing por intención ———
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body, send_buttons=lambda text, buttons: _send_buttons(record, text, buttons))
-                self.env['chatbot.whatsapp.memory'].sudo().search(
-                    [('partner_id', '=', partner.id)], limit=1
-                ).sudo().unlink()
-                self.env['chatbot.whatsapp.memory'].sudo().create({
-                    'partner_id': partner.id,
-                    'last_intent': intent,
-                })
-                if result:
+
+                # Solo guardar memoria o responder si `handle_crear_pedido` devolvió algo (o sea, no manejó botones)
+                if result is not None:
+                    self.env['chatbot.whatsapp.memory'].sudo().search(
+                        [('partner_id', '=', partner.id)], limit=1
+                    ).sudo().unlink()
+                    self.env['chatbot.whatsapp.memory'].sudo().create({
+                        'partner_id': partner.id,
+                        'last_intent': intent,
+                    })
                     _send_text(record, result)
+
 
             elif intent == "solicitar_factura":
                 r = handle_solicitar_factura(partner, plain_body)
