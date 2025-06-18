@@ -47,18 +47,27 @@ class WhatsAppMessage(models.Model):
                 if hasattr(out, '_send_message'):
                     out._send_message()
 
-            # ——— Contexto de confirmación de stock ———
+            # ——— Contexto: confirmación de stock parcial ———
             memory = self.env['chatbot.whatsapp.memory'].sudo().search([
                 ('partner_id', '=', partner.id)
             ], order='timestamp desc', limit=1)
+
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
-                if plain_body.lower() in ['sí', 'si', 'dale', 'ok', 'bueno', 'va', 'de una']:
+                if plain_body.strip() == "1":
                     variant = memory.last_variant_id
                     qty     = memory.last_qty_suggested
                     order   = create_sale_order(self.env, partner.id, variant.id, qty)
                     memory.unlink()
                     _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
-                    continue
+                elif plain_body.strip() == "2":
+                    memory.unlink()
+                    _send_text(record, "Ok, ¿cuántas unidades querés?")
+                elif plain_body.strip() == "3":
+                    memory.unlink()
+                    _send_text(record, "Entendido, no se genera el pedido.")
+                else:
+                    _send_text(record, "No entendí tu respuesta. Respondé con 1, 2 o 3.")
+                continue
 
             # ——— Armar historial de conversación ———
             history_records = self.env['whatsapp.message'].sudo().search([
@@ -85,7 +94,7 @@ class WhatsAppMessage(models.Model):
 
             # ——— Routers de intención ———
             if intent == "crear_pedido":
-                result = handle_crear_pedido(self.env, partner, plain_body, conversation)
+                result = handle_crear_pedido(self.env, partner, plain_body)
                 self.env['chatbot.whatsapp.memory'].sudo().search(
                     [('partner_id', '=', partner.id)], limit=1
                 ).sudo().unlink()
@@ -94,7 +103,6 @@ class WhatsAppMessage(models.Model):
                     'last_intent': intent,
                 })
                 _send_text(record, result)
-
 
             elif intent == "solicitar_factura":
                 r = handle_solicitar_factura(partner, plain_body)
