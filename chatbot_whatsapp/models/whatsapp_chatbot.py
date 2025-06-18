@@ -85,7 +85,7 @@ class WhatsAppMessage(models.Model):
 
             # ——— Routers de intención ———
             if intent == "crear_pedido":
-                result = handle_crear_pedido(self.env, partner, plain_body)
+                result = handle_crear_pedido(self.env, partner, plain_body, conversation)
                 self.env['chatbot.whatsapp.memory'].sudo().search(
                     [('partner_id', '=', partner.id)], limit=1
                 ).sudo().unlink()
@@ -94,6 +94,7 @@ class WhatsAppMessage(models.Model):
                     'last_intent': intent,
                 })
                 _send_text(record, result)
+
 
             elif intent == "solicitar_factura":
                 r = handle_solicitar_factura(partner, plain_body)

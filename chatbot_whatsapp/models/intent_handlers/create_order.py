@@ -59,23 +59,33 @@ def create_sale_order(env, partner_id, product_id, quantity):
     })
     return order
 
-def handle_crear_pedido(env, partner, text):
+def handle_crear_pedido(env, partner, text, conversation=None):
     openai.api_key = get_openai_api_key(env)
 
     system_msg = {
         "role": "system",
         "content": (
-            "Eres un asistente para pedidos de productos de limpieza. Primero usa "
-            "lookup_product_variants para buscar stock. Luego, si la cantidad solicitada "
-            "excede el stock, informa la cantidad máxima y espera confirmación. "
-            "Siempre devuelve un function_call."
+            "Eres un asistente experto en pedidos para una tienda de productos de limpieza. "
+            "El cliente puede pedir productos mencionando nombre y cantidad. "
+            "Debes seguir estos pasos:\n"
+            "1. Usa 'lookup_product_variants' para encontrar el producto.\n"
+            "2. Si la cantidad solicitada es mayor al stock, informa al cliente y espera confirmación.\n"
+            "3. Si el cliente ya confirmó una cantidad sugerida, crea el pedido.\n\n"
+            "Debes usar los mensajes anteriores para entender si se trata de una confirmación o una nueva solicitud.\n"
+            "Siempre responde usando 'function_call'."
         )
     }
+
+    messages = [system_msg]
+    if conversation:
+        messages += conversation
+    else:
+        messages.append({"role": "user", "content": text})
 
     # 1) Buscar variantes
     resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
-        messages=[system_msg, {"role": "user", "content": text}],
+        messages=messages,
         functions=FUNCTIONS,
         function_call="auto",
         temperature=0
@@ -90,14 +100,13 @@ def handle_crear_pedido(env, partner, text):
     except UserError as ue:
         return str(ue)
 
-    # 2) Selección y cantidad
+    # 2) Elección y cantidad
+    messages += [
+        {"role": "function", "name": "lookup_product_variants", "content": json.dumps(variants)}
+    ]
     follow = openai.ChatCompletion.create(
         model="gpt-4o-mini",
-        messages=[
-            system_msg,
-            {"role": "user", "content": text},
-            {"role": "function", "name": "lookup_product_variants", "content": json.dumps(variants)},
-        ],
+        messages=messages,
         functions=FUNCTIONS,
         function_call="auto",
         temperature=0
@@ -113,7 +122,7 @@ def handle_crear_pedido(env, partner, text):
     avail = variant.qty_available or 0
 
     if qty > avail:
-        # guardo memoria para confirmación
+        # guardar memoria para confirmar luego
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_confirmacion_stock',
@@ -124,3 +133,4 @@ def handle_crear_pedido(env, partner, text):
 
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}."
+
