@@ -116,29 +116,21 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     variant = env['product.product'].browse(pid)
     avail = variant.qty_available or 0
 
-    # --- AQUI: SI EXCEDE EL STOCK, MANDAMOS BOTONES SIEMPRE ---
     if qty > avail:
-        # Guardamos memoria para la confirmación posterior
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_confirmacion_stock',
             'last_variant_id': variant.id,
             'last_qty_suggested': avail
         })
-        # Preparamos botones
-        buttons = [
-            {"type": "reply", "reply": {"id": "confirm_all", "title": f"Sí, quiero las {avail}"}},
-            {"type": "reply", "reply": {"id": "choose_qty", "title": "Quiero otra cantidad"}},
-            {"type": "reply", "reply": {"id": "cancel_order", "title": "No, gracias"}}
-        ]
-        # Si recibimos la función para enviar botones, la usamos.
         if send_buttons:
-            _logger.info("botones enviados: %s", buttons)
+            buttons = [
+                {"type": "reply", "reply": {"id": "confirm_all", "title": f"Sí, quiero las {avail}"}},
+                {"type": "reply", "reply": {"id": "choose_qty", "title": "Quiero otra cantidad"}},
+                {"type": "reply", "reply": {"id": "cancel_order", "title": "No, gracias"}}
+            ]
             send_buttons(f"Solo hay {avail} unidades de “{variant.display_name}”. ¿Qué querés hacer?", buttons)
-            return None  # Indicamos que enviamos botones
-        # En caso de que no tengamos send_buttons, devolvemos texto fallback
-        _logger.info("botones no enviados")
-        
+            return None
         return f"Solo hay {avail} unidades de '{variant.display_name}'. ¿Querés esa cantidad?"
 
     order = create_sale_order(env, partner.id, pid, qty)
