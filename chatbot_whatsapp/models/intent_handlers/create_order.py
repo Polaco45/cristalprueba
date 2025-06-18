@@ -1,5 +1,7 @@
+# create_order.py
 import json
 import logging
+import re
 import openai
 from odoo.exceptions import UserError
 
@@ -19,19 +21,6 @@ FUNCTIONS = [
             },
             "required": ["query"]
         },
-    },
-    {
-        "name": "create_sale_order",
-        "description": "Crea un pedido de venta en borrador",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "partner_id": {"type": "integer"},
-                "product_id": {"type": "integer"},
-                "quantity": {"type": "integer"}
-            },
-            "required": ["partner_id", "product_id", "quantity"]
-        }
     }
 ]
 
@@ -60,28 +49,31 @@ def create_sale_order(env, partner_id, product_id, quantity):
     return order
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
+    """
+    1) Usa GPT para buscar variantes disponibles.
+    2) Extrae la cantidad del texto con regex.
+    3) Si qty > stock → crea memoria y envía botones.
+    4) Si qty <= stock → crea pedido y devuelve texto.
+    """
     openai.api_key = get_openai_api_key(env)
 
+    # 1) Buscar variantes
     system_msg = {
         "role": "system",
         "content": (
             "Eres un asistente para pedidos de productos de limpieza.\n"
-            "Tu flujo es:\n"
-            "1. Buscar productos usando 'lookup_product_variants'.\n"
-            "2. Si la cantidad pedida es mayor al stock, devolver la cantidad máxima disponible.\n"
-            "3. Siempre que detectes un pedido, usá function_call para devolver la cantidad y el producto seleccionado.\n"
-            "No respondas con texto explicativo. Nunca expliques. Solo ejecutá la función correspondiente.\n"
+            "Cuando recibas un texto, devuelve un function_call 'lookup_product_variants' "
+            "con el parámetro 'query' igual al nombre del producto solicitado.\n"
+            "No hagas nada más."
         )
     }
-
-    # 1) Buscar variantes
     resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[system_msg, {"role": "user", "content": text}],
         functions=FUNCTIONS,
         function_call="auto",
         temperature=0,
-        max_tokens=100
+        max_tokens=50
     )
     msg = resp.choices[0].message
     if msg.get('function_call', {}).get('name') != 'lookup_product_variants':
@@ -93,34 +85,25 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     except UserError as ue:
         return str(ue)
 
-    # 2) Selección y cantidad
-    follow = openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            system_msg,
-            {"role": "user", "content": text},
-            {"role": "function", "name": "lookup_product_variants", "content": json.dumps(variants)},
-        ],
-        functions=FUNCTIONS,
-        function_call="auto",
-        temperature=0,
-        max_tokens=100
-    )
-    fmsg = follow.choices[0].message
-    if not fmsg.get('function_call'):
-        return fmsg.get('content', "No entendí tu elección.")
+    # Toma siempre la primera variante que haya stock
+    variant_info = variants[0]
+    pid   = variant_info['id']
+    avail = variant_info['stock']
+    name  = variant_info['name']
 
-    params = json.loads(fmsg.function_call.arguments)
-    pid = params['product_id']
-    qty = params['quantity']
-    variant = env['product.product'].browse(pid)
-    avail = variant.qty_available or 0
+    # 2) Extraer cantidad del texto
+    m = re.search(r'\b(\d+)\b', text)
+    if not m:
+        return "¿Cuántas unidades querés?"
+    qty = int(m.group(1))
 
+    # 3) Si pide más de lo disponible → botones
     if qty > avail:
+        # guardo memoria para el flujo de confirmación
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_confirmacion_stock',
-            'last_variant_id': variant.id,
+            'last_variant_id': pid,
             'last_qty_suggested': avail
         })
         if send_buttons:
@@ -129,9 +112,13 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
                 {"type": "reply", "reply": {"id": "choose_qty", "title": "Quiero otra cantidad"}},
                 {"type": "reply", "reply": {"id": "cancel_order", "title": "No, gracias"}}
             ]
-            send_buttons(f"Solo hay {avail} unidades de “{variant.display_name}”. ¿Qué querés hacer?", buttons)
-            return None
-        return f"Solo hay {avail} unidades de '{variant.display_name}'. ¿Querés esa cantidad?"
+            send_buttons(
+                f"Solo hay {avail} unidades de “{name}”. ¿Qué querés hacer?",
+                buttons
+            )
+            return None  # ya envié botones
+        return f"Solo hay {avail} unidades de '{name}'. ¿Querés esa cantidad?"
 
+    # 4) Si alcanza el stock, creo el pedido
     order = create_sale_order(env, partner.id, pid, qty)
-    return f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}."
+    return f"📝 Pedido {order.name} creado: {qty}×{name}."
