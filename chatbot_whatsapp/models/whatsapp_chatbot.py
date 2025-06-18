@@ -1,6 +1,4 @@
-# whatsapp_chatbot.py
-
-from odoo import models, api
+from odoo import models, fields, api
 from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone
 from .intent_handlers.intent_handlers import (
@@ -8,20 +6,30 @@ from .intent_handlers.intent_handlers import (
     handle_respuesta_faq
 )
 from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
-import logging
-import json
+import logging, json
 
 _logger = logging.getLogger(__name__)
 
 class WhatsAppMessage(models.Model):
     _inherit = 'whatsapp.message'
 
+    # --- NUEVOS CAMPOS PARA INTERACTIVO ---
+    message_type = fields.Selection(
+        selection_add=[('interactive', 'Interactive')],
+        ondelete={'interactive': 'cascade'},
+        default=None,
+        help="Tipo de mensaje para el conector WhatsApp"
+    )
+    interactive_payload = fields.Text(
+        string="Interactive Payload",
+        help="JSON que envía WhatsApp para mensajes interactivos (botones)"
+    )
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
         for record in records:
-
-            # Solo procesar mensajes entrantes
+            # Solo procesar inbound
             if record.state not in ('received', 'inbound'):
                 continue
 
@@ -36,13 +44,13 @@ class WhatsAppMessage(models.Model):
             if not partner:
                 continue
 
+            # -- Helpers de envío --
             def _send_text(to_rec, msg):
                 vals = {
                     'mobile_number': to_rec.mobile_number,
                     'body': msg,
                     'state': 'outgoing',
-                    'wa_account_id': to_rec.wa_account_id.id if to_rec.wa_account_id else False,
-                    'create_uid': self.env.ref('base.user_admin').id,
+                    'wa_account_id': to_rec.wa_account_id.id,
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
                 out.sudo().write({'body': msg})
@@ -50,7 +58,7 @@ class WhatsAppMessage(models.Model):
                     out._send_message()
 
             def _send_buttons(to_rec, text, buttons):
-                # Preparamos payload interactivo
+                # 1) Construir payload
                 payload = {
                     "type": "interactive",
                     "interactive": {
@@ -61,25 +69,24 @@ class WhatsAppMessage(models.Model):
                 }
                 _logger.info("📤 Payload interactive:\n%s", payload)
 
-                # Creamos un solo registro outgoing de tipo interactive
+                # 2) Crear el registro outgoing marcado como interactive
                 vals = {
                     'mobile_number': to_rec.mobile_number,
                     'body': text,
                     'state': 'outgoing',
-                    'wa_account_id': to_rec.wa_account_id.id if to_rec.wa_account_id else False,
-                    'create_uid': self.env.ref('base.user_admin').id,
-                    'message_type': 'interactive',                    # marcado para conector
-                    'interactive_payload': json.dumps(payload),       # el JSON del payload
+                    'wa_account_id': to_rec.wa_account_id.id,
+                    'message_type': 'interactive',
+                    'interactive_payload': json.dumps(payload),
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
 
-                # Enviamos la parte interactiva
+                # 3) Enviar interactivo
                 if hasattr(out, 'send_whatsapp_interactive'):
                     out.send_whatsapp_interactive(payload)
                     if hasattr(out, '_send_message'):
                         out._send_message()
 
-            # TEST BOTONES
+            # --- Test manual ---
             if plain.lower() == "test botones":
                 btns = [
                     {"type": "reply", "reply": {"id": "b1", "title": "Uno"}},
@@ -89,27 +96,25 @@ class WhatsAppMessage(models.Model):
                 _send_buttons(record, "Elige una opción:", btns)
                 continue
 
-            # Verifico si estoy en un flujo de confirmación de stock
+            # --- Flujo confirmación stock (memoria) ---
             memory = self.env['chatbot.whatsapp.memory'].sudo().search(
-                [('partner_id', '=', partner.id)],
+                [('partner_id','=',partner.id)],
                 order='timestamp desc', limit=1
             )
-
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
                 ir = getattr(record, 'interactive_reply', {}) or {}
-                button_id = ir.get('id')
-                if button_id == 'confirm_all':
-                    variant = memory.last_variant_id
-                    qty     = memory.last_qty_suggested
-                    order   = create_sale_order(self.env, partner.id, variant.id, qty)
+                bid = ir.get('id')
+                if bid == 'confirm_all':
+                    var, qty = memory.last_variant_id, memory.last_qty_suggested
+                    order = create_sale_order(self.env, partner.id, var.id, qty)
                     memory.unlink()
-                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
+                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
                     continue
-                elif button_id == 'choose_qty':
+                if bid == 'choose_qty':
                     memory.last_intent = 'esperando_nueva_cantidad'
                     _send_text(record, "Perfecto, decime cuántas unidades querés.")
                     continue
-                elif button_id == 'cancel_order':
+                if bid == 'cancel_order':
                     memory.unlink()
                     _send_text(record, "Entendido, no genero ningún pedido.")
                     continue
@@ -120,51 +125,49 @@ class WhatsAppMessage(models.Model):
                 except ValueError:
                     _send_text(record, "No entiendo ese número. ¿Podés escribir la cantidad en dígitos?")
                     continue
-                variant   = memory.last_variant_id
-                available = variant.qty_available or 0
-                if new_qty > available:
+                var = memory.last_variant_id
+                avail = var.qty_available or 0
+                if new_qty > avail:
                     btns = [
-                        {"type": "reply", "reply": {"id": "confirm_all", "title": f"Sí, quiero las {available}"}},
+                        {"type": "reply", "reply": {"id": "confirm_all", "title": f"Sí, quiero las {avail}"}},
                         {"type": "reply", "reply": {"id": "choose_qty", "title": "Quiero otra cantidad"}},
                         {"type": "reply", "reply": {"id": "cancel_order", "title": "No, gracias"}}
                     ]
                     _send_buttons(record,
-                        f"Sigue siendo más de lo que hay ({available}). ¿Qué querés hacer?",
+                        f"Sigue siendo más de lo que hay ({avail}). ¿Qué querés hacer?",
                         btns
                     )
                     continue
-                order = create_sale_order(self.env, partner.id, variant.id, new_qty)
+                order = create_sale_order(self.env, partner.id, var.id, new_qty)
                 memory.unlink()
-                _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{variant.display_name}.")
+                _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
-            # Construyo contexto para clasificación
-            history = self.env['whatsapp.message'].sudo().search([
+            # --- Clasificación de intención ---
+            hist = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=',record.mobile_number),
                 ('id','<',record.id),
                 ('state','in',['received','outgoing'])
             ], order='id desc', limit=3)
             conv = []
-            for m in reversed(history):
+            for m in reversed(hist):
                 role = "user" if m.state in ("received","inbound") else "assistant"
                 c = clean_html(m.body or "").strip()
-                if c:
-                    conv.append({"role": role, "content": c})
+                if c: conv.append({"role": role, "content": c})
             conv.append({"role":"user","content":plain})
-
-            intent = detect_intention(conv,
+            intent = detect_intention(
+                conv,
                 self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
 
-            # Routing según intención
+            # --- Routing según intención ---
             if intent == "crear_pedido":
                 result = handle_crear_pedido(
                     self.env, partner, plain,
                     send_buttons=lambda t, b: _send_buttons(record, t, b)
                 )
                 if result:
-                    # limpio memoria y confirmo por texto
                     self.env['chatbot.whatsapp.memory'].sudo().search(
                         [('partner_id','=',partner.id)], limit=1
                     ).sudo().unlink()
@@ -179,16 +182,18 @@ class WhatsAppMessage(models.Model):
                 if r.get('pdf_base64'):
                     _send_text(record, r['message'])
                     fname = f"{partner.name}_factura_{plain.replace(' ','_')}.pdf"
-                    if hasattr(record, 'send_whatsapp_document'):
-                        record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
+                    record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
                 else:
                     _send_text(record, r['message'])
 
-            elif intent in ["consulta_horario","saludo","consulta_producto","ubicacion","agradecimiento"]:
+            elif intent in [
+                "consulta_horario","saludo","consulta_producto",
+                "ubicacion","agradecimiento"
+            ]:
                 resp = handle_respuesta_faq(intent, partner, plain)
                 _send_text(record, resp)
 
             else:
-                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
+                _send_text(record, "Perdón, no entendí eso 😅.")
 
         return records
