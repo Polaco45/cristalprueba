@@ -35,81 +35,80 @@ class WhatsAppMessage(models.Model):
                 continue
 
             def _send_text(to_record, text_to_send):
-                outgoing_vals = {
+                vals = {
                     'mobile_number': to_record.mobile_number,
                     'body':          text_to_send,
                     'state':         'outgoing',
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
                     'create_uid':    self.env.ref('base.user_admin').id,
                 }
-                outgoing_msg = self.env['whatsapp.message'].sudo().create(outgoing_vals)
-                outgoing_msg.sudo().write({'body': text_to_send})
-                if hasattr(outgoing_msg, '_send_message'):
-                    outgoing_msg._send_message()
+                out = self.env['whatsapp.message'].sudo().create(vals)
+                out.sudo().write({'body': text_to_send})
+                if hasattr(out, '_send_message'):
+                    out._send_message()
 
-            # 🧠 Comprobación de contexto de confirmación
+            # ——— Contexto de confirmación de stock ———
             memory = self.env['chatbot.whatsapp.memory'].sudo().search([
                 ('partner_id', '=', partner.id)
             ], order='timestamp desc', limit=1)
-
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
-                affirmative = plain_body.lower() in ['sí', 'si', 'dale', 'ok', 'bueno', 'va', 'de una']
-                if affirmative:
+                if plain_body.lower() in ['sí', 'si', 'dale', 'ok', 'bueno', 'va', 'de una']:
                     variant = memory.last_variant_id
-                    qty = memory.last_qty_suggested
-                    order = create_sale_order(self.env, partner.id, variant.id, qty)
+                    qty     = memory.last_qty_suggested
+                    order   = create_sale_order(self.env, partner.id, variant.id, qty)
                     memory.unlink()
                     _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
                     continue
 
-            # 🔍 Preparar historial para clasificación con contexto
-            history = self.env['whatsapp.message'].sudo().search([
-                ('mobile_number', '=', phone),
-                ('state', 'in', ['received', 'outgoing']),
-            ], order='create_date desc', limit=10)
+            # ——— Armar historial de conversación ———
+            history_records = self.env['whatsapp.message'].sudo().search([
+                ('mobile_number', '=', record.mobile_number),
+                ('id', '<', record.id),
+                ('state', 'in', ['received', 'outgoing'])
+            ], order='id desc', limit=10)
 
-            context = []
-            for msg in reversed(history):  # de más viejo a más nuevo
-                role = "user" if msg.state == "received" else "assistant"
+            conversation = []
+            for msg in reversed(history_records):
+                role = "user" if msg.state in ("received", "inbound") else "assistant"
                 content = clean_html(msg.body or "").strip()
                 if content:
-                    context.append({"role": role, "content": content})
+                    conversation.append({"role": role, "content": content})
 
-            # 🚀 Clasificación de intención usando contexto
-            api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-            raw_intent = detect_intention(context, api_key) or ""
-            intent = raw_intent.lower().replace("intención:", "").strip()
+            # Añadimos el mensaje actual como último turno
+            conversation.append({"role": "user", "content": plain_body})
+
+            # ——— Detectar intención con contexto ———
+            api_key    = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            raw_intent = detect_intention(conversation, api_key) or ""
+            intent     = raw_intent.lower().strip()
             _logger.info("Intención detectada: %s", intent)
 
-            # 📦 Manejo de intenciones
+            # ——— Routers de intención ———
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain_body)
-
-                self.env['chatbot.whatsapp.memory'].sudo().search([
-                    ('partner_id', '=', partner.id)
-                ], limit=1).sudo().unlink()
-
+                # refrescamos memoria de intención
+                self.env['chatbot.whatsapp.memory'].sudo().search(
+                    [('partner_id', '=', partner.id)], limit=1
+                ).sudo().unlink()
                 self.env['chatbot.whatsapp.memory'].sudo().create({
                     'partner_id': partner.id,
                     'last_intent': intent,
                 })
-
                 _send_text(record, result)
 
             elif intent == "solicitar_factura":
-                result = handle_solicitar_factura(partner, plain_body)
-                if result.get('pdf_base64'):
-                    _send_text(record, result['message'])
-                    filename = f"{partner.name}_factura_{plain_body.replace(' ','_')}.pdf"
-                    pdf_b64  = result['pdf_base64']
+                r = handle_solicitar_factura(partner, plain_body)
+                if r.get('pdf_base64'):
+                    _send_text(record, r['message'])
+                    fname = f"{partner.name}_factura_{plain_body.replace(' ','_')}.pdf"
                     if hasattr(record, 'send_whatsapp_document'):
-                        record.send_whatsapp_document(pdf_b64, filename, mime_type='application/pdf')
+                        record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
                 else:
-                    _send_text(record, result['message'])
+                    _send_text(record, r['message'])
 
             elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
-                response = handle_respuesta_faq(intent, partner, plain_body)
-                _send_text(record, response)
+                resp = handle_respuesta_faq(intent, partner, plain_body)
+                _send_text(record, resp)
 
             else:
                 _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
