@@ -130,9 +130,12 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         ]
         # Si recibimos la función para enviar botones, la usamos.
         if send_buttons:
+            _logger.info("botones enviados: %s", buttons)
             send_buttons(f"Solo hay {avail} unidades de “{variant.display_name}”. ¿Qué querés hacer?", buttons)
             return None  # Indicamos que enviamos botones
         # En caso de que no tengamos send_buttons, devolvemos texto fallback
+        _logger.info("botones no enviados")
+        
         return f"Solo hay {avail} unidades de '{variant.display_name}'. ¿Querés esa cantidad?"
     # -------------------------------------------------------------
 
