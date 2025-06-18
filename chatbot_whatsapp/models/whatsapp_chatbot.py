@@ -144,14 +144,14 @@ class WhatsAppMessage(models.Model):
                     plain_body,
                     send_buttons=lambda text, buttons: _send_buttons(record, text, buttons)
                 )
-                self.env['chatbot.whatsapp.memory'].sudo().search(
-                    [('partner_id', '=', partner.id)], limit=1
-                ).sudo().unlink()
-                self.env['chatbot.whatsapp.memory'].sudo().create({
-                    'partner_id': partner.id,
-                    'last_intent': intent,
-                })
                 if result:
+                    self.env['chatbot.whatsapp.memory'].sudo().search(
+                        [('partner_id', '=', partner.id)], limit=1
+                    ).sudo().unlink()
+                    self.env['chatbot.whatsapp.memory'].sudo().create({
+                        'partner_id': partner.id,
+                        'last_intent': intent,
+                    })
                     _send_text(record, result)
 
             elif intent == "solicitar_factura":
