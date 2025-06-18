@@ -65,7 +65,7 @@ class WhatsAppMessage(models.Model):
                 ('mobile_number', '=', record.mobile_number),
                 ('id', '<', record.id),
                 ('state', 'in', ['received', 'outgoing'])
-            ], order='id desc', limit=20)
+            ], order='id desc', limit=3)
 
             conversation = []
             for msg in reversed(history_records):
