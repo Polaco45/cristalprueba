@@ -4,7 +4,7 @@ from odoo import models, api
 from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone
 from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
-from .intent_handlers.new_customer import handle_new_customer
+from .intent_handlers.new_lead import NewLeadHandler
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
@@ -34,26 +34,33 @@ class WhatsAppMessage(models.Model):
             ], limit=1)
 
             # Helper de envío de texto
-            def _send_text(rec, msg):
+            def _send_text(self, record, text_to_send):
                 vals = {
-                    'mobile_number': rec.mobile_number,
-                    'body': msg,
+                    'mobile_number': record.mobile_number,
+                    'body': text_to_send,
                     'state': 'outgoing',
-                    'wa_account_id': rec.wa_account_id.id if rec.wa_account_id else False,
+                    'wa_account_id': record.wa_account_id.id if record.wa_account_id else False,
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
-                out.sudo().write({'body': msg})
+                out.sudo().write({'body': text_to_send})
                 if hasattr(out, '_send_message'):
                     out._send_message()
 
-            # Si NO hay partner, gestionamos flujo de nuevo cliente
+            partner = self.env['res.partner'].sudo().search([
+                '|', ('phone','ilike', phone), ('mobile','ilike', phone)
+            ], limit=1)
+
+            memory_model = self.env['chatbot.whatsapp.memory'].sudo()
+
+            # Nuevo flujo para cliente nuevo
             if not partner:
-                handled = handle_new_customer(
-                    self.env, record, phone, plain, _send_text
+                handled, response_msg = NewLeadHandler().process_new_lead_flow(
+                    self.env, record, phone, plain, memory_model
                 )
                 if handled:
-                    continue  # detenemos aquí el procesamiento normal
+                    self._send_text(record, response_msg)
+                    continue  # No seguir con el flujo normal
             # Si es cliente, seguimos el flujo habitual
 
             # ——— Confirmación stock y creación de pedido ———
