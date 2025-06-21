@@ -34,18 +34,19 @@ class WhatsAppMessage(models.Model):
             ], limit=1)
 
             # Helper de envío de texto
-            def _send_text(self, record, text_to_send):
+            def _send_text(to_rec, text_to_send):
                 vals = {
-                    'mobile_number': record.mobile_number,
+                    'mobile_number': to_rec.mobile_number,
                     'body': text_to_send,
                     'state': 'outgoing',
-                    'wa_account_id': record.wa_account_id.id if record.wa_account_id else False,
+                    'wa_account_id': to_rec.wa_account_id.id if to_rec.wa_account_id else False,
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
                 out.sudo().write({'body': text_to_send})
                 if hasattr(out, '_send_message'):
                     out._send_message()
+
 
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone','ilike', phone), ('mobile','ilike', phone)
