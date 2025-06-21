@@ -19,6 +19,7 @@ class WhatsAppMessage(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
+
         for record in records:
             if record.state not in ('received', 'inbound'):
                 continue
@@ -27,11 +28,6 @@ class WhatsAppMessage(models.Model):
             phone = normalize_phone(record.mobile_number or record.phone or "")
             if not (plain and phone):
                 continue
-
-            # ❇️ PRIMERO: ¿Es cliente registrado?
-            partner = self.env['res.partner'].sudo().search([
-                '|', ('phone','ilike', phone), ('mobile','ilike', phone)
-            ], limit=1)
 
             # Helper de envío de texto
             def _send_text(to_rec, text_to_send):
@@ -47,29 +43,35 @@ class WhatsAppMessage(models.Model):
                 if hasattr(out, '_send_message'):
                     out._send_message()
 
-
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone','ilike', phone), ('mobile','ilike', phone)
             ], limit=1)
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
-            # Nuevo flujo para cliente nuevo
-            if not partner:
+            # ⚠️ Verificar si es nuevo cliente (partner SIN leads ni pedidos)
+            is_new_lead = False
+            if partner:
+                has_leads = self.env['crm.lead'].sudo().search_count([
+                    ('phone', 'ilike', phone)
+                ]) > 0
+                has_orders = self.env['sale.order'].sudo().search_count([
+                    ('partner_id', '=', partner.id)
+                ]) > 0
+                if not (has_leads or has_orders):
+                    is_new_lead = True
+
+            if not partner or is_new_lead:
                 handled, response_msg = NewLeadHandler().process_new_lead_flow(
                     self.env, record, phone, plain, memory_model
                 )
                 if handled:
-                    self._send_text(record, response_msg)
+                    _send_text(record, response_msg)
                     continue  # No seguir con el flujo normal
-            # Si es cliente, seguimos el flujo habitual
 
             # ——— Confirmación stock y creación de pedido ———
-            memory = self.env['chatbot.whatsapp.memory'].sudo().search([
-                ('partner_id','=', partner.id)
-            ], order='timestamp desc', limit=1)
+            memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
 
-            # Flujo 1/2/3 para confirmación de stock
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
                 choice = plain.lower().strip()
                 if choice in ('1','1)','sí','si'):
@@ -87,7 +89,7 @@ class WhatsAppMessage(models.Model):
                     memory.unlink()
                     _send_text(record, "Entendido, no genero ningún pedido.")
                     continue
-                # inválido: reenvío contexto
+                # inválido → reenvío
                 var = memory.last_variant_id
                 avail = memory.last_qty_suggested
                 _send_text(record,
@@ -96,7 +98,6 @@ class WhatsAppMessage(models.Model):
                 )
                 continue
 
-            # Flujo nueva cantidad
             if memory and memory.last_intent == 'esperando_nueva_cantidad':
                 try:
                     new_qty = int(plain)
@@ -106,7 +107,7 @@ class WhatsAppMessage(models.Model):
                 var = memory.last_variant_id
                 avail = var.qty_available or 0
                 if new_qty > avail:
-                    memory.write({'last_intent': 'esperando_confirmacion_stock','last_qty_suggested': avail})
+                    memory.write({'last_intent': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
                     _send_text(record,
                         f"Sigue siendo más de lo que hay ({avail}).\n"
                         "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
@@ -123,6 +124,7 @@ class WhatsAppMessage(models.Model):
                 ('id','<', record.id),
                 ('state','in',['received','outgoing'])
             ], order='id desc', limit=3)
+
             conv = []
             for m in reversed(history):
                 role = "user" if m.state in ("received","inbound") else "assistant"
@@ -137,15 +139,12 @@ class WhatsAppMessage(models.Model):
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
 
-            # ——— Routing según intención ———
+            # ——— Routing ———
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
                 if result:
-                    # guardo intención y envío texto
-                    self.env['chatbot.whatsapp.memory'].sudo().search(
-                        [('partner_id','=',partner.id)], limit=1
-                    ).sudo().unlink()
-                    self.env['chatbot.whatsapp.memory'].sudo().create({
+                    memory_model.search([('partner_id','=',partner.id)], limit=1).unlink()
+                    memory_model.create({
                         'partner_id': partner.id,
                         'last_intent': intent,
                     })
@@ -158,7 +157,7 @@ class WhatsAppMessage(models.Model):
                     fname = f"{partner.name}_factura_{plain.replace(' ','_')}.pdf"
                     record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
 
-            elif intent in ["consulta_horario","saludo","consulta_producto","ubicacion","agradecimiento"]:
+            elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
                 resp = handle_respuesta_faq(intent, partner, plain)
                 _send_text(record, resp)
 
