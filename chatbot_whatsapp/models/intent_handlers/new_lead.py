@@ -1,58 +1,55 @@
-# models/intent_handlers/new_customer.py
+# models/intent_handlers/new_lead.py
 
+from odoo import models, api
 import logging
-from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-def handle_new_customer(env, record, phone, plain_text, send_text):
-    """
-    Flujo de datos para clientes nuevos:
-    1) Pregunta nombre
-    2) Pregunta email
-    3) Crea Lead en CRM
-    """
-    Memory = env['chatbot.whatsapp.memory'].sudo()
-    mem = Memory.search([('phone', '=', phone)], limit=1)
+class NewLeadHandler(models.AbstractModel):
+    _name = 'chatbot.whatsapp.new_lead_handler'
+    _description = "Manejo de nuevo lead para clientes nuevos vía WhatsApp"
 
-    # 1: pedir nombre
-    if not mem:
-        mem = Memory.create({
-            'phone': phone,
-            'last_intent': 'esperando_nombre_nuevo_cliente'
-        })
-        send_text(record, "¡Hola! Soy tu asistente. ¿Me decís tu *nombre* completo para empezar?")
-        return True
+    @api.model
+    def process_new_lead_flow(self, env, record, phone, plain_body, memory_model):
+        """
+        Detecta si el número no está asociado a partner.
+        Si es nuevo, pregunta nombre y email, crea lead.
+        Maneja la memoria para el flujo de conversación.
+        Devuelve (handled:bool, message:str)
+        """
+        memory = memory_model.search([('phone', '=', phone)], limit=1)
 
-    # 2: recibo nombre, pido email
-    if mem.last_intent == 'esperando_nombre_nuevo_cliente':
-        mem.write({
-            'last_intent': 'esperando_email_nuevo_cliente',
-            'data_buffer': plain_text.strip()
-        })
-        send_text(record, f"¡Genial, {plain_text.strip()}! Ahora, ¿cuál es tu *correo electrónico*?")
-        return True
+        # No memoria -> pedimos nombre
+        if not memory:
+            memory_model.create({
+                'phone': phone,
+                'last_intent': 'esperando_nombre_nuevo_cliente',
+            })
+            return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
 
-    # 3: recibo email, creo Lead y cierro memoria
-    if mem.last_intent == 'esperando_email_nuevo_cliente':
-        nombre = mem.data_buffer
-        email  = plain_text.strip()
-        try:
-            lead = env['crm.lead'].sudo().create({
-                'name': f"Nuevo contacto WhatsApp: {nombre}",
+        # Esperando nombre -> guardo nombre, pido email
+        if memory.last_intent == 'esperando_nombre_nuevo_cliente':
+            memory.write({
+                'last_intent': 'esperando_email_nuevo_cliente',
+                'data_buffer': plain_body.strip(),
+            })
+            return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
+
+        # Esperando email -> creo lead y cierro flujo
+        if memory.last_intent == 'esperando_email_nuevo_cliente':
+            nombre = memory.data_buffer or "Sin nombre"
+            email = plain_body.strip()
+            # Creo lead
+            lead_vals = {
+                'name': f"Nuevo cliente WhatsApp: {nombre}",
                 'contact_name': nombre,
                 'email_from': email,
                 'phone': phone,
-                'description': "Lead generado automáticamente desde chatbot B2B WhatsApp."
-            })
-        except Exception as e:
-            _logger.error("Error creando CRM Lead: %s", e)
-            send_text(record, "Lo siento, hubo un error creando tu contacto. Por favor intentá más tarde.")
-            mem.unlink()
-            return True
+                'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
+            }
+            env['crm.lead'].sudo().create(lead_vals)
+            memory.unlink()
+            return True, "¡Gracias! Un asesor se va a contactar con vos para cotizarte ✅"
 
-        send_text(record, "¡Gracias! Un asesor humano te contactará a la brevedad para cotizarte. ✅")
-        mem.unlink()
-        return True
-
-    return False
+        # En cualquier otro caso, no manejo
+        return False, ""
