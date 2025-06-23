@@ -49,25 +49,26 @@ class WhatsAppMessage(models.Model):
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
-            # ⚠️ Verificar si es nuevo cliente (partner SIN leads ni pedidos)
-            is_new_lead = False
-            if partner:
-                has_leads = self.env['crm.lead'].sudo().search_count([
+            # 👤 Verificamos si el número ya está onboardeado
+            def is_onboarded(phone, partner):
+                # Tiene al menos un lead con ese número
+                has_lead = self.env['crm.lead'].sudo().search_count([
                     ('phone', 'ilike', phone)
                 ]) > 0
-                has_orders = self.env['sale.order'].sudo().search_count([
+                # Tiene al menos una orden de venta con ese partner
+                has_order = partner and self.env['sale.order'].sudo().search_count([
                     ('partner_id', '=', partner.id)
                 ]) > 0
-                if not (has_leads or has_orders):
-                    is_new_lead = True
+                return has_lead or has_order
 
-            if not partner or is_new_lead:
+            if not partner or not is_onboarded(phone, partner):
                 handled, response_msg = NewLeadHandler().process_new_lead_flow(
                     self.env, record, phone, plain, memory_model
                 )
                 if handled:
                     _send_text(record, response_msg)
                     continue  # No seguir con el flujo normal
+
 
             # ——— Confirmación stock y creación de pedido ———
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
