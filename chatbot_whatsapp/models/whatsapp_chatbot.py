@@ -60,11 +60,13 @@ class WhatsAppMessage(models.Model):
             onboarded = partner and is_onboarded(phone, partner)
 
             if not onboarded:
-                handled, response_msg = NewLeadHandler().process_new_lead_flow(
+                new_lead_handler = self.env['chatbot.whatsapp.new_lead_handler']
+                handled, response_msg = new_lead_handler.process_new_lead_flow(
                     self.env, record, phone, plain, memory_model
                 )
                 _send_text(record, response_msg)
                 continue  # ⚠️ SIEMPRE cortamos si no está onboardeado
+
 
             # ——— Confirmación stock y creación de pedido ———
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
