@@ -27,7 +27,6 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            # Helper de envío de texto
             def _send_text(to_rec, text_to_send):
                 vals = {
                     'mobile_number': to_rec.mobile_number,
@@ -47,7 +46,6 @@ class WhatsAppMessage(models.Model):
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
-            # 👤 Verificamos si el número ya está onboardeado
             def is_onboarded(phone, partner):
                 has_lead = self.env['crm.lead'].sudo().search_count([
                     ('phone', 'ilike', phone)
@@ -67,6 +65,20 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, response_msg)
                 continue  # ⚠️ SIEMPRE cortamos si no está onboardeado
 
+            # 🚧 Bloqueamos clientes en etapa "Nuevo" o "Clasificado"
+            def is_cotizado(phone):
+                lead = self.env['crm.lead'].sudo().search(
+                    [('phone', 'ilike', phone)],
+                    order='create_date desc', limit=1
+                )
+                if not lead:
+                    return False
+                etapas_ok = ['Propuesta', 'Ganado']
+                return lead.stage_id.name in etapas_ok
+
+            if not is_cotizado(phone):
+                _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
+                continue
 
             # ——— Confirmación stock y creación de pedido ———
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
