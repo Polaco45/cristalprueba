@@ -1,15 +1,17 @@
 from odoo import models, fields, api
 from datetime import timedelta
 
-class ChatbotWhatsAppMemory(models.Model):
+class WhatsAppMemory(models.Model):
     _name = 'chatbot.whatsapp.memory'
-    _description = 'Memoria de chat de WhatsApp'
+    _description = 'Memoria del chatbot de WhatsApp'
 
-    partner_id         = fields.Many2one('res.partner', required=True, index=True)
-    last_intent        = fields.Char()
-    last_variant_id    = fields.Many2one('product.product')
+    phone = fields.Char(index=True)
+    partner_id = fields.Many2one('res.partner')
+    last_intent = fields.Char()
+    data_buffer = fields.Text()
+    last_variant_id = fields.Many2one('product.product')
     last_qty_suggested = fields.Integer()
-    timestamp          = fields.Datetime(default=fields.Datetime.now, required=True)
+    timestamp = fields.Datetime(auto_now_add=True)
 
     @api.model
     def clean_old_memory(self):
