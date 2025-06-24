@@ -6,12 +6,11 @@
     "summary": "Allow multi-website assignment for product pricelists",
     "license": "OPL-1",
     "author": "Custom",
-    "website": "https://yourdomain.com",
+    "website": "https://quimicacristal.com.ar",  # tu dominio real (opcional)
     "depends": [
-        "website_sale",
-        "product",
-        "website",
-        "product_pricelist",
+        "website_sale",   # e-Commerce
+        "product",        # core de productos/pricelists
+        "website",        # gestión de sitios web
     ],
     "data": [
         "security/ir.model.access.csv",
