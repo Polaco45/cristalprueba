@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="multi_website_product_report_tree" model="ir.ui.view">
+        <field name="name">multi.website.product.report.tree</field>
+        <field name="model">multi.website.product.report</field>
+        <field name="arch" type="xml">
+            <list js_class="ooo_multi_website_product" action="action_open_reference" type="object">
+                <field name="website_sequence"/>
+                <field name="product_published" widget="boolean_toggle"/>
+                <field name="product_id"/>
+                <field name="website_id"/>
+                <field name="product_website_url" optional="show"/>
+                <field name="is_storable" optional="show"/>
+                <field name="type" widget="badge" optional="show"/>
+                <field name="invoice_policy" optional="hide"/>
+                <field name="has_websites_set" optional="show"/>
+                <button string="Open Website" name="action_go_to_website" type="object" icon="fa-globe" class="p-0 mb-2 d-block btn-link"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="multi_website_product_report_graph" model="ir.ui.view">
+        <field name="name">multi.website.product.report.graph</field>
+        <field name="model">multi.website.product.report</field>
+        <field name="arch" type="xml">
+            <graph type="pie">
+                <field name="product_id"/>
+                <field name="website_id"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="multi_website_product_report_search" model="ir.ui.view">
+        <field name="name">multi.website.product.report.search</field>
+        <field name="model">multi.website.product.report</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="product_id" string="Product"/>
+                <field name="website_id" string="Website"/>
+                <filter string="Published" name="product_published" domain="[('product_published', '=', True)]"/>
+                <filter string="Unlisted" name="product_published" domain="[('product_published', '=', True)]"/>
+                <filter string="All-Website Visibility" name="non_websites_set" domain="[('has_websites_set', '=', False)]"/>
+                <group string="Group by">
+                    <filter string="Website" name="groupby_website" context="{'group_by': 'website_id'}"/>
+                    <filter string="Product" name="groupby_product" context="{'group_by': 'product_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_product_website_listing" model="ir.actions.act_window">
+        <field name="name">Products Listing</field>
+        <field name="res_model">multi.website.product.report</field>
+        <field name="view_mode">list,graph,form</field>
+        <field name="context">{'search_default_groupby_website': 1}</field>
+    </record>
+
+    <record id="filter_website_product_listing" model="ir.filters">
+        <field name="name">Listing Product By Website</field>
+        <field name="model_id">multi.website.product.report</field>
+        <field name="domain">[]</field>
+        <field name="user_id" eval="False"/>
+        <field name="context">{'group_by': ['website_id']}</field>
+    </record>
+
+    <record id="filter_product_website_listing" model="ir.filters">
+        <field name="name">Listing Website By Product</field>
+        <field name="model_id">multi.website.product.report</field>
+        <field name="domain">[]</field>
+        <field name="user_id" eval="False"/>
+        <field name="context">{'group_by': ['product_id', 'website_id']}</field>
+    </record>
+
+    <menuitem sequence="70" id="menus_ecomerce_listing" name="Listing Tools" parent="website_sale.menu_ecommerce" groups="sales_team.group_sale_manager">
+        <menuitem sequence="1" id="menu_product_publishing" name="Products Listing" action="action_product_website_listing"/>
+    </menuitem>
+</odoo>

@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_multi_website_product_report_salesman,multi.website.product.report,model_multi_website_product_report,website.group_website_designer,1,1,0,1
+access_multi_website_setter,multi.website.setter,model_multi_website_setter,website.group_website_designer,1,1,1,1
