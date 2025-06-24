@@ -1,5 +1,5 @@
 * Onboardear a la persona en caso de que sea nueva
-    * Validar Email
+    - Validar Email
     * Vincular al contacto
     * Siempre hacer lead. Diferenciar en Calificado en el CRM:
         * Si es nuevo contacto, "Nuevo cliente Whatsapp: *Nombre*"
