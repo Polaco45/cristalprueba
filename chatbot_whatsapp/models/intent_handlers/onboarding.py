@@ -1,6 +1,7 @@
 from odoo import models, api
 import re
 import logging
+from ...utils.utils import is_cotizado
 
 _logger = logging.getLogger(__name__)
 
@@ -106,10 +107,11 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             partner = memory.partner_id
             if partner and partner.category_id:
-                es_nuevo_cliente = not partner.property_product_pricelist
+                # En este punto ya tiene tag, evaluamos si está cotizado
+                # Aseguramos que no tenga lista de precios si es nuevo cliente para evitar errores
                 partner.write({'property_product_pricelist': False})
 
-                if es_nuevo_cliente:
+                if not is_cotizado(partner):
                     env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                         'contact_name': nombre.strip(),
@@ -120,7 +122,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     })
 
                 memory.unlink()
-                if es_nuevo_cliente:
+                if not is_cotizado(partner):
                     return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
                 else:
                     return True, "¡Ahora sí! Ya tenemos todo 🙌"
@@ -175,9 +177,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if not lead_tag:
                 lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
-            es_nuevo_cliente = not partner.property_product_pricelist
-
-            if es_nuevo_cliente:
+            if not is_cotizado(partner):
                 env['crm.lead'].sudo().create({
                     'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                     'contact_name': nombre.strip(),
@@ -191,7 +191,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             partner.write({'property_product_pricelist': False})
             memory.unlink()
 
-            if es_nuevo_cliente:
+            if not is_cotizado(partner):
                 return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
             else:
                 return True, "¡Ahora sí! Ya tenemos todo 🙌"

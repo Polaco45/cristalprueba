@@ -14,3 +14,20 @@ def normalize_phone(phone):
 
 def clean_html(text):
     return re.sub(HTML_TAGS, "", text or "").strip()
+
+# ——— Evalúa si está cotizado ———
+def is_cotizado(partner):
+    if not partner:
+        return False
+
+    pricelist = partner.property_product_pricelist
+    pricelist_name = pricelist.name if pricelist else False
+    tags = partner.category_id.mapped('name')
+
+    _logger.info("📌 Evaluando cotización — Partner: %s | Pricelist: %s | Tags: %s",
+    partner.name, pricelist_name, tags)
+
+    if pricelist_name == "Lista Clientes" and any(t in tags for t in ["Tipo de Cliente / EMPRESA", "Tipo de Cliente / Mayorista"]):
+        return False
+
+    return bool(pricelist)
