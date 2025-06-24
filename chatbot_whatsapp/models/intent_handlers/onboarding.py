@@ -118,9 +118,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
                 es_nuevo_cliente = not partner.property_product_pricelist
 
-                # Asegurar que NO tenga lista de precios
-                partner.write({'property_product_pricelist': False})
-
                 if es_nuevo_cliente:
                     env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
@@ -131,6 +128,12 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
                         'tag_ids': [(6, 0, [lead_tag.id])],
                     })
+
+                # Forzar borrar lista de precios default
+                env['ir.property'].sudo().search([
+                    ('name', '=', 'property_product_pricelist'),
+                    ('res_id', '=', f'res.partner,{partner.id}')
+                ]).unlink()
 
                 memory.unlink()
                 if es_nuevo_cliente:
@@ -172,15 +175,22 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'email': email.strip(),
                     'company_type': 'company',
                 })
+                # Borrar lista de precios default
+                env['ir.property'].sudo().search([
+                    ('name', '=', 'property_product_pricelist'),
+                    ('res_id', '=', f'res.partner,{partner.id}')
+                ]).unlink()
             else:
                 partner.write({
                     'name': nombre.strip(),
                     'email': email.strip(),
                     'company_type': 'company',
                 })
-
-            # 🔒 Eliminar lista de precios automáticamente asignada
-            partner.write({'property_product_pricelist': False})
+                # Borrar lista de precios default
+                env['ir.property'].sudo().search([
+                    ('name', '=', 'property_product_pricelist'),
+                    ('res_id', '=', f'res.partner,{partner.id}')
+                ]).unlink()
 
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:

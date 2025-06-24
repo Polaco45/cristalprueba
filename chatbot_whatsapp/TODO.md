@@ -7,7 +7,7 @@
         * Si es contacto existente, "Pedido Whatsapp: *Nombre*"
     * Borrar la lista de precio apenas se crea el contacto y decirle que alguien lo va a estar contactando para cotizarle. Tratarlo 'normal' cuando tenga la nueva lista de precio asignada por el empleado que lo contacte.
 
-
+* Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 * Escuchar audios
 * Manejar cualquier otro caso que pueda surgir en cuanto a crear pedidos y cotizarlos.
 * Ver cual es el mejor parametro para definir la cantidad de mensajes de contexto tanto en el codigo como en el prompt.
