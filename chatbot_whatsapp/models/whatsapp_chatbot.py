@@ -67,7 +67,7 @@ class WhatsAppMessage(models.Model):
                 _logger.info("📌 Evaluando cotización — Partner: %s | Pricelist: %s | Tags: %s",
                              partner.name, pricelist_name, tags)
 
-                if pricelist_name == "Lista Clientes (ARS)" and any(t in tags for t in ["Tipo de Cliente / EMPRESA", "Tipo de Cliente / Mayorista"]):
+                if pricelist_name == "Lista Clientes" and any(t in tags for t in ["Tipo de Cliente / EMPRESA", "Tipo de Cliente / Mayorista"]):
                     return False
 
                 return bool(pricelist)
