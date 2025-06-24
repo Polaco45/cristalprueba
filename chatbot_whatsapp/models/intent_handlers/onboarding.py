@@ -89,12 +89,53 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
 
             nombre = memory.data_buffer.strip()
+
+            # Detectar si veníamos de un intento de responder tipo de cliente
+            tipo_cliente_cache = None
+            if "|||" in nombre:
+                partes = nombre.split("|||")
+                if len(partes) == 2:
+                    nombre = partes[0].strip()
+                    posible_tag = self._parse_cliente_tag(partes[1].strip())
+                    if posible_tag:
+                        tipo_cliente_cache = posible_tag
+
             memory.write({
                 'last_intent': 'esperando_tipo_cliente',
                 'data_buffer': f"{nombre}|||{email}",
             })
             if memory.partner_id:
                 memory.partner_id.write({'email': email})
+
+            if tipo_cliente_cache:
+                partner = memory.partner_id
+                tipo_etiqueta = tipo_cliente_cache
+
+                # Etiqueta partner
+                tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+                if not tag:
+                    tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
+                partner.category_id = [(4, tag.id)]
+
+                # Etiqueta lead
+                lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+                if not lead_tag:
+                    lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+
+                # Crear lead
+                env['crm.lead'].sudo().create({
+                    'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
+                    'contact_name': nombre.strip(),
+                    'email_from': email.strip(),
+                    'phone': phone,
+                    'partner_id': partner.id,
+                    'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
+                    'tag_ids': [(6, 0, [lead_tag.id])],
+                })
+
+                memory.unlink()
+                return True, "¡Ahora sí! Ya tenemos todo 🙌"
+
             return True, (
                 "Una última pregunta 😊\n"
                 "¿Qué tipo de cliente sos?\n"
@@ -113,8 +154,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     "2 - Institución / Empresa\n"
                     "3 - Mayorista"
                 )
-            
-            # Validar que data_buffer tenga nombre y email separados por |||
+
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2:
                 # Falta el email, pedirlo de nuevo para no romper el flujo
