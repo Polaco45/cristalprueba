@@ -113,8 +113,15 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     "2 - Institución / Empresa\n"
                     "3 - Mayorista"
                 )
+            
+            # Validar que data_buffer tenga nombre y email separados por |||
+            data_parts = memory.data_buffer.split("|||")
+            if len(data_parts) != 2:
+                # Falta el email, pedirlo de nuevo para no romper el flujo
+                memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
+                return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
 
-            nombre, email = memory.data_buffer.split("|||")
+            nombre, email = data_parts
             partner = memory.partner_id
 
             if not partner:
