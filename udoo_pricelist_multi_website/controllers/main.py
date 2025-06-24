@@ -1,16 +1,21 @@
 # -*- coding: utf-8 -*-
 from odoo import http
-from odoo.addons.website_sale.controllers.main import WebsiteSale as WebsiteSaleOriginal
+from odoo.addons.website_sale.controllers.main import WebsiteSale as WebsiteSaleBase
 
-class WebsiteSale(WebsiteSaleOriginal):
+class WebsiteSale(WebsiteSaleBase):
 
     def _get_pricelist_context(self, pricelist, **kwargs):
         """
-        Override to ignore any pricelist passed in, and force using 
-        the one returned by Website.get_current_pricelist() for the current website.
+        1) Si el usuario tiene partner.property_product_pricelist, úsala.
+        2) Sino, llama al método original (que respetará website → global).
         """
-        # Force using the current website’s pricelist in session
-        website = http.request.website
-        pricelist = website.get_current_pricelist()
-        # Call super with the pricelist we just obtained
-        return super(WebsiteSale, self)._get_pricelist_context(pricelist, **kwargs)
+        # 1) Chequeo partner
+        partner = http.request.env.user.partner_id
+        if partner and partner.property_product_pricelist:
+            return {
+                'pricelist': partner.property_product_pricelist,
+                # puedes añadir otras claves de contexto si las usas
+            }
+
+        # 2) Caigo al nativo para respetar website → global
+        return super()._get_pricelist_context(pricelist, **kwargs)
