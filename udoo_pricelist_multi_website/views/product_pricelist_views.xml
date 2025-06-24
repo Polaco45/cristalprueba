@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Formulario: hereda la vista de lista de precios en Website (oculta campo legacy y agrega M2M) -->
+    <record id="view_pricelist_form_multi_website" model="ir.ui.view">
+        <field name="name">product.pricelist.website.form.inherit</field>
+        <field name="model">product.pricelist</field>
+        <field name="inherit_id" ref="website_sale.website_sale_pricelist_form_view"/>
+        <field name="arch" type="xml">
+            <!-- Ocultar el campo existente de sitio web (legacy) -->
+            <xpath expr="//field[@name='website_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <!-- Añadir el nuevo campo Many2many de Websites -->
+            <xpath expr="//group" position="inside">
+                <group string="Websites">
+                    <field name="public_website_ids" widget="many2many_tags"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Vista de árbol: hereda la lista de listas de precios del Website (oculta legacy y muestra M2M) -->
+    <record id="view_pricelist_tree_multi_website" model="ir.ui.view">
+        <field name="name">product.pricelist.website.tree.inherit</field>
+        <field name="model">product.pricelist</field>
+        <field name="inherit_id" ref="website_sale.website_sale_pricelist_tree_view"/>
+        <field name="arch" type="xml">
+            <!-- Insertar el campo Websites después del nombre -->
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="public_website_ids" widget="many2many_tags"/>
+            </xpath>
+            <!-- Ocultar la columna legacy de Sitio Web -->
+            <xpath expr="//field[@name='website_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>
