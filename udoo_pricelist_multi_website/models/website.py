@@ -5,17 +5,20 @@ class Website(models.Model):
     _inherit = 'website'
 
     def get_current_pricelist(self):
-        """Return the default pricelist for the current website (or global default if none specified)."""
+        """Devuelve la lista de precios predeterminada para este sitio web, o la global si no hay específica."""
         self.ensure_one()
-        # First, try to find a pricelist explicitly for this website (or global) ordered by sequence
+        website_ids = [self.id]  # <-- convertimos el ID en lista
+
+        # 1) Intentar primero encontrar una lista específica del sitio
         pricelist = self.env['product.pricelist'].search(
-            [('public_website_ids', 'in', self.id)],
+            [('public_website_ids', 'in', website_ids)],
             order='sequence asc',
             limit=1
         )
         if pricelist:
             return pricelist
-        # If no site-specific pricelist found, fall back to a global pricelist (no website assigned)
+
+        # 2) Si no hay, volver a la lista global (public_website_ids = False)
         return self.env['product.pricelist'].search(
             [('public_website_ids', '=', False)],
             order='sequence asc',
@@ -24,21 +27,25 @@ class Website(models.Model):
 
     def get_pricelist_available(self, show_visible=False, country_code=False):
         """
-        Return the list of pricelists that can be used on this website for the current user.
-        - If show_visible is True, only include pricelists marked as selectable (visible) on the website.
-        - If country_code is given, only include pricelists allowed for that country (or with no country restriction).
+        Devuelve todas las listas de precios aplicables a este sitio web.
+        - show_visible: si es True, sólo las marcadas como 'selectable' (visibles en eCommerce).
+        - country_code: filtra por país (sólo listas sin restricción de país o que incluyan ese código).
         """
         self.ensure_one()
-        # Base domain: pricelists either not tied to any website or tied to this website
-        domain = ['|', ('public_website_ids', '=', False), ('public_website_ids', 'in', self.id)]
-        # Only active pricelists by default (Odoo usually filters out inactive via context)
+        website_ids = [self.id]  # <-- siempre lista
+
+        # Dominio base: globales o asignadas a este sitio
+        domain = ['|', ('public_website_ids', '=', False), ('public_website_ids', 'in', website_ids)]
+
+        # Si sólo queremos las visibles (desplegable web), agregamos 'selectable'
         if show_visible:
-            # Filter by the 'selectable' flag for website visibility (eCommerce pricelist dropdown):contentReference[oaicite:2]{index=2}
-            domain.append(('selectable', '=', True))
+            domain += [('selectable', '=', True)]
+
+        # Filtro opcional por país
         if country_code:
-            # Filter by country: include pricelists with no country group or with a group containing the country
-            domain_country = ['|', ('country_group_ids', '=', False),
-                                   ('country_group_ids.country_ids.code', '=', country_code)]
-            domain = domain + domain_country  # combine domain conditions
-        # Search pricelists matching the criteria, ordered by sequence (priority)
-        return self.env['product.pricelist'].search(domain)
+            domain += ['|',
+                       ('country_group_ids', '=', False),
+                       ('country_group_ids.country_ids.code', '=', country_code)]
+
+        # Devolvemos ordenadas por 'sequence' (prioridad)
+        return self.env['product.pricelist'].search(domain, order='sequence asc')
