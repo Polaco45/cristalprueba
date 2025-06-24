@@ -6,11 +6,11 @@ class WebsiteSale(WebsiteSaleOriginal):
 
     def _get_pricelist_context(self, pricelist, **kwargs):
         """
-        Sobrescribimos para ignorar el pricelist que venga y forzar a usar
-        el que devuelve Website.get_current_pricelist()
+        Override to ignore any pricelist passed in, and force using 
+        the one returned by Website.get_current_pricelist() for the current website.
         """
-        # Forzar a usar el get_current_pricelist de la web en sesión
+        # Force using the current website’s pricelist in session
         website = http.request.website
         pricelist = website.get_current_pricelist()
-        # Llamamos al super con el pricelist que acabamos de obtener
+        # Call super with the pricelist we just obtained
         return super(WebsiteSale, self)._get_pricelist_context(pricelist, **kwargs)
