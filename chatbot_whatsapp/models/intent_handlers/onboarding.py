@@ -44,30 +44,32 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
         if not memory:
             missing = check_missing_data(partner)
-            if missing:
-                memory_model.create({
-                    'phone': phone,
-                    'partner_id': partner.id if partner else False,
-                    'last_intent': 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
-                        'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
-                    ),
-                    'data_buffer': partner.name or ""
-                })
-                if 'nombre' in missing:
-                    return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
-                elif 'email' in missing:
-                    return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
-                elif 'tag' in missing:
-                    return True, (
-                        "Una última pregunta 😊\n"
-                        "¿Qué tipo de cliente sos?\n"
-                        "1 - Consumidor final\n"
-                        "2 - Institución / Empresa\n"
-                        "3 - Mayorista\n"
-                        "Podés responder con el número o el texto."
-                    )
-                return False, ""
+            nombre = partner.name or ""
+            email = partner.email or ""
+            buffer = f"{nombre}|||{email}" if email else nombre
 
+            memory_model.create({
+                'phone': phone,
+                'partner_id': partner.id if partner else False,
+                'last_intent': 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
+                    'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
+                ),
+                'data_buffer': buffer,
+            })
+
+            if 'nombre' in missing:
+                return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
+            elif 'email' in missing:
+                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
+            elif 'tag' in missing:
+                return True, (
+                    "Una última pregunta 😊\n"
+                    "¿Qué tipo de cliente sos?\n"
+                    "1 - Consumidor final\n"
+                    "2 - Institución / Empresa\n"
+                    "3 - Mayorista\n"
+                    "Podés responder con el número o el texto."
+                )
             return False, ""
 
         if memory.last_intent == 'esperando_nombre_nuevo_cliente':
@@ -86,7 +88,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
 
             nombre = memory.data_buffer.strip()
-
             tipo_cliente_cache = None
             if "|||" in nombre:
                 partes = nombre.split("|||")
@@ -103,11 +104,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if memory.partner_id:
                 memory.partner_id.write({'email': email})
 
-            # ✅ Si ya tiene categoría, no seguir preguntando
             if partner and partner.category_id:
                 es_nuevo_cliente = not partner.property_product_pricelist
-
-                # Asegurar que NO tenga lista de precios
                 partner.write({'property_product_pricelist': False})
 
                 if es_nuevo_cliente:
@@ -126,12 +124,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 else:
                     return True, "¡Ahora sí! Ya tenemos todo 🙌"
 
-            # Si no tiene tag, pedimos la categoría
-            memory.write({
-                'last_intent': 'esperando_tipo_cliente',
-                'data_buffer': f"{nombre}|||{email}",
-            })
-
             return True, (
                 "Una última pregunta 😊\n"
                 "¿Qué tipo de cliente sos?\n"
@@ -140,7 +132,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 "3 - Mayorista\n"
                 "Podés responder con el número o el texto."
             )
-
 
         if memory.last_intent == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
@@ -153,7 +144,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 )
 
             data_parts = memory.data_buffer.split("|||")
-            if len(data_parts) != 2:
+            if len(data_parts) != 2 or not data_parts[1].strip():
                 memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
                 return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
 
@@ -173,7 +164,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'email': email.strip(),
                     'company_type': 'company',
                 })
-
 
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
