@@ -4,3 +4,4 @@
 from . import product_template
 from . import product_public_category
 from . import multi_website_product
+from . import product_pricelist
