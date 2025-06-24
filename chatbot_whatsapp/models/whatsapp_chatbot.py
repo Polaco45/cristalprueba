@@ -55,36 +55,27 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, response_msg)
                 continue  # Hasta completar el onboarding, no seguimos
 
-
-            # 🚧 Bloqueamos clientes en etapa "Nuevo" o "Clasificado"
-            
-            ### TODO: Modificar el criterio de "is_cotizado" para que tome como referencia una lista de precio, si es nula, 
-            ### no esta cotizado, si tiene valor, esta cotizado. Pero de primeras se debe elimminar la lista de precios por
-            ### defecto que se le asigna al cliente al crear el contacto para que quien cotize al cliente la asigne manualmente.
-            def is_cotizado(phone):
-                partner = self.env['res.partner'].sudo().search([
-                    '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
-                ], limit=1)
+            # ——— Evalúa si está cotizado ———
+            def is_cotizado(partner):
                 if not partner:
                     return False
 
-                default_pricelist_name = "Lista Clientes (ARS)"
                 pricelist = partner.property_product_pricelist
                 pricelist_name = pricelist.name if pricelist else False
-
                 tags = partner.category_id.mapped('name')
 
-                if pricelist_name == default_pricelist_name and any(t in tags for t in ["Tipo de Cliente / EMPRESA", "Tipo de Cliente / Mayorista"]):
+                _logger.info("📌 Evaluando cotización — Partner: %s | Pricelist: %s | Tags: %s",
+                             partner.name, pricelist_name, tags)
+
+                if pricelist_name == "Lista Clientes (ARS)" and any(t in tags for t in ["Tipo de Cliente / EMPRESA", "Tipo de Cliente / Mayorista"]):
                     return False
 
                 return bool(pricelist)
 
-
-
-            if not is_cotizado(phone):
+            if not is_cotizado(partner):
+                _logger.info("🚫 Cliente no cotizado — se detiene el flujo NLP")
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
                 continue
-            
 
             # ——— Confirmación stock y creación de pedido ———
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
