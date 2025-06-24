@@ -1,19 +1,20 @@
+import logging
 from odoo import models, api
+
+_logger = logging.getLogger(__name__)
 
 class Website(models.Model):
     _inherit = 'website'
 
     @api.model
     def get_current_pricelist(self):
-        # Si estamos en el frontend con request.website, entramos para ese registro
-        website = self.env['website'].browse(self.env['ir.config_parameter'].sudo().get_param('website.id', default=False)) \
-                  or (self if self._name == 'website' else None)
-        if website:
-            # Buscamos la primera lista que tenga este sitio en website_ids
-            pricelist = self.env['product.pricelist'].search([
-                ('website_ids', 'in', website.id),
-            ], limit=1)
-            if pricelist:
-                return pricelist
-        # Si no encontramos, delegamos a la implementación estándar
-        return super(Website, self).get_current_pricelist()
+        _logger.info("🔎 [multi_website_pricelist] get_current_pricelist override llamado para website %s", self.id)
+        pricelist = self.env['product.pricelist'].search(
+            [('website_ids', 'in', self.id)], limit=1
+        )
+        if pricelist:
+            _logger.info("✔️ Lista encontrada: %s", pricelist.name)
+            return pricelist
+        default = super(Website, self).get_current_pricelist()
+        _logger.info("↩️ Fallback a lista estándar: %s", default.name)
+        return default
