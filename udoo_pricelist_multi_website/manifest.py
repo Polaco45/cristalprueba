@@ -16,7 +16,7 @@
         'security/ir.model.access.csv',
         'views/product_pricelist_views.xml',
     ],
-    'application': False,
-    'installable': True,
+    'installable': True,      # <- ¡Obligatorio!
     'auto_install': False,
+    'application': False,
 }
