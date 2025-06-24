@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates>
+    <t t-name="ooo.MultiWebsiteProduct.Buttons" t-inherit="web.ListView.Buttons">
+        <xpath expr="//div[hasclass('o_list_buttons')]" position="inside">
+            <t t-if="nbSelected">
+                <button type="button" class="btn btn-info" t-on-click="() => this.onMultiUpdate()">
+                    Update
+                </button>
+            </t>
+        </xpath>
+    </t>
+</templates>
