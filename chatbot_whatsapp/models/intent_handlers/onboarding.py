@@ -118,6 +118,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
                 es_nuevo_cliente = not partner.property_product_pricelist
 
+                # Asegurar que NO tenga lista de precios
+                partner.write({'property_product_pricelist': False})
+
                 if es_nuevo_cliente:
                     env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
@@ -175,6 +178,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'email': email.strip(),
                     'company_type': 'company',
                 })
+
 
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
