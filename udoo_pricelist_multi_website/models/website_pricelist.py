@@ -1,35 +1,44 @@
 # -*- coding: utf-8 -*-
-import logging
-from odoo import api, fields, models, _
-from odoo.http import request
-
-_logger = logging.getLogger(__name__)
+from odoo import api, models
 
 class Website(models.Model):
     _inherit = 'website'
 
-    @api.model
     def get_current_pricelist(self):
-        """
-        Override global: si el partner logeado tiene pricelist asignada,
-        úsala. Sino, la específica del sitio, o finalmente la global.
-        """
-        # 1) Quiero el partner de la sesión (si está logeado)
-        partner = request.env.user.partner_id
-        pl_partner = partner.property_product_pricelist
-        if pl_partner:
-            _logger.info("→ Partner LOGEADO %s usa pricelist %s",
-                         request.env.user.login, pl_partner.name)
-            return pl_partner
+        """Devuelve la pricelist para este sitio, o la global si no hay."""
+        self.ensure_one()
+        Pricelist = self.env['product.pricelist']
+        website_ids = [self.id]
 
-        # 2) No logeado o sin pricelist: busco la lista del sitio
-        site = self.env['website'].browse(request.website.id)
-        # Dominios: o global (sin sitio) o explícita para este sitio
+        # 1) Busco específica (no globales)
+        pl_spec = Pricelist.search(
+            [
+                ('public_website_ids', 'in', website_ids),
+                ('public_website_ids', '!=', False),
+            ],
+            order='sequence asc', limit=1
+        )
+        if pl_spec:
+            return pl_spec
+
+        # 2) Si no hay, devuelvo global
+        return Pricelist.search(
+            [('public_website_ids', '=', False)],
+            order='sequence asc', limit=1
+        )
+
+    def get_pricelist_available(self, show_visible=False, country_code=False):
+        """Devuelve todas las listas válidas para este sitio."""
+        self.ensure_one()
+        Pricelist = self.env['product.pricelist']
         domain = ['|',
-                  ('public_website_ids', '=', False),
-                  ('public_website_ids', 'in', site.id)]
-        pl_site = self.env['product.pricelist'].search(
-            domain, order='sequence asc', limit=1)
-        _logger.info("→ DEFAULT sitio %s devuelve pricelist %s",
-                     site.name, pl_site.name)
-        return pl_site
+            ('public_website_ids', '=', False),
+            ('public_website_ids', 'in', [self.id]),
+        ]
+        if show_visible:
+            domain.append(('selectable', '=', True))
+        if country_code:
+            domain += ['|',
+                       ('country_group_ids', '=', False),
+                       ('country_group_ids.country_ids.code', '=', country_code)]
+        return Pricelist.search(domain, order='sequence asc')
