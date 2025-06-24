@@ -2,7 +2,7 @@
   <record id="view_pricelist_form_multi_website" model="ir.ui.view">
     <field name="name">product.pricelist.form.multi.website</field>
     <field name="model">product.pricelist</field>
-    <field name="inherit_id" ref="product.view_pricelist_form"/>
+    <field name="inherit_id" ref="product_pricelist.view_pricelist_form"/>
     <field name="arch" type="xml">
       <xpath expr="//field[@name='website_id']" position="attributes">
         <attribute name="invisible">1</attribute>
