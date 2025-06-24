@@ -118,6 +118,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
                 es_nuevo_cliente = not partner.property_product_pricelist
 
+                # Asegurar que NO tenga lista de precios
+                partner.write({'property_product_pricelist': False})
+
                 if es_nuevo_cliente:
                     env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
@@ -168,15 +171,16 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'phone': phone,
                     'email': email.strip(),
                     'company_type': 'company',
-                    'property_product_pricelist': False,
                 })
             else:
                 partner.write({
                     'name': nombre.strip(),
                     'email': email.strip(),
                     'company_type': 'company',
-                    'property_product_pricelist': False,
                 })
+
+            # 🔒 Eliminar lista de precios automáticamente asignada
+            partner.write({'property_product_pricelist': False})
 
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
