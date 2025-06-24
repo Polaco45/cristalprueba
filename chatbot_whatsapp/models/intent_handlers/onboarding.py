@@ -48,7 +48,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             email = partner.email or ""
             buffer = f"{nombre}|||{email}" if email else nombre
 
-            memory_model.create({
+            memory = memory_model.create({
                 'phone': phone,
                 'partner_id': partner.id if partner else False,
                 'last_intent': 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
@@ -104,6 +104,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if memory.partner_id:
                 memory.partner_id.write({'email': email})
 
+            partner = memory.partner_id
             if partner and partner.category_id:
                 es_nuevo_cliente = not partner.property_product_pricelist
                 partner.write({'property_product_pricelist': False})
@@ -187,7 +188,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'tag_ids': [(6, 0, [lead_tag.id])],
                 })
 
+            partner.write({'property_product_pricelist': False})
             memory.unlink()
+
             if es_nuevo_cliente:
                 return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
             else:
