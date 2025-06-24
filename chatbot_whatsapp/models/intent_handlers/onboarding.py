@@ -179,8 +179,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'company_type': 'company',
                 })
 
-            # 🔒 Eliminar lista de precios automáticamente asignada
-            partner.write({'property_product_pricelist': False})
 
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
