@@ -3,7 +3,7 @@
     'name': 'Pricelist Multi Website',
     'version': '1.0.1',
     'category': 'Website/Ecommerce',
-    'summary': 'Allow multi-website assignment for product pricelists and partner-specific pricelist',
+    'summary': 'Assign pricelists to multiple websites and respect partner pricelist',
     'license': 'OPL-1',
     'author': 'Custom',
     'website': 'https://tu-dominio.com',
@@ -16,8 +16,7 @@
         'security/ir.model.access.csv',
         'views/product_pricelist_views.xml',
     ],
-    # Auto-carga nuestros modelos (no controllers)
-    'application': False,
     'installable': True,
+    'application': False,
     'auto_install': False,
 }
