@@ -46,24 +46,14 @@ class WhatsAppMessage(models.Model):
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
-            def is_onboarded(phone, partner):
-                has_lead = self.env['crm.lead'].sudo().search_count([
-                    ('phone', 'ilike', phone)
-                ]) > 0
-                has_order = partner and self.env['sale.order'].sudo().search_count([
-                    ('partner_id', '=', partner.id)
-                ]) > 0
-                return has_lead or has_order
-
-            onboarded = partner and is_onboarded(phone, partner)
-
-            if not onboarded:
-                onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
-                handled, response_msg = onboarding_handler.process_onboarding_flow(
-                    self.env, record, phone, plain, memory_model
-                )
+            # ⚠️ Onboarding progresivo (nombre, email, tag)
+            onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
+            handled, response_msg = onboarding_handler.process_onboarding_flow(
+                self.env, record, phone, plain, memory_model
+            )
+            if handled:
                 _send_text(record, response_msg)
-                continue  # ⚠️ SIEMPRE cortamos si no está onboardeado
+                continue  # Hasta completar el onboarding, no seguimos
 
             # 🚧 Bloqueamos clientes en etapa "Nuevo" o "Clasificado"
             def is_cotizado(phone):

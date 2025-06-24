@@ -19,6 +19,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             '2': "Tipo de Cliente / EMPRESA",
             'institucion': "Tipo de Cliente / EMPRESA",
             'empresa': "Tipo de Cliente / EMPRESA",
+            '2 - institución': "Tipo de Cliente / EMPRESA",
             '3': "Tipo de Cliente / Mayorista",
             'mayorista': "Tipo de Cliente / Mayorista",
         }
@@ -31,118 +32,128 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
         ], limit=1)
 
-        # 🔁 Re-evaluamos datos faltantes SIEMPRE
-        missing = []
-        if not partner or not partner.name:
-            missing.append('nombre')
-        if not partner or not partner.email:
-            missing.append('email')
-        if not partner or not partner.category_id:
-            missing.append('tag')
+        def check_missing_data(p):
+            missing = []
+            if not p or not p.name:
+                missing.append('nombre')
+            if not p or not p.email:
+                missing.append('email')
+            if not p or not p.category_id:
+                missing.append('tag')
+            return missing
 
-        if not memory and missing:
-            memory_model.create({
-                'phone': phone,
-                'partner_id': partner.id if partner else False,
-                'last_intent': 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
-                    'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
-                ),
-                'data_buffer': partner.name or ''
-            })
-            if 'nombre' in missing:
-                return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
-            elif 'email' in missing:
-                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
-            else:
-                return True, (
-                    "Una última pregunta 😊\n"
-                    "¿Qué tipo de cliente sos?\n"
-                    "1 - Consumidor final\n"
-                    "2 - Institución / Empresa\n"
-                    "3 - Mayorista\n"
-                    "Podés responder con el número o el texto."
-                )
-
-        if memory:
-            if memory.last_intent == 'esperando_nombre_nuevo_cliente':
-                nombre = plain_body.strip()
-                memory.write({
-                    'last_intent': 'esperando_email_nuevo_cliente',
-                    'data_buffer': nombre,
+        # Primera vez que llega o hay partner incompleto
+        if not memory:
+            missing = check_missing_data(partner)
+            if missing:
+                memory_model.create({
+                    'phone': phone,
+                    'partner_id': partner.id if partner else False,
+                    'last_intent': 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
+                        'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
+                    ),
+                    'data_buffer': partner.name or ""
                 })
-                if memory.partner_id:
-                    memory.partner_id.write({'name': nombre})
-                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
-
-            if memory.last_intent == 'esperando_email_nuevo_cliente':
-                email = plain_body.strip()
-                if not self._is_valid_email(email):
-                    return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
-                nombre = memory.data_buffer
-                memory.write({
-                    'last_intent': 'esperando_tipo_cliente',
-                    'data_buffer': f"{nombre}|||{email}",
-                })
-                if memory.partner_id:
-                    memory.partner_id.write({'email': email})
-                return True, (
-                    "Una última pregunta 😊\n"
-                    "¿Qué tipo de cliente sos?\n"
-                    "1 - Consumidor final\n"
-                    "2 - Institución / Empresa\n"
-                    "3 - Mayorista\n"
-                    "Podés responder con el número o el texto."
-                )
-
-            if memory.last_intent == 'esperando_tipo_cliente':
-                tipo_etiqueta = self._parse_cliente_tag(plain_body)
-                if not tipo_etiqueta:
+                if 'nombre' in missing:
+                    return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
+                elif 'email' in missing:
+                    return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
+                elif 'tag' in missing:
                     return True, (
-                        "No entendí esa opción 🤔. Por favor respondé con:\n"
+                        "Una última pregunta 😊\n"
+                        "¿Qué tipo de cliente sos?\n"
                         "1 - Consumidor final\n"
                         "2 - Institución / Empresa\n"
-                        "3 - Mayorista"
+                        "3 - Mayorista\n"
+                        "Podés responder con el número o el texto."
                     )
+                return False, ""
 
-                nombre, email = memory.data_buffer.split("|||")
-                partner = memory.partner_id
+            # Si no falta nada
+            return False, ""
 
-                if not partner:
-                    partner = env['res.partner'].sudo().create({
-                        'name': nombre.strip(),
-                        'phone': phone,
-                        'email': email.strip(),
-                        'company_type': 'company',
-                    })
-                else:
-                    partner.write({
-                        'name': nombre.strip(),
-                        'email': email.strip(),
-                        'company_type': 'company',
-                    })
+        # Flujo existente en curso
+        if memory.last_intent == 'esperando_nombre_nuevo_cliente':
+            nombre = plain_body.strip()
+            memory.write({
+                'last_intent': 'esperando_email_nuevo_cliente',
+                'data_buffer': nombre,
+            })
+            if memory.partner_id:
+                memory.partner_id.write({'name': nombre})
+            return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
 
-                # Etiqueta en contacto
-                tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-                if not tag:
-                    tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
-                partner.category_id = [(4, tag.id)]
+        if memory.last_intent == 'esperando_email_nuevo_cliente':
+            email = plain_body.strip()
+            if not self._is_valid_email(email):
+                return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
 
-                # Etiqueta en lead
-                lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-                if not lead_tag:
-                    lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+            nombre = memory.data_buffer.strip()
+            memory.write({
+                'last_intent': 'esperando_tipo_cliente',
+                'data_buffer': f"{nombre}|||{email}",
+            })
+            if memory.partner_id:
+                memory.partner_id.write({'email': email})
+            return True, (
+                "Una última pregunta 😊\n"
+                "¿Qué tipo de cliente sos?\n"
+                "1 - Consumidor final\n"
+                "2 - Institución / Empresa\n"
+                "3 - Mayorista\n"
+                "Podés responder con el número o el texto."
+            )
 
-                env['crm.lead'].sudo().create({
-                    'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
-                    'contact_name': nombre.strip(),
-                    'email_from': email.strip(),
+        if memory.last_intent == 'esperando_tipo_cliente':
+            tipo_etiqueta = self._parse_cliente_tag(plain_body)
+            if not tipo_etiqueta:
+                return True, (
+                    "No entendí esa opción 🤔. Por favor respondé con:\n"
+                    "1 - Consumidor final\n"
+                    "2 - Institución / Empresa\n"
+                    "3 - Mayorista"
+                )
+
+            nombre, email = memory.data_buffer.split("|||")
+            partner = memory.partner_id
+
+            if not partner:
+                partner = env['res.partner'].sudo().create({
+                    'name': nombre.strip(),
                     'phone': phone,
-                    'partner_id': partner.id,
-                    'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
-                    'tag_ids': [(6, 0, [lead_tag.id])],
+                    'email': email.strip(),
+                    'company_type': 'company',
+                })
+            else:
+                partner.write({
+                    'name': nombre.strip(),
+                    'email': email.strip(),
+                    'company_type': 'company',
                 })
 
-                memory.unlink()
-                return True, "¡Ahora sí! Un asesor se va a contactar con vos para cotizarte ✅"
+            # Etiqueta partner
+            tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+            if not tag:
+                tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
+            partner.category_id = [(4, tag.id)]
+
+            # Etiqueta lead
+            lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+            if not lead_tag:
+                lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+
+            # Crear lead
+            env['crm.lead'].sudo().create({
+                'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
+                'contact_name': nombre.strip(),
+                'email_from': email.strip(),
+                'phone': phone,
+                'partner_id': partner.id,
+                'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
+                'tag_ids': [(6, 0, [lead_tag.id])],
+            })
+
+            memory.unlink()
+            return True, "¡Ahora sí! Ya tenemos todo 🙌"
 
         return False, ""
