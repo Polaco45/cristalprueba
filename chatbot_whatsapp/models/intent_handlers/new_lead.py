@@ -1,6 +1,5 @@
-# models/intent_handlers/new_lead.py
-
 from odoo import models, api
+import re
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -8,6 +7,13 @@ _logger = logging.getLogger(__name__)
 class NewLeadHandler(models.AbstractModel):
     _name = 'chatbot.whatsapp.new_lead_handler'
     _description = "Manejo de nuevo lead para clientes nuevos vía WhatsApp"
+
+    def _is_valid_email(self, email):
+        """
+        Valida el formato del correo electrónico con regex básica.
+        """
+        pattern = r"^[\w\.-]+@[\w\.-]+\.\w{2,}$"
+        return re.match(pattern, email)
 
     @api.model
     def process_new_lead_flow(self, env, record, phone, plain_body, memory_model):
@@ -35,11 +41,15 @@ class NewLeadHandler(models.AbstractModel):
             })
             return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
 
-        # Esperando email -> creo lead y cierro flujo
+        # Esperando email -> valido y creo lead
         if memory.last_intent == 'esperando_email_nuevo_cliente':
-            nombre = memory.data_buffer or "Sin nombre"
             email = plain_body.strip()
-            # Creo lead
+
+            if not self._is_valid_email(email):
+                return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
+
+            nombre = memory.data_buffer or "Sin nombre"
+
             lead_vals = {
                 'name': f"Nuevo cliente WhatsApp: {nombre}",
                 'contact_name': nombre,
@@ -47,9 +57,9 @@ class NewLeadHandler(models.AbstractModel):
                 'phone': phone,
                 'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
             }
+
             env['crm.lead'].sudo().create(lead_vals)
             memory.unlink()
             return True, "¡Gracias! Un asesor se va a contactar con vos para cotizarte ✅"
 
-        # En cualquier otro caso, no manejo
         return False, ""
