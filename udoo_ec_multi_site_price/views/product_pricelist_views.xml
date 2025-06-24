@@ -1,0 +1,32 @@
+<odoo>
+  <!-- FORMULARIO: oculto website_id, añado public_website_ids -->
+  <record id="view_pricelist_form_multi_website" model="ir.ui.view">
+    <field name="name">product.pricelist.form.multi.website</field>
+    <field name="model">product.pricelist</field>
+    <field name="inherit_id" ref="product.view_pricelist_form"/>
+    <field name="arch" type="xml">
+      <!-- ocultar campo legacy -->
+      <xpath expr="//field[@name='website_id']" position="attributes">
+        <attribute name="invisible">1</attribute>
+      </xpath>
+      <!-- insertar Many2many -->
+      <xpath expr="//sheet/group" position="inside">
+        <group string="Websites">
+          <field name="public_website_ids" widget="many2many_tags"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- LISTADO: muestro public_website_ids junto al nombre -->
+  <record id="view_pricelist_tree_multi_website" model="ir.ui.view">
+    <field name="name">product.pricelist.tree.multi.website</field>
+    <field name="model">product.pricelist</field>
+    <field name="inherit_id" ref="product.view_pricelist_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//tree/field[@name='name']" position="after">
+        <field name="public_website_ids"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
