@@ -55,20 +55,23 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, response_msg)
                 continue  # Hasta completar el onboarding, no seguimos
 
+
             # 🚧 Bloqueamos clientes en etapa "Nuevo" o "Clasificado"
+            
+            ### TODO: Modificar el criterio de "is_cotizado" para que tome como referencia una lista de precio, si es nula, 
+            ### no esta cotizado, si tiene valor, esta cotizado. Pero de primeras se debe elimminar la lista de precios por
+            ### defecto que se le asigna al cliente al crear el contacto para que quien cotize al cliente la asigne manualmente.
             def is_cotizado(phone):
-                lead = self.env['crm.lead'].sudo().search(
-                    [('phone', 'ilike', phone)],
-                    order='create_date desc', limit=1
-                )
-                if not lead:
-                    return False
-                etapas_ok = ['Propuesta', 'Ganado']
-                return lead.stage_id.name in etapas_ok
+                partner = self.env['res.partner'].sudo().search([
+                    '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
+                ], limit=1)
+                return bool(partner and partner.property_product_pricelist)
+
 
             if not is_cotizado(phone):
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
                 continue
+            
 
             # ——— Confirmación stock y creación de pedido ———
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)

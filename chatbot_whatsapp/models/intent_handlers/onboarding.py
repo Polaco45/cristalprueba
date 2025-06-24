@@ -42,7 +42,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 missing.append('tag')
             return missing
 
-        # Primera vez que llega o hay partner incompleto
         if not memory:
             missing = check_missing_data(partner)
             if missing:
@@ -69,10 +68,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     )
                 return False, ""
 
-            # Si no falta nada
             return False, ""
 
-        # Flujo existente en curso
         if memory.last_intent == 'esperando_nombre_nuevo_cliente':
             nombre = plain_body.strip()
             memory.write({
@@ -90,7 +87,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             nombre = memory.data_buffer.strip()
 
-            # Detectar si veníamos de un intento de responder tipo de cliente
             tipo_cliente_cache = None
             if "|||" in nombre:
                 partes = nombre.split("|||")
@@ -111,30 +107,33 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 partner = memory.partner_id
                 tipo_etiqueta = tipo_cliente_cache
 
-                # Etiqueta partner
                 tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
                 if not tag:
                     tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
                 partner.category_id = [(4, tag.id)]
 
-                # Etiqueta lead
                 lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
                 if not lead_tag:
                     lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
-                # Crear lead
-                env['crm.lead'].sudo().create({
-                    'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
-                    'contact_name': nombre.strip(),
-                    'email_from': email.strip(),
-                    'phone': phone,
-                    'partner_id': partner.id,
-                    'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
-                    'tag_ids': [(6, 0, [lead_tag.id])],
-                })
+                es_nuevo_cliente = not partner.property_product_pricelist
+
+                if es_nuevo_cliente:
+                    env['crm.lead'].sudo().create({
+                        'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
+                        'contact_name': nombre.strip(),
+                        'email_from': email.strip(),
+                        'phone': phone,
+                        'partner_id': partner.id,
+                        'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
+                        'tag_ids': [(6, 0, [lead_tag.id])],
+                    })
 
                 memory.unlink()
-                return True, "¡Ahora sí! Ya tenemos todo 🙌"
+                if es_nuevo_cliente:
+                    return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
+                else:
+                    return True, "¡Ahora sí! Ya tenemos todo 🙌"
 
             return True, (
                 "Una última pregunta 😊\n"
@@ -157,7 +156,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2:
-                # Falta el email, pedirlo de nuevo para no romper el flujo
                 memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
                 return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
 
@@ -170,37 +168,42 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'phone': phone,
                     'email': email.strip(),
                     'company_type': 'company',
+                    'property_product_pricelist': False,
                 })
             else:
                 partner.write({
                     'name': nombre.strip(),
                     'email': email.strip(),
                     'company_type': 'company',
+                    'property_product_pricelist': False,
                 })
 
-            # Etiqueta partner
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
                 tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
             partner.category_id = [(4, tag.id)]
 
-            # Etiqueta lead
             lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not lead_tag:
                 lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
-            # Crear lead
-            env['crm.lead'].sudo().create({
-                'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
-                'contact_name': nombre.strip(),
-                'email_from': email.strip(),
-                'phone': phone,
-                'partner_id': partner.id,
-                'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
-                'tag_ids': [(6, 0, [lead_tag.id])],
-            })
+            es_nuevo_cliente = not partner.property_product_pricelist
+
+            if es_nuevo_cliente:
+                env['crm.lead'].sudo().create({
+                    'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
+                    'contact_name': nombre.strip(),
+                    'email_from': email.strip(),
+                    'phone': phone,
+                    'partner_id': partner.id,
+                    'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
+                    'tag_ids': [(6, 0, [lead_tag.id])],
+                })
 
             memory.unlink()
-            return True, "¡Ahora sí! Ya tenemos todo 🙌"
+            if es_nuevo_cliente:
+                return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
+            else:
+                return True, "¡Ahora sí! Ya tenemos todo 🙌"
 
         return False, ""

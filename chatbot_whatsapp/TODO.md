@@ -1,7 +1,7 @@
 * Onboardear a la persona en caso de que sea nueva
     - Validar Email
     - Vincular al contacto
-    * Preguntar intencion (consumidor final, b2b o revendedores)
+    - Preguntar intencion (consumidor final, b2b o revendedores)
     * Siempre hacer lead. Diferenciar en Calificado en el CRM:
         * Si es nuevo contacto, "Nuevo cliente Whatsapp: *Nombre*"
         * Si es contacto existente, "Pedido Whatsapp: *Nombre*"
