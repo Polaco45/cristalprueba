@@ -103,19 +103,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if memory.partner_id:
                 memory.partner_id.write({'email': email})
 
-            if tipo_cliente_cache:
-                partner = memory.partner_id
-                tipo_etiqueta = tipo_cliente_cache
-
-                tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-                if not tag:
-                    tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
-                partner.category_id = [(4, tag.id)]
-
-                lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-                if not lead_tag:
-                    lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
-
+            # ✅ Si ya tiene categoría, no seguir preguntando
+            if partner and partner.category_id:
                 es_nuevo_cliente = not partner.property_product_pricelist
 
                 # Asegurar que NO tenga lista de precios
@@ -129,7 +118,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         'phone': phone,
                         'partner_id': partner.id,
                         'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
-                        'tag_ids': [(6, 0, [lead_tag.id])],
                     })
 
                 memory.unlink()
@@ -137,6 +125,12 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
                 else:
                     return True, "¡Ahora sí! Ya tenemos todo 🙌"
+
+            # Si no tiene tag, pedimos la categoría
+            memory.write({
+                'last_intent': 'esperando_tipo_cliente',
+                'data_buffer': f"{nombre}|||{email}",
+            })
 
             return True, (
                 "Una última pregunta 😊\n"
@@ -146,6 +140,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 "3 - Mayorista\n"
                 "Podés responder con el número o el texto."
             )
+
 
         if memory.last_intent == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
