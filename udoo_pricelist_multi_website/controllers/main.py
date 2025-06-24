@@ -1,21 +1,26 @@
-# -*- coding: utf-8 -*-
+import logging
 from odoo import http
 from odoo.addons.website_sale.controllers.main import WebsiteSale as WebsiteSaleBase
+
+_logger = logging.getLogger(__name__)
 
 class WebsiteSale(WebsiteSaleBase):
 
     def _get_pricelist_context(self, pricelist, **kwargs):
-        """
-        1) Si el usuario tiene partner.property_product_pricelist, úsala.
-        2) Sino, llama al método original (que respetará website → global).
-        """
-        # 1) Chequeo partner
+        # 0) DEBUG: qué partner y qué lista llega originalmente
         partner = http.request.env.user.partner_id
-        if partner and partner.property_product_pricelist:
-            return {
-                'pricelist': partner.property_product_pricelist,
-                # puedes añadir otras claves de contexto si las usas
-            }
+        _logger.debug("OVERRIDE _get_pricelist_context called: "
+                      "user=%s partner_pricelist=%s orig_pricelist=%s",
+                      http.request.env.user.login,
+                      getattr(partner, 'property_product_pricelist', False),
+                      pricelist.name if pricelist else None)
 
-        # 2) Caigo al nativo para respetar website → global
-        return super()._get_pricelist_context(pricelist, **kwargs)
+        # 1) Si el partner tiene pricelist, úsala
+        if partner and partner.property_product_pricelist:
+            _logger.debug(" → Forzando pricelist desde partner: %s", partner.property_product_pricelist.name)
+            return {'pricelist': partner.property_product_pricelist}
+
+        # 2) Sino, caigo al super
+        ctx = super(WebsiteSale, self)._get_pricelist_context(pricelist, **kwargs)
+        _logger.debug(" → Caída al super, se usará: %s", ctx.get('pricelist').name)
+        return ctx
