@@ -5,47 +5,45 @@ class Website(models.Model):
     _inherit = 'website'
 
     def get_current_pricelist(self):
-        """Devuelve la lista de precios predeterminada para este sitio web, o la global si no hay específica."""
+        """Devuelve la lista de precios específica de este sitio;
+           si no hay, devuelve la global."""
         self.ensure_one()
-        website_ids = [self.id]  # <-- convertimos el ID en lista
+        website_ids = [self.id]
 
-        # 1) Intentar primero encontrar una lista específica del sitio
-        pricelist = self.env['product.pricelist'].search(
-            [('public_website_ids', 'in', website_ids)],
+        Pricelist = self.env['product.pricelist']
+
+        # 1) BUSCO SOLO listas que tengan este website_id, EXCLUYENDO las globales.
+        pl_specific = Pricelist.search(
+            [('public_website_ids', 'in', website_ids),
+             ('public_website_ids', '!=', False)],
             order='sequence asc',
             limit=1
         )
-        if pricelist:
-            return pricelist
+        if pl_specific:
+            return pl_specific
 
-        # 2) Si no hay, volver a la lista global (public_website_ids = False)
-        return self.env['product.pricelist'].search(
+        # 2) Si no hay ninguna específica, uso la global (sin sitio asignado)
+        pl_global = Pricelist.search(
             [('public_website_ids', '=', False)],
             order='sequence asc',
             limit=1
         )
+        return pl_global
 
     def get_pricelist_available(self, show_visible=False, country_code=False):
-        """
-        Devuelve todas las listas de precios aplicables a este sitio web.
-        - show_visible: si es True, sólo las marcadas como 'selectable' (visibles en eCommerce).
-        - country_code: filtra por país (sólo listas sin restricción de país o que incluyan ese código).
-        """
+        """Devuelve todas las listas válidas para este sitio."""
         self.ensure_one()
-        website_ids = [self.id]  # <-- siempre lista
-
-        # Dominio base: globales o asignadas a este sitio
-        domain = ['|', ('public_website_ids', '=', False), ('public_website_ids', 'in', website_ids)]
-
-        # Si sólo queremos las visibles (desplegable web), agregamos 'selectable'
+        website_ids = [self.id]
+        domain = ['|',
+            # o global...
+            ('public_website_ids', '=', False),
+            # o específicamente para este sitio
+            ('public_website_ids', 'in', website_ids),
+        ]
         if show_visible:
-            domain += [('selectable', '=', True)]
-
-        # Filtro opcional por país
+            domain.append(('selectable', '=', True))
         if country_code:
             domain += ['|',
                        ('country_group_ids', '=', False),
                        ('country_group_ids.country_ids.code', '=', country_code)]
-
-        # Devolvemos ordenadas por 'sequence' (prioridad)
         return self.env['product.pricelist'].search(domain, order='sequence asc')
