@@ -26,9 +26,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         return OPCIONES.get(texto_usuario.strip().lower())
 
     @api.model
-    def process_onboarding_flow(self, env, record, phone, plain_body, memory_model):
+    def process_onboarding_flow(self, record, phone, plain_body, memory_model):
         memory = memory_model.search([('phone', '=', phone)], limit=1)
-        partner = env['res.partner'].sudo().search([
+        partner = self.env['res.partner'].sudo().search([
             '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
         ], limit=1)
 
@@ -107,19 +107,19 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 partner = memory.partner_id
                 tipo_etiqueta = tipo_cliente_cache
 
-                tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+                tag = self.env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
                 if not tag:
-                    tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
+                    tag = self.env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
                 partner.category_id = [(4, tag.id)]
 
-                lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+                lead_tag = self.env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
                 if not lead_tag:
-                    lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+                    lead_tag = self.env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
                 es_nuevo_cliente = not partner.property_product_pricelist
 
                 if es_nuevo_cliente:
-                    env['crm.lead'].sudo().create({
+                    self.env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                         'contact_name': nombre.strip(),
                         'email_from': email.strip(),
@@ -130,7 +130,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     })
 
                 # Forzar borrar lista de precios default
-                env['ir.property'].sudo().search([
+                self.env['ir.property'].sudo().search([
                     ('name', '=', 'property_product_pricelist'),
                     ('res_id', '=', f'res.partner,{partner.id}')
                 ]).unlink()
@@ -169,14 +169,14 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             partner = memory.partner_id
 
             if not partner:
-                partner = env['res.partner'].sudo().create({
+                partner = self.env['res.partner'].sudo().create({
                     'name': nombre.strip(),
                     'phone': phone,
                     'email': email.strip(),
                     'company_type': 'company',
                 })
                 # Borrar lista de precios default
-                env['ir.property'].sudo().search([
+                self.env['ir.property'].sudo().search([
                     ('name', '=', 'property_product_pricelist'),
                     ('res_id', '=', f'res.partner,{partner.id}')
                 ]).unlink()
@@ -187,24 +187,24 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'company_type': 'company',
                 })
                 # Borrar lista de precios default
-                env['ir.property'].sudo().search([
+                self.env['ir.property'].sudo().search([
                     ('name', '=', 'property_product_pricelist'),
                     ('res_id', '=', f'res.partner,{partner.id}')
                 ]).unlink()
 
-            tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+            tag = self.env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
-                tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
+                tag = self.env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
             partner.category_id = [(4, tag.id)]
 
-            lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+            lead_tag = self.env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not lead_tag:
-                lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+                lead_tag = self.env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
             es_nuevo_cliente = not partner.property_product_pricelist
 
             if es_nuevo_cliente:
-                env['crm.lead'].sudo().create({
+                self.env['crm.lead'].sudo().create({
                     'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                     'contact_name': nombre.strip(),
                     'email_from': email.strip(),
