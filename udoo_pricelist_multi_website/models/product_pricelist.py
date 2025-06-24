@@ -15,7 +15,9 @@ class ProductPricelist(models.Model):
 
     @api.model
     def _search_get_detail(self, website, order, options):
+        """Extend the search domain to include pricelists of the current website or global."""
         res = super(ProductPricelist, self)._search_get_detail(website, order, options)
+        # Allow pricelists that are either global (no website specified) or assigned to this website
         res['base_domain'].append('|')
         res['base_domain'].append(('public_website_ids', '=', False))
         res['base_domain'].append(('public_website_ids', 'in', website.ids))
