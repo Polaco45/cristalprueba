@@ -7,7 +7,12 @@
     "license": "OPL-1",
     "author": "Custom",
     "website": "https://yourdomain.com",
-    "depends": ["website_sale", "product", "website"],
+    "depends": [
+        "website_sale",
+        "product",
+        "website",
+        "product_pricelist",
+    ],
     "data": [
         "security/ir.model.access.csv",
         "views/product_pricelist_views.xml",
