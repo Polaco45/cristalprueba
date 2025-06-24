@@ -65,7 +65,20 @@ class WhatsAppMessage(models.Model):
                 partner = self.env['res.partner'].sudo().search([
                     '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
                 ], limit=1)
-                return bool(partner and partner.property_product_pricelist)
+                if not partner:
+                    return False
+
+                default_pricelist_name = "Lista Clientes (ARS)"
+                pricelist = partner.property_product_pricelist
+                pricelist_name = pricelist.name if pricelist else False
+
+                tags = partner.category_id.mapped('name')
+
+                if pricelist_name == default_pricelist_name and any(t in tags for t in ["Tipo de Cliente / EMPRESA", "Tipo de Cliente / Mayorista"]):
+                    return False
+
+                return bool(pricelist)
+
 
 
             if not is_cotizado(phone):
