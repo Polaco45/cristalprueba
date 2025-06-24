@@ -6,11 +6,11 @@
     'summary': 'Allow multi-website assignment for product pricelists',
     'license': 'OPL-1',
     'author': 'Custom',
-    'website': 'https://yourdomain.com',  # <–– Cámbialo a tu dominio real o déjalo así
+    'website': 'https://tu-dominio.com',  # Cámbialo por tu dominio real o déjalo así
     'depends': [
-        'website_sale',
-        'product',    # necesario para model.product.pricelist
-        'website',    # necesario para el mixin de sitios web
+        'website_sale',  # Extiende lógica de e-commerce
+        'product',       # Modelo product.pricelist
+        'website',       # Hereda Website.get_current_pricelist()
     ],
     'data': [
         'security/ir.model.access.csv',
