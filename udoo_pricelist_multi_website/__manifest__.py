@@ -1,16 +1,15 @@
-# -*- coding: utf-8 -*-
 {
     'name': 'Pricelist Multi Website',
-    'version': '1.0.0',
+    'version': '1.0.1',
     'category': 'Website/Ecommerce',
     'summary': 'Allow multi-website assignment for product pricelists',
     'license': 'OPL-1',
     'author': 'Custom',
-    'website': 'https://tu-dominio.com',  # Cámbialo por tu dominio real o déjalo así
+    'website': 'https://tu-dominio.com',
     'depends': [
-        'website_sale',  # Extiende lógica de e-commerce
-        'product',       # Modelo product.pricelist
-        'website',       # Hereda Website.get_current_pricelist()
+        'website_sale',
+        'product',
+        'website',
     ],
     'data': [
         'security/ir.model.access.csv',
