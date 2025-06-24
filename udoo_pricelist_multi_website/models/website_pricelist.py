@@ -42,3 +42,4 @@ class Website(models.Model):
                        ('country_group_ids', '=', False),
                        ('country_group_ids.country_ids.code', '=', country_code)]
         return Pricelist.search(domain, order='sequence asc')
+        
