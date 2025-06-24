@@ -1,12 +1,14 @@
 <odoo>
-    <record id="view_pricelist_form_multi_website" model="ir.ui.view">
-        <field name="name">product.pricelist.form.multi.website</field>
-        <field name="model">product.pricelist</field>
-        <field name="inherit_id" ref="product.view_pricelist_form"/>
-        <field name="arch" type="xml">
-            <field name="website_id" position="replace">
-                <field name="website_ids" widget="many2many_tags"/>
-            </field>
-        </field>
-    </record>
+  <record id="view_pricelist_form_multi_website" model="ir.ui.view">
+    <field name="name">product.pricelist.form.multi.website</field>
+    <field name="model">product.pricelist</field>
+    <!-- ESTE ES EL CAMBIO CLAVE: -->
+    <field name="inherit_id" ref="product.product_pricelist_view"/>
+    <field name="arch" type="xml">
+      <!-- Reemplazamos el many2one original por el many2many nuevo -->
+      <field name="website_id" position="replace">
+        <field name="website_ids" widget="many2many_tags"/>
+      </field>
+    </field>
+  </record>
 </odoo>
