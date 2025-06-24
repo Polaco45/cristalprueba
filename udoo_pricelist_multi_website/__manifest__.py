@@ -1,22 +1,22 @@
 # -*- coding: utf-8 -*-
 {
-    "name": "Pricelist Multi Website",
-    "version": "1.0.0",
-    "category": "Website/Ecommerce",
-    "summary": "Allow multi-website assignment for product pricelists",
-    "license": "OPL-1",
-    "author": "Custom",
-    "website": "https://quimicacristal.com.ar",  # tu dominio real (opcional)
-    "depends": [
-        "website_sale",   # e-Commerce
-        "product",        # core de productos/pricelists
-        "website",        # gestión de sitios web
+    'name': 'Pricelist Multi Website',
+    'version': '1.0.0',
+    'category': 'Website/Ecommerce',
+    'summary': 'Allow multi-website assignment for product pricelists',
+    'license': 'OPL-1',
+    'author': 'Custom',
+    'website': 'https://yourdomain.com',  # <–– Cámbialo a tu dominio real o déjalo así
+    'depends': [
+        'website_sale',
+        'product',    # necesario para model.product.pricelist
+        'website',    # necesario para el mixin de sitios web
     ],
-    "data": [
-        "security/ir.model.access.csv",
-        "views/product_pricelist_views.xml",
+    'data': [
+        'security/ir.model.access.csv',
+        'views/product_pricelist_views.xml',
     ],
-    "installable": True,
-    "application": False,
-    "auto_install": False,
+    'installable': True,
+    'application': False,
+    'auto_install': False,
 }
