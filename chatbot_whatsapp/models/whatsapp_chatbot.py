@@ -2,7 +2,7 @@ from odoo import models, api
 from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone
 from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
-from .intent_handlers.new_lead import NewLeadHandler
+from .intent_handlers.onboarding import WhatsAppOnboardingHandler
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
     handle_respuesta_faq
@@ -58,8 +58,8 @@ class WhatsAppMessage(models.Model):
             onboarded = partner and is_onboarded(phone, partner)
 
             if not onboarded:
-                new_lead_handler = self.env['chatbot.whatsapp.new_lead_handler']
-                handled, response_msg = new_lead_handler.process_new_lead_flow(
+                onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
+                handled, response_msg = onboarding_handler.process_onboarding_flow(
                     self.env, record, phone, plain, memory_model
                 )
                 _send_text(record, response_msg)

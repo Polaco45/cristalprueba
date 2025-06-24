@@ -4,24 +4,23 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-class NewLeadHandler(models.AbstractModel):
-    _name = 'chatbot.whatsapp.new_lead_handler'
-    _description = "Manejo de nuevo lead para clientes nuevos vía WhatsApp"
+class WhatsAppOnboardingHandler(models.AbstractModel):
+    _name = 'chatbot.whatsapp.onboarding_handler'
+    _description = "Onboarding progresivo de cliente por WhatsApp"
+
 
     def _is_valid_email(self, email):
         pattern = r"^[\w\.-]+@[\w\.-]+\.\w{2,}$"
         return re.match(pattern, email)
 
     def _parse_cliente_tag(self, texto_usuario):
-        """
-        Devuelve la etiqueta correspondiente a la opción del usuario.
-        """
         OPCIONES = {
             '1': "Tipo de Cliente / Consumidor Final",
             'consumidor final': "Tipo de Cliente / Consumidor Final",
             '2': "Tipo de Cliente / EMPRESA",
             'institucion': "Tipo de Cliente / EMPRESA",
             'empresa': "Tipo de Cliente / EMPRESA",
+            '2 - institución': "Tipo de Cliente / EMPRESA",
             '3': "Tipo de Cliente / Mayorista",
             'mayorista': "Tipo de Cliente / Mayorista",
         }
@@ -31,29 +30,68 @@ class NewLeadHandler(models.AbstractModel):
     @api.model
     def process_new_lead_flow(self, env, record, phone, plain_body, memory_model):
         memory = memory_model.search([('phone', '=', phone)], limit=1)
+        partner = env['res.partner'].sudo().search([
+            '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
+        ], limit=1)
 
         if not memory:
-            memory_model.create({
-                'phone': phone,
-                'last_intent': 'esperando_nombre_nuevo_cliente',
-            })
-            return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
+            # Revisamos qué datos faltan del partner existente
+            missing = []
+            if not partner or not partner.name:
+                missing.append('nombre')
+            if not partner or not partner.email:
+                missing.append('email')
+            if not partner or not partner.category_id:
+                missing.append('tag')
 
+            # Si no hay partner, o le falta algo, empezamos flujo
+            if missing:
+                memory_model.create({
+                    'phone': phone,
+                    'partner_id': partner.id if partner else False,
+                    'last_intent': 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
+                        'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
+                    ),
+                    'data_buffer': partner.name or ''
+                })
+                if 'nombre' in missing:
+                    return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
+                elif 'email' in missing:
+                    return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
+                elif 'tag' in missing:
+                    return True, (
+                        "Una última pregunta 😊\n"
+                        "¿Qué tipo de cliente sos?\n"
+                        "1 - Consumidor final\n"
+                        "2 - Institución / Empresa\n"
+                        "3 - Mayorista\n"
+                        "Podés responder con el número o el texto."
+                    )
+            else:
+                return False, ""  # Todo está OK, no necesita onboarding
+
+        # Ya hay memoria → continuamos el flujo
         if memory.last_intent == 'esperando_nombre_nuevo_cliente':
+            nombre = plain_body.strip()
             memory.write({
                 'last_intent': 'esperando_email_nuevo_cliente',
-                'data_buffer': plain_body.strip(),  # Guardamos nombre
+                'data_buffer': nombre,
             })
+            if memory.partner_id:
+                memory.partner_id.write({'name': nombre})
             return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
 
         if memory.last_intent == 'esperando_email_nuevo_cliente':
             email = plain_body.strip()
             if not self._is_valid_email(email):
                 return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
+            nombre = memory.data_buffer
             memory.write({
                 'last_intent': 'esperando_tipo_cliente',
-                'data_buffer': f"{memory.data_buffer.strip()}|||{email}",  # Guardamos nombre y email
+                'data_buffer': f"{nombre}|||{email}",
             })
+            if memory.partner_id:
+                memory.partner_id.write({'email': email})
             return True, (
                 "Una última pregunta 😊\n"
                 "¿Qué tipo de cliente sos?\n"
@@ -74,28 +112,34 @@ class NewLeadHandler(models.AbstractModel):
                 )
 
             nombre, email = memory.data_buffer.split("|||")
-            partner = env['res.partner'].sudo().create({
-                'name': nombre.strip(),
-                'phone': phone,
-                'email': email.strip(),
-                'company_type': 'company',
-            })
+            partner = memory.partner_id
 
-            # Buscar o crear etiqueta
-            tag = env['res.partner.category'].sudo().search([
-                ('name', '=', tipo_etiqueta)
-            ], limit=1)
+            if not partner:
+                partner = env['res.partner'].sudo().create({
+                    'name': nombre.strip(),
+                    'phone': phone,
+                    'email': email.strip(),
+                    'company_type': 'company',
+                })
+            else:
+                partner.write({
+                    'name': nombre.strip(),
+                    'email': email.strip(),
+                    'company_type': 'company',
+                })
+
+            # Etiqueta partner
+            tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
                 tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
-
             partner.category_id = [(4, tag.id)]
 
-            # Buscar o crear etiqueta para crm.lead
+            # Etiqueta lead
             lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not lead_tag:
                 lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
-            # Crear lead con etiqueta
+            # Crear lead
             env['crm.lead'].sudo().create({
                 'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                 'contact_name': nombre.strip(),
@@ -105,7 +149,6 @@ class NewLeadHandler(models.AbstractModel):
                 'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
                 'tag_ids': [(6, 0, [lead_tag.id])],
             })
-
 
             memory.unlink()
             return True, "¡Gracias! Un asesor se va a contactar con vos para cotizarte ✅"
