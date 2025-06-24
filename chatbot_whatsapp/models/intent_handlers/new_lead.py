@@ -90,6 +90,12 @@ class NewLeadHandler(models.AbstractModel):
 
             partner.category_id = [(4, tag.id)]
 
+            # Buscar o crear etiqueta para crm.lead
+            lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+            if not lead_tag:
+                lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+
+            # Crear lead con etiqueta
             env['crm.lead'].sudo().create({
                 'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                 'contact_name': nombre.strip(),
@@ -97,7 +103,9 @@ class NewLeadHandler(models.AbstractModel):
                 'phone': phone,
                 'partner_id': partner.id,
                 'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
+                'tag_ids': [(6, 0, [lead_tag.id])],
             })
+
 
             memory.unlink()
             return True, "¡Gracias! Un asesor se va a contactar con vos para cotizarte ✅"
