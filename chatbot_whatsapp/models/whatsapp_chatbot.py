@@ -1,184 +1,186 @@
+# whatsapp_chatbot.py
 from odoo import models, api
-import re
+from ..utils.nlp import detect_intention
+from ..utils.utils import clean_html, normalize_phone, is_cotizado
+from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
+from .intent_handlers.onboarding import WhatsAppOnboardingHandler
+from .intent_handlers.intent_handlers import (
+    handle_solicitar_factura,
+    handle_respuesta_faq
+)
 import logging
-from ..utils.utils import is_cotizado
 
 _logger = logging.getLogger(__name__)
 
-class WhatsAppOnboardingHandler(models.AbstractModel):
-    _name = 'chatbot.whatsapp.onboarding_handler'
-    _description = "Onboarding progresivo de cliente por WhatsApp"
+class WhatsAppMessage(models.Model):
+    _inherit = 'whatsapp.message'
 
-    def _is_valid_email(self, email):
-        pattern = r"^[\w\.-]+@[\w\.-]+\.\w{2,}$"
-        return re.match(pattern, email)
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
 
-    def _parse_cliente_tag(self, texto_usuario):
-        OPCIONES = {
-            '1': "Tipo de Cliente / Consumidor Final",
-            'consumidor final': "Tipo de Cliente / Consumidor Final",
-            '2': "Tipo de Cliente / EMPRESA",
-            'institucion': "Tipo de Cliente / EMPRESA",
-            'empresa': "Tipo de Cliente / EMPRESA",
-            '2 - institución': "Tipo de Cliente / EMPRESA",
-            '3': "Tipo de Cliente / Mayorista",
-            'mayorista': "Tipo de Cliente / Mayorista",
-        }
-        return OPCIONES.get(texto_usuario.strip().lower())
+        for record in records:
+            if record.state not in ('received', 'inbound'):
+                continue
 
-    @api.model
-    def process_onboarding_flow(self, env, record, phone, plain_body, memory_model):
-        memory = memory_model.search([('phone', '=', phone)], limit=1)
-        partner = env['res.partner'].sudo().search([
-            '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
-        ], limit=1)
+            plain = clean_html(record.body or "").strip()
+            phone = normalize_phone(record.mobile_number or record.phone or "")
+            if not (plain and phone):
+                continue
 
-        def check_missing_data(p):
-            missing = []
-            if not p or not p.name:
-                missing.append('nombre')
-            if not p or not p.email:
-                missing.append('email')
-            if not p or not p.category_id:
-                missing.append('tag')
-            return missing
+            def _send_text(to_rec, text_to_send):
+                vals = {
+                    'mobile_number': to_rec.mobile_number,
+                    'body': text_to_send,
+                    'state': 'outgoing',
+                    'wa_account_id': to_rec.wa_account_id.id if to_rec.wa_account_id else False,
+                    'create_uid': self.env.ref('base.user_admin').id,
+                }
+                out = self.env['whatsapp.message'].sudo().create(vals)
+                out.sudo().write({'body': text_to_send})
+                if hasattr(out, '_send_message'):
+                    out._send_message()
 
-        def crear_lead(nombre, email, partner):
-            lead_name = f"Pedido WhatsApp: {nombre.strip()}" if is_cotizado(partner) else f"Nuevo cliente WhatsApp: {nombre.strip()}"
-            return env['crm.lead'].sudo().create({
-                'name': lead_name,
-                'contact_name': nombre.strip(),
-                'email_from': email.strip(),
-                'phone': phone,
-                'partner_id': partner.id,
-                'description': "Contacto desde chatbot de WhatsApp."
-            })
+            partner = self.env['res.partner'].sudo().search([
+                '|', ('phone','ilike', phone), ('mobile','ilike', phone)
+            ], limit=1)
 
-        if not memory:
-            missing = check_missing_data(partner)
-            nombre = partner.name or ""
-            email = partner.email or ""
-            buffer = f"{nombre}|||{email}" if email else nombre
+            memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
-            if not missing:
-                return False, ""
-
-            last_intent = 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
-                'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
+            # ⚠️ Onboarding progresivo (nombre, email, tag)
+            onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
+            handled, response_msg = onboarding_handler.process_onboarding_flow(
+                self.env, record, phone, plain, memory_model
             )
-
-            if 'tag' not in missing:
-                last_intent = 'finalizado'
-
-            memory = memory_model.create({
-                'phone': phone,
-                'partner_id': partner.id if partner else False,
-                'last_intent': last_intent,
-                'data_buffer': buffer,
-            })
-
-            if 'nombre' in missing:
-                return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
-            elif 'email' in missing:
-                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
-            elif 'tag' in missing:
-                return True, (
-                    "Una última pregunta 😊\n"
-                    "¿Qué tipo de cliente sos?\n"
-                    "1 - Consumidor final\n"
-                    "2 - Institución / Empresa\n"
-                    "3 - Mayorista\n"
-                    "Podés responder con el número o el texto."
-                )
-            return False, ""
-
-        if memory.last_intent == 'esperando_nombre_nuevo_cliente':
-            nombre = plain_body.strip()
-            memory.write({
-                'last_intent': 'esperando_email_nuevo_cliente',
-                'data_buffer': nombre,
-            })
-            if memory.partner_id:
-                memory.partner_id.write({'name': nombre})
-            return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
-
-        if memory.last_intent == 'esperando_email_nuevo_cliente':
-            email = plain_body.strip()
-            if not self._is_valid_email(email):
-                return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
-
-            nombre = memory.data_buffer.strip()
-            memory.write({
-                'last_intent': 'esperando_tipo_cliente',
-                'data_buffer': f"{nombre}|||{email}",
-            })
-            if memory.partner_id:
-                memory.partner_id.write({'email': email})
-
-            partner = memory.partner_id
-            if partner and partner.category_id:
-                partner.write({'property_product_pricelist': False})
-                crear_lead(nombre, email, partner)
-                memory.unlink()
-                return True, "¡Ahora sí! Ya tenemos todo 🙌"
-
-            return True, (
-                "Una última pregunta 😊\n"
-                "¿Qué tipo de cliente sos?\n"
-                "1 - Consumidor final\n"
-                "2 - Institución / Empresa\n"
-                "3 - Mayorista\n"
-                "Podés responder con el número o el texto."
-            )
-
-        if memory.last_intent == 'esperando_tipo_cliente':
-            tipo_etiqueta = self._parse_cliente_tag(plain_body)
-            if not tipo_etiqueta:
-                if is_cotizado(memory.partner_id):
-                    return False, ""
-                else:
-                    return True, (
-                        "No entendí esa opción 🤔. Por favor respondé con:\n"
-                        "1 - Consumidor final\n"
-                        "2 - Institución / Empresa\n"
-                        "3 - Mayorista"
-                    )
-
-            data_parts = memory.data_buffer.split("|||")
-            if len(data_parts) != 2 or not data_parts[1].strip():
-                memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
-                return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
-
-            nombre, email = data_parts
-            partner = memory.partner_id
+            if handled:
+                _send_text(record, response_msg)
+                continue  # Hasta completar el onboarding, no seguimos
 
             if not partner:
-                partner = env['res.partner'].sudo().create({
-                    'name': nombre.strip(),
+                # Si no hay partner, avisamos
+                _send_text(record, "Hola, no encontramos tus datos. Por favor realiza el onboarding primero.")
+                continue
+
+            # Luego de onboarding, aquí diferenciamos si está cotizado o no para el lead
+            if not is_cotizado(partner):
+                _logger.info("🚫 Cliente no cotizado — se detiene el flujo NLP")
+                _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
+                continue
+
+            # ——— Confirmación stock y creación de pedido ———
+            memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
+
+            if memory and memory.last_intent == 'esperando_confirmacion_stock':
+                choice = plain.lower().strip()
+                if choice in ('1','1)','sí','si'):
+                    var = memory.last_variant_id
+                    qty = memory.last_qty_suggested
+                    order = create_sale_order(self.env, partner.id, var.id, qty)
+                    memory.unlink()
+
+                    # Crear lead de tipo Pedido Whatsapp cuando se crea el pedido y está cotizado
+                    self.env['crm.lead'].sudo().create({
+                        'name': f"Pedido Whatsapp: {partner.name}",
+                        'contact_name': partner.name,
+                        'email_from': partner.email or '',
+                        'phone': phone,
+                        'partner_id': partner.id,
+                        'description': f"Pedido automático creado: {order.name}",
+                    })
+
+                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
+                    continue
+                if choice in ('2','2)','quiero otra cantidad'):
+                    memory.write({'last_intent': 'esperando_nueva_cantidad'})
+                    _send_text(record, "Perfecto, decime cuántas unidades querés.")
+                    continue
+                if choice in ('3','3)','no','no gracias'):
+                    memory.unlink()
+                    _send_text(record, "Entendido, no genero ningún pedido.")
+                    continue
+                var = memory.last_variant_id
+                avail = memory.last_qty_suggested
+                _send_text(record,
+                    f"Solo hay {avail} unidades de “{var.display_name}”.\n"
+                    "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                )
+                continue
+
+            if memory and memory.last_intent == 'esperando_nueva_cantidad':
+                try:
+                    new_qty = int(plain)
+                except ValueError:
+                    _send_text(record, "No entiendo ese número. ¿Podés escribir la cantidad en dígitos?")
+                    continue
+                var = memory.last_variant_id
+                avail = var.qty_available or 0
+                if new_qty > avail:
+                    memory.write({'last_intent': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
+                    _send_text(record,
+                        f"Sigue siendo más de lo que hay ({avail}).\n"
+                        "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                    )
+                    continue
+                order = create_sale_order(self.env, partner.id, var.id, new_qty)
+                memory.unlink()
+
+                # Crear lead tipo Pedido Whatsapp para partner cotizado
+                self.env['crm.lead'].sudo().create({
+                    'name': f"Pedido Whatsapp: {partner.name}",
+                    'contact_name': partner.name,
+                    'email_from': partner.email or '',
                     'phone': phone,
-                    'email': email.strip(),
-                    'company_type': 'company',
+                    'partner_id': partner.id,
+                    'description': f"Pedido automático creado: {order.name}",
                 })
+
+                _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
+                continue
+
+            # ——— Clasificación de intención ———
+            history = self.env['whatsapp.message'].sudo().search([
+                ('mobile_number','=', record.mobile_number),
+                ('id','<', record.id),
+                ('state','in',['received','outgoing'])
+            ], order='id desc', limit=3)
+
+            conv = []
+            for m in reversed(history):
+                role = "user" if m.state in ("received","inbound") else "assistant"
+                c = clean_html(m.body or "").strip()
+                if c:
+                    conv.append({"role": role, "content": c})
+            conv.append({"role":"user","content":plain})
+
+            intent = detect_intention(
+                conv,
+                self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            ).lower().strip()
+            _logger.info("Intención detectada: %s", intent)
+
+            # ——— Routing ———
+            if intent == "crear_pedido":
+                result = handle_crear_pedido(self.env, partner, plain)
+                if result:
+                    memory_model.search([('partner_id','=',partner.id)], limit=1).unlink()
+                    memory_model.create({
+                        'partner_id': partner.id,
+                        'last_intent': intent,
+                    })
+                    _send_text(record, result)
+
+            elif intent == "solicitar_factura":
+                r = handle_solicitar_factura(partner, plain)
+                _send_text(record, r['message'])
+                if r.get('pdf_base64') and hasattr(record, 'send_whatsapp_document'):
+                    fname = f"{partner.name}_factura_{plain.replace(' ','_')}.pdf"
+                    record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
+
+            elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
+                resp = handle_respuesta_faq(intent, partner, plain)
+                _send_text(record, resp)
+
             else:
-                partner.write({
-                    'name': nombre.strip(),
-                    'email': email.strip(),
-                    'company_type': 'company',
-                })
+                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
 
-            tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-            if not tag:
-                tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
-            partner.category_id = [(4, tag.id)]
-
-            lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-            if not lead_tag:
-                lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
-
-            crear_lead(nombre, email, partner)
-            partner.write({'property_product_pricelist': False})
-            memory.unlink()
-
-            return True, "¡Ahora sí! Ya tenemos todo 🙌"
-
-        return False, ""
+        return records
