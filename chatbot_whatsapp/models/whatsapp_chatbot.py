@@ -1,7 +1,7 @@
 from odoo import models, api
 import re
 import logging
-from ...utils.utils import is_cotizado
+from ..utils.utils import is_cotizado
 
 _logger = logging.getLogger(__name__)
 
