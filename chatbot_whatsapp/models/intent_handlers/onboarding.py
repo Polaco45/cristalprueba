@@ -43,7 +43,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 missing.append('tag')
             return missing
 
-        # Primera vez: determinamos qué falta y creamos la memoria
         if not memory:
             missing = check_missing_data(partner)
             nombre = partner.name or ""
@@ -62,11 +61,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if 'nombre' in missing:
                 return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
             elif 'email' in missing:
-                # Personalizamos el prompt del email si ya está cotizado
-                if is_cotizado(partner):
-                    return True, "Antes de continuar, necesito tu *correo electrónico* 📧"
-                else:
-                    return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
+                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
             elif 'tag' in missing:
                 return True, (
                     "Una última pregunta 😊\n"
@@ -78,7 +73,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 )
             return False, ""
 
-        # Caso: pedimos nombre primero
         if memory.last_intent == 'esperando_nombre_nuevo_cliente':
             nombre = plain_body.strip()
             memory.write({
@@ -87,13 +81,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             })
             if memory.partner_id:
                 memory.partner_id.write({'name': nombre})
-            # Aquí también personalizamos el prompt del email
-            if is_cotizado(partner):
-                return True, "Primero necesito tu *correo electrónico* 📧"
-            else:
-                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
+            return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
 
-        # Caso: capturamos email
         if memory.last_intent == 'esperando_email_nuevo_cliente':
             email = plain_body.strip()
             if not self._is_valid_email(email):
@@ -118,12 +107,11 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             partner = memory.partner_id
             if partner and partner.category_id:
-                # Ya tiene tag: evaluamos cotización
-                esta_cotizado = is_cotizado(partner)
-                # Quitamos default pricelist para evitar confusiones
+                # En este punto ya tiene tag, evaluamos si está cotizado
+                # Aseguramos que no tenga lista de precios si es nuevo cliente para evitar errores
                 partner.write({'property_product_pricelist': False})
 
-                if not esta_cotizado:
+                if not is_cotizado(partner):
                     env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                         'contact_name': nombre.strip(),
@@ -134,12 +122,11 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     })
 
                 memory.unlink()
-                if not esta_cotizado:
+                if not is_cotizado(partner):
                     return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
                 else:
                     return True, "¡Ahora sí! Ya tenemos todo 🙌"
 
-            # Si falta tag, seguimos pidiendo categoría
             return True, (
                 "Una última pregunta 😊\n"
                 "¿Qué tipo de cliente sos?\n"
@@ -149,40 +136,34 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 "Podés responder con el número o el texto."
             )
 
-        # Caso: capturamos tipo de cliente
         if memory.last_intent == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
             if not tipo_etiqueta:
-                # Si ya está cotizado usamos un tono más suave
                 if is_cotizado(memory.partner_id):
                     return True, (
-                        "Antes de seguir, necesito saber qué *tipo de cliente* sos 😊.\n"
-                        "Respondé con:\n"
+                        "Antes de continuar, necesito saber qué *tipo de cliente* sos 😊.\n"
+                        "Podés responder con:\n"
                         "1 - Consumidor final\n"
                         "2 - Institución / Empresa\n"
                         "3 - Mayorista"
                     )
-                # Si no está cotizado, mensaje más estándar
-                return True, (
-                    "No entendí esa opción 🤔. Por favor respondé con:\n"
-                    "1 - Consumidor final\n"
-                    "2 - Institución / Empresa\n"
-                    "3 - Mayorista"
-                )
+                else:
+                    return True, (
+                        "No entendí esa opción 🤔. Por favor respondé con:\n"
+                        "1 - Consumidor final\n"
+                        "2 - Institución / Empresa\n"
+                        "3 - Mayorista"
+                    )
+
 
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2 or not data_parts[1].strip():
                 memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
-                # Mensaje personalizado si ya cotizado
-                if is_cotizado(memory.partner_id):
-                    return True, "Primero necesito tu *correo electrónico* 📧"
-                else:
-                    return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
+                return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
 
             nombre, email = data_parts
             partner = memory.partner_id
 
-            # Creamos o actualizamos partner
             if not partner:
                 partner = env['res.partner'].sudo().create({
                     'name': nombre.strip(),
@@ -197,13 +178,15 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'company_type': 'company',
                 })
 
-            # Asignamos la categoría
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
                 tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
             partner.category_id = [(4, tag.id)]
 
-            # Creamos lead si es cliente nuevo
+            lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+            if not lead_tag:
+                lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+
             if not is_cotizado(partner):
                 env['crm.lead'].sudo().create({
                     'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
@@ -212,10 +195,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'phone': phone,
                     'partner_id': partner.id,
                     'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
-                    'tag_ids': [(6, 0, [tag.id])],
+                    'tag_ids': [(6, 0, [lead_tag.id])],
                 })
 
-            # Limpiamos pricelist por defecto y memoria
             partner.write({'property_product_pricelist': False})
             memory.unlink()
 
