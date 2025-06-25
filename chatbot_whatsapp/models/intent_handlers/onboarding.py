@@ -33,12 +33,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
         ], limit=1)
 
-        # ⛔ NUEVO BLOQUE: evitar onboarding si ya está cotizado
-        if partner and is_cotizado(partner):
-            if memory:
-                memory.unlink()
-            return False, ""  # No respondemos nada, porque ya está cotizado
-
         def check_missing_data(p):
             missing = []
             if not p or not p.name:
@@ -55,12 +49,21 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             email = partner.email or ""
             buffer = f"{nombre}|||{email}" if email else nombre
 
+            if not missing:
+                return False, ""
+
+            last_intent = 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
+                'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
+            )
+
+            # Si ya tiene tag, evitamos preguntar tipo de cliente
+            if 'tag' not in missing:
+                last_intent = 'finalizado'
+
             memory = memory_model.create({
                 'phone': phone,
                 'partner_id': partner.id if partner else False,
-                'last_intent': 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
-                    'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
-                ),
+                'last_intent': last_intent,
                 'data_buffer': buffer,
             })
 
@@ -113,7 +116,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             partner = memory.partner_id
             if partner and partner.category_id:
+                # Ya tiene tipo de cliente
                 partner.write({'property_product_pricelist': False})
+
                 if not is_cotizado(partner):
                     env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
@@ -123,6 +128,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         'partner_id': partner.id,
                         'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
                     })
+
                 memory.unlink()
                 if not is_cotizado(partner):
                     return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
@@ -141,12 +147,15 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         if memory.last_intent == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
             if not tipo_etiqueta:
-                return True, (
-                    "No entendí esa opción 🤔. Por favor respondé con:\n"
-                    "1 - Consumidor final\n"
-                    "2 - Institución / Empresa\n"
-                    "3 - Mayorista"
-                )
+                if is_cotizado(memory.partner_id):
+                    return False, ""  # No preguntar si ya está cotizado
+                else:
+                    return True, (
+                        "No entendí esa opción 🤔. Por favor respondé con:\n"
+                        "1 - Consumidor final\n"
+                        "2 - Institución / Empresa\n"
+                        "3 - Mayorista"
+                    )
 
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2 or not data_parts[1].strip():
