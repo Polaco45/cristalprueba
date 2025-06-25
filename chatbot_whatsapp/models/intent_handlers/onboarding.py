@@ -33,6 +33,10 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
         ], limit=1)
 
+        # 👇 NUEVO: si el cliente ya está cotizado, no se le pide más nada
+        if partner and is_cotizado(partner):
+            return True, "¡Hola de nuevo! Ya tenemos tus datos 🙌. Si necesitás algo más, escribinos por acá 😊"
+
         def check_missing_data(p):
             missing = []
             if not p or not p.name:
