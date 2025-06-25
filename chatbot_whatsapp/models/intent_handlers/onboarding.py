@@ -33,9 +33,11 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
         ], limit=1)
 
-        # 👇 NUEVO: si el cliente ya está cotizado, no se le pide más nada
+        # ⛔ NUEVO BLOQUE: evitar onboarding si ya está cotizado
         if partner and is_cotizado(partner):
-            return True, "¡Hola de nuevo! Ya tenemos tus datos 🙌. Si necesitás algo más, escribinos por acá 😊"
+            if memory:
+                memory.unlink()
+            return False, ""  # No respondemos nada, porque ya está cotizado
 
         def check_missing_data(p):
             missing = []
@@ -111,10 +113,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             partner = memory.partner_id
             if partner and partner.category_id:
-                # En este punto ya tiene tag, evaluamos si está cotizado
-                # Aseguramos que no tenga lista de precios si es nuevo cliente para evitar errores
                 partner.write({'property_product_pricelist': False})
-
                 if not is_cotizado(partner):
                     env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
@@ -124,7 +123,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         'partner_id': partner.id,
                         'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
                     })
-
                 memory.unlink()
                 if not is_cotizado(partner):
                     return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
@@ -143,22 +141,12 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         if memory.last_intent == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
             if not tipo_etiqueta:
-                if is_cotizado(memory.partner_id):
-                    return True, (
-                        "Antes de continuar, necesito saber qué *tipo de cliente* sos 😊.\n"
-                        "Podés responder con:\n"
-                        "1 - Consumidor final\n"
-                        "2 - Institución / Empresa\n"
-                        "3 - Mayorista"
-                    )
-                else:
-                    return True, (
-                        "No entendí esa opción 🤔. Por favor respondé con:\n"
-                        "1 - Consumidor final\n"
-                        "2 - Institución / Empresa\n"
-                        "3 - Mayorista"
-                    )
-
+                return True, (
+                    "No entendí esa opción 🤔. Por favor respondé con:\n"
+                    "1 - Consumidor final\n"
+                    "2 - Institución / Empresa\n"
+                    "3 - Mayorista"
+                )
 
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2 or not data_parts[1].strip():
