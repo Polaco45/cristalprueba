@@ -15,19 +15,23 @@ def normalize_phone(phone):
 def clean_html(text):
     return re.sub(HTML_TAGS, "", text or "").strip()
 
-# ——— Evalúa si está cotizado ———
 def is_cotizado(partner):
     if not partner:
         return False
 
-    pricelist = partner.property_product_pricelist
-    pricelist_name = pricelist.name if pricelist else False
-    tags = partner.category_id.mapped('name')
+    SaleOrder = partner.env['sale.order'].sudo()
+    PosOrder = partner.env['pos.order'].sudo()
 
-    _logger.info("📌 Evaluando cotización — Partner: %s | Pricelist: %s | Tags: %s",
-    partner.name, pricelist_name, tags)
+    cotizaciones = SaleOrder.search_count([
+        ('partner_id', '=', partner.id),
+        ('state', '=', 'draft')  # solo presupuestos (no confirmados)
+    ])
+    
+    ventas_pos = PosOrder.search_count([
+        ('partner_id', '=', partner.id)
+    ])
 
-    if pricelist_name == "Lista Clientes" and any(t in tags for t in ["Tipo de Cliente / EMPRESA", "Tipo de Cliente / Mayorista"]):
-        return False
+    _logger.info("📌 Evaluando cotización — Partner: %s | Cotizaciones: %s | POS: %s",
+                 partner.name, cotizaciones, ventas_pos)
 
-    return bool(pricelist)
+    return cotizaciones > 0 or ventas_pos > 0
