@@ -2,6 +2,7 @@
     - Validar Email
     - Vincular al contacto
     - Preguntar intencion (consumidor final, b2b o revendedores)
+    * Reemplazar la forma de is_cotizado para que empiece a detectar si tiene al menos 1 cotizacion u orden de punto de venta en lugar de identificarlo mediante su lista de precio.
     * Siempre hacer lead. Diferenciar en Calificado en el CRM:
         * Si es nuevo contacto, "Nuevo cliente Whatsapp: *Nombre*"
         * Si es contacto existente, "Pedido Whatsapp: *Nombre*"

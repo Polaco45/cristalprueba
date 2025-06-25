@@ -15,6 +15,6 @@ class WhatsAppMemory(models.Model):
 
     @api.model
     def clean_old_memory(self):
-        expired_time = fields.Datetime.now() - timedelta(minutes=30)
+        expired_time = fields.Datetime.now() - timedelta(minutes=30)    
         old = self.sudo().search([('timestamp', '<', expired_time)])
         old.unlink()
