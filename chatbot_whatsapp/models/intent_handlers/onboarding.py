@@ -1,4 +1,3 @@
-# onboarding.py
 from odoo import models, api
 import re
 import logging
@@ -120,10 +119,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 # Ya tiene tipo de cliente
                 partner.write({'property_product_pricelist': False})
 
-                # Aquí diferenciamos creación de lead según cotizado
                 if not is_cotizado(partner):
                     env['crm.lead'].sudo().create({
-                        'name': f"Nuevo cliente Whatsapp: {nombre.strip()}",
+                        'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                         'contact_name': nombre.strip(),
                         'email_from': email.strip(),
                         'phone': phone,
@@ -190,10 +188,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if not lead_tag:
                 lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
-            # Crear lead CRM siempre, con diferencia en el nombre según cotizado
             if not is_cotizado(partner):
                 env['crm.lead'].sudo().create({
-                    'name': f"Nuevo cliente Whatsapp: {nombre.strip()}",
+                    'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                     'contact_name': nombre.strip(),
                     'email_from': email.strip(),
                     'phone': phone,

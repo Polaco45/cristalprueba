@@ -1,4 +1,3 @@
-# whatsapp_chatbot.py
 from odoo import models, api
 from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone, is_cotizado
@@ -56,12 +55,6 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, response_msg)
                 continue  # Hasta completar el onboarding, no seguimos
 
-            if not partner:
-                # Si no hay partner, avisamos
-                _send_text(record, "Hola, no encontramos tus datos. Por favor realiza el onboarding primero.")
-                continue
-
-            # Luego de onboarding, aquí diferenciamos si está cotizado o no para el lead
             if not is_cotizado(partner):
                 _logger.info("🚫 Cliente no cotizado — se detiene el flujo NLP")
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
@@ -77,17 +70,6 @@ class WhatsAppMessage(models.Model):
                     qty = memory.last_qty_suggested
                     order = create_sale_order(self.env, partner.id, var.id, qty)
                     memory.unlink()
-
-                    # Crear lead de tipo Pedido Whatsapp cuando se crea el pedido y está cotizado
-                    self.env['crm.lead'].sudo().create({
-                        'name': f"Pedido Whatsapp: {partner.name}",
-                        'contact_name': partner.name,
-                        'email_from': partner.email or '',
-                        'phone': phone,
-                        'partner_id': partner.id,
-                        'description': f"Pedido automático creado: {order.name}",
-                    })
-
                     _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
                     continue
                 if choice in ('2','2)','quiero otra cantidad'):
@@ -123,17 +105,6 @@ class WhatsAppMessage(models.Model):
                     continue
                 order = create_sale_order(self.env, partner.id, var.id, new_qty)
                 memory.unlink()
-
-                # Crear lead tipo Pedido Whatsapp para partner cotizado
-                self.env['crm.lead'].sudo().create({
-                    'name': f"Pedido Whatsapp: {partner.name}",
-                    'contact_name': partner.name,
-                    'email_from': partner.email or '',
-                    'phone': phone,
-                    'partner_id': partner.id,
-                    'description': f"Pedido automático creado: {order.name}",
-                })
-
                 _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
