@@ -43,6 +43,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 missing.append('tag')
             return missing
 
+        # Primera vez: levantamos qué falta y guardamos el estado
         if not memory:
             missing = check_missing_data(partner)
             nombre = partner.name or ""
@@ -61,7 +62,11 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if 'nombre' in missing:
                 return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
             elif 'email' in missing:
-                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
+                # Mensaje adaptado si ya está cotizado
+                if partner and is_cotizado(partner):
+                    return True, "Antes de seguir, necesito tu *correo electrónico* 😊."
+                else:
+                    return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
             elif 'tag' in missing:
                 return True, (
                     "Una última pregunta 😊\n"
@@ -73,6 +78,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 )
             return False, ""
 
+        # Respuesta al pedir nombre
         if memory.last_intent == 'esperando_nombre_nuevo_cliente':
             nombre = plain_body.strip()
             memory.write({
@@ -83,21 +89,14 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 memory.partner_id.write({'name': nombre})
             return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
 
+        # Respuesta al pedir email
         if memory.last_intent == 'esperando_email_nuevo_cliente':
             email = plain_body.strip()
             if not self._is_valid_email(email):
                 return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
 
+            # Guardamos nombre y email en el buffer
             nombre = memory.data_buffer.strip()
-            tipo_cliente_cache = None
-            if "|||" in nombre:
-                partes = nombre.split("|||")
-                if len(partes) == 2:
-                    nombre = partes[0].strip()
-                    posible_tag = self._parse_cliente_tag(partes[1].strip())
-                    if posible_tag:
-                        tipo_cliente_cache = posible_tag
-
             memory.write({
                 'last_intent': 'esperando_tipo_cliente',
                 'data_buffer': f"{nombre}|||{email}",
@@ -106,27 +105,29 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 memory.partner_id.write({'email': email})
 
             partner = memory.partner_id
+            # Si ya tenía categoría, terminamos onboarding
             if partner and partner.category_id:
-                # En este punto ya tiene tag, evaluamos si está cotizado
-                # Aseguramos que no tenga lista de precios si es nuevo cliente para evitar errores
+                esta_cotizado = is_cotizado(partner)
+                # Limpiamos lista de precios para nuevos leads
                 partner.write({'property_product_pricelist': False})
 
-                if not is_cotizado(partner):
+                if not esta_cotizado:
                     env['crm.lead'].sudo().create({
-                        'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
-                        'contact_name': nombre.strip(),
-                        'email_from': email.strip(),
+                        'name': f"Nuevo cliente WhatsApp: {nombre}",
+                        'contact_name': nombre,
+                        'email_from': email,
                         'phone': phone,
                         'partner_id': partner.id,
-                        'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
+                        'description': "Nuevo contacto generado desde el chatbot de WhatsApp.",
                     })
 
                 memory.unlink()
-                if not is_cotizado(partner):
+                if not esta_cotizado:
                     return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
                 else:
                     return True, "¡Ahora sí! Ya tenemos todo 🙌"
 
+            # Si falta categoría, seguimos
             return True, (
                 "Una última pregunta 😊\n"
                 "¿Qué tipo de cliente sos?\n"
@@ -136,13 +137,14 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 "Podés responder con el número o el texto."
             )
 
+        # Respuesta al pedir tipo de cliente
         if memory.last_intent == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
             if not tipo_etiqueta:
+                # Mensaje adaptado para cliente cotizado
                 if is_cotizado(memory.partner_id):
                     return True, (
                         "Antes de continuar, necesito saber qué *tipo de cliente* sos 😊.\n"
-                        "Podés responder con:\n"
                         "1 - Consumidor final\n"
                         "2 - Institución / Empresa\n"
                         "3 - Mayorista"
@@ -155,7 +157,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         "3 - Mayorista"
                     )
 
-
+            # Validamos que el buffer tenga el email
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2 or not data_parts[1].strip():
                 memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
@@ -164,44 +166,35 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             nombre, email = data_parts
             partner = memory.partner_id
 
-            if not partner:
-                partner = env['res.partner'].sudo().create({
-                    'name': nombre.strip(),
-                    'phone': phone,
-                    'email': email.strip(),
-                    'company_type': 'company',
-                })
+            # Creamos o actualizamos partner
+            vals = {'name': nombre, 'email': email, 'company_type': 'company'}
+            if partner:
+                partner.write(vals)
             else:
-                partner.write({
-                    'name': nombre.strip(),
-                    'email': email.strip(),
-                    'company_type': 'company',
-                })
+                partner = env['res.partner'].sudo().create({**vals, 'phone': phone})
 
+            # Asignamos la categoría
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
                 tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
             partner.category_id = [(4, tag.id)]
 
-            lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-            if not lead_tag:
-                lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
-
-            if not is_cotizado(partner):
+            esta_cotizado = is_cotizado(partner)
+            if not esta_cotizado:
                 env['crm.lead'].sudo().create({
-                    'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
-                    'contact_name': nombre.strip(),
-                    'email_from': email.strip(),
+                    'name': f"Nuevo cliente WhatsApp: {nombre}",
+                    'contact_name': nombre,
+                    'email_from': email,
                     'phone': phone,
                     'partner_id': partner.id,
-                    'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
-                    'tag_ids': [(6, 0, [lead_tag.id])],
+                    'description': "Nuevo contacto generado desde el chatbot de WhatsApp.",
+                    'tag_ids': [(6, 0, [tag.id])],
                 })
 
             partner.write({'property_product_pricelist': False})
             memory.unlink()
 
-            if not is_cotizado(partner):
+            if not esta_cotizado:
                 return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
             else:
                 return True, "¡Ahora sí! Ya tenemos todo 🙌"
