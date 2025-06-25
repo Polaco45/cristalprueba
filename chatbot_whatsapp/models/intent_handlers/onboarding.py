@@ -26,29 +26,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         }
         return OPCIONES.get(texto_usuario.strip().lower())
 
-    def _msg_tipo_cliente(self, cotizado):
-        if cotizado:
-            return (
-                "Antes de continuar, necesito saber qué *tipo de cliente* sos 😊.\n"
-                "Podés responder con:\n"
-                "1 - Consumidor final\n"
-                "2 - Institución / Empresa\n"
-                "3 - Mayorista"
-            )
-        return (
-            "Una última pregunta 😊\n"
-            "¿Qué tipo de cliente sos?\n"
-            "1 - Consumidor final\n"
-            "2 - Institución / Empresa\n"
-            "3 - Mayorista\n"
-            "Podés responder con el número o el texto."
-        )
-
-    def _msg_email(self, cotizado):
-        if cotizado:
-            return "Primero, necesito saber tu *correo electrónico* 📧"
-        return "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
-
     @api.model
     def process_onboarding_flow(self, env, record, phone, plain_body, memory_model):
         memory = memory_model.search([('phone', '=', phone)], limit=1)
@@ -71,7 +48,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             nombre = partner.name or ""
             email = partner.email or ""
             buffer = f"{nombre}|||{email}" if email else nombre
-            cotizado = is_cotizado(partner)
 
             memory = memory_model.create({
                 'phone': phone,
@@ -85,9 +61,16 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if 'nombre' in missing:
                 return True, "¡Hola! Para poder ayudarte, ¿me decís tu *nombre* completo?"
             elif 'email' in missing:
-                return True, self._msg_email(cotizado)
+                return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
             elif 'tag' in missing:
-                return True, self._msg_tipo_cliente(cotizado)
+                return True, (
+                    "Una última pregunta 😊\n"
+                    "¿Qué tipo de cliente sos?\n"
+                    "1 - Consumidor final\n"
+                    "2 - Institución / Empresa\n"
+                    "3 - Mayorista\n"
+                    "Podés responder con el número o el texto."
+                )
             return False, ""
 
         if memory.last_intent == 'esperando_nombre_nuevo_cliente':
@@ -98,7 +81,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             })
             if memory.partner_id:
                 memory.partner_id.write({'name': nombre})
-            return True, self._msg_email(is_cotizado(memory.partner_id))
+            return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
 
         if memory.last_intent == 'esperando_email_nuevo_cliente':
             email = plain_body.strip()
@@ -124,6 +107,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             partner = memory.partner_id
             if partner and partner.category_id:
+                # En este punto ya tiene tag, evaluamos si está cotizado
+                # Aseguramos que no tenga lista de precios si es nuevo cliente para evitar errores
                 partner.write({'property_product_pricelist': False})
 
                 if not is_cotizado(partner):
@@ -142,17 +127,39 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 else:
                     return True, "¡Ahora sí! Ya tenemos todo 🙌"
 
-            return True, self._msg_tipo_cliente(is_cotizado(partner))
+            return True, (
+                "Una última pregunta 😊\n"
+                "¿Qué tipo de cliente sos?\n"
+                "1 - Consumidor final\n"
+                "2 - Institución / Empresa\n"
+                "3 - Mayorista\n"
+                "Podés responder con el número o el texto."
+            )
 
         if memory.last_intent == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
             if not tipo_etiqueta:
-                return True, self._msg_tipo_cliente(is_cotizado(memory.partner_id))
+                if is_cotizado(memory.partner_id):
+                    return True, (
+                        "Antes de continuar, necesito saber qué *tipo de cliente* sos 😊.\n"
+                        "Podés responder con:\n"
+                        "1 - Consumidor final\n"
+                        "2 - Institución / Empresa\n"
+                        "3 - Mayorista"
+                    )
+                else:
+                    return True, (
+                        "No entendí esa opción 🤔. Por favor respondé con:\n"
+                        "1 - Consumidor final\n"
+                        "2 - Institución / Empresa\n"
+                        "3 - Mayorista"
+                    )
+
 
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2 or not data_parts[1].strip():
                 memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
-                return True, self._msg_email(is_cotizado(memory.partner_id))
+                return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
 
             nombre, email = data_parts
             partner = memory.partner_id
