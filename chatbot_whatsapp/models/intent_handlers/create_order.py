@@ -42,6 +42,10 @@ def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
     partner = env['res.partner'].browse(partner_id)
 
+    # Obtener lista de precios del partner (si tiene)
+    pricelist = partner.property_product_pricelist
+
+    # Crear el lead
     lead = env['crm.lead'].sudo().create({
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
@@ -52,22 +56,20 @@ def create_sale_order(env, partner_id, product_id, quantity):
         'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
     })
 
-    order = env['sale.order'].sudo().create({
+    # Crear el pedido con contexto de pricelist
+    order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
         'partner_id': partner_id,
         'opportunity_id': lead.id,
+        'pricelist_id': pricelist.id,
         'order_line': [(0, 0, {
             'product_id': product_id,
             'product_uom': product.uom_id.id,
             'product_uom_qty': quantity,
-            'price_unit': product.list_price,
+            # No seteamos price_unit, lo deja calcular a Odoo
         })]
     })
 
-    # Asegura el precio
-    for line in order.order_line:
-        line.write({'price_unit': product.list_price})
-
-    # Actividad
+    # Crear actividad de seguimiento
     activity_type = env['mail.activity.type'].sudo().search([
         ('name', 'ilike', 'Iniciativa de Venta')
     ], limit=1)
@@ -83,6 +85,7 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })
 
     return order
+
 
 
 
