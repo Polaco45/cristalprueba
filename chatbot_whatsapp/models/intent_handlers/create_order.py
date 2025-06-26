@@ -42,7 +42,6 @@ def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
     partner = env['res.partner'].browse(partner_id)
 
-    # 1. Crear el lead primero
     lead = env['crm.lead'].sudo().create({
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
@@ -53,18 +52,22 @@ def create_sale_order(env, partner_id, product_id, quantity):
         'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
     })
 
-    # 2. Crear el pedido, vinculándolo al lead
     order = env['sale.order'].sudo().create({
         'partner_id': partner_id,
-        'opportunity_id': lead.id,  # vinculación con el CRM
+        'opportunity_id': lead.id,
         'order_line': [(0, 0, {
             'product_id': product_id,
+            'product_uom': product.uom_id.id,
             'product_uom_qty': quantity,
             'price_unit': product.list_price,
         })]
     })
 
-    # 3. Crear actividad opcional
+    # Asegura el precio
+    for line in order.order_line:
+        line.write({'price_unit': product.list_price})
+
+    # Actividad
     activity_type = env['mail.activity.type'].sudo().search([
         ('name', 'ilike', 'Iniciativa de Venta')
     ], limit=1)
@@ -80,6 +83,7 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })
 
     return order
+
 
 
 

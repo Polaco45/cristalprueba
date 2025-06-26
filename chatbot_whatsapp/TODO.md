@@ -1,4 +1,4 @@
-* Onboardear a la persona en caso de que sea nueva
+- Onboardear a la persona en caso de que sea nueva
     - Validar Email
     - Vincular al contacto
     - Preguntar intencion (consumidor final, b2b o revendedores)
@@ -7,8 +7,10 @@
         - Si es nuevo contacto, "Nuevo cliente Whatsapp: *Nombre*"
         - Si es contacto existente, "Pedido Whatsapp: *Nombre*"
 
-* Crear lead y actividad en ese lead con tipo de actividad para que revise y envie la cotizacion o se contacte con el cliente.
-    * Nombre de actividad: Iniciativa de venta
+- Crear lead y actividad en ese lead con tipo de actividad para que revise y envie la cotizacion o se contacte con el cliente.
+    - Nombre de actividad: Iniciativa de venta
+
+* Chequear precio en las ordenes de venta con WhatsApp.
 
 * Analizar pedidos anteriores para saber que producto elegir en caso de que el pedido sea muy generico
     * EJEMPLO: escobillones
