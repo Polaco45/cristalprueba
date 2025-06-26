@@ -219,6 +219,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         'res_id': lead.id,
                         'activity_type_id': activity_type.id,
                         'summary': 'Seguimiento nuevo contacto',
+                        'note': 'Contactar al cliente para cotizarlo.',
                         'user_id': partner.user_id.id or env.user.id,
                     })
 
