@@ -56,7 +56,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
             )
 
-            # Si ya tiene tag, evitamos preguntar tipo de cliente
             if 'tag' not in missing:
                 last_intent = 'finalizado'
 
@@ -116,11 +115,10 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             partner = memory.partner_id
             if partner and partner.category_id:
-                # Ya tiene tipo de cliente
                 partner.write({'property_product_pricelist': False})
 
                 if not is_cotizado(partner):
-                    env['crm.lead'].sudo().create({
+                    lead = env['crm.lead'].sudo().create({
                         'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                         'contact_name': nombre.strip(),
                         'email_from': email.strip(),
@@ -128,6 +126,19 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         'partner_id': partner.id,
                         'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
                     })
+
+                    activity_type = env['mail.activity.type'].sudo().search([
+                        ('name', 'ilike', 'Iniciativa de Venta')
+                    ], limit=1)
+                    if activity_type:
+                        env['mail.activity'].sudo().create({
+                            'res_model_id': env['ir.model']._get_id('crm.lead'),
+                            'res_id': lead.id,
+                            'activity_type_id': activity_type.id,
+                            'summary': 'Seguimiento nuevo contacto',
+                            'note': 'Este cliente se registró desde el chatbot de WhatsApp.',
+                            'user_id': partner.user_id.id or env.user.id,
+                        })
 
                 memory.unlink()
                 if not is_cotizado(partner):
@@ -148,7 +159,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
             if not tipo_etiqueta:
                 if is_cotizado(memory.partner_id):
-                    return False, ""  # No preguntar si ya está cotizado
+                    return False, ""
                 else:
                     return True, (
                         "No entendí esa opción 🤔. Por favor respondé con:\n"
@@ -189,7 +200,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
 
             if not is_cotizado(partner):
-                env['crm.lead'].sudo().create({
+                lead = env['crm.lead'].sudo().create({
                     'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                     'contact_name': nombre.strip(),
                     'email_from': email.strip(),
@@ -198,6 +209,18 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
                     'tag_ids': [(6, 0, [lead_tag.id])],
                 })
+
+                activity_type = env['mail.activity.type'].sudo().search([
+                    ('name', 'ilike', 'Iniciativa de Venta')
+                ], limit=1)
+                if activity_type:
+                    env['mail.activity'].sudo().create({
+                        'res_model_id': env['ir.model']._get_id('crm.lead'),
+                        'res_id': lead.id,
+                        'activity_type_id': activity_type.id,
+                        'summary': 'Seguimiento nuevo contacto',
+                        'user_id': partner.user_id.id or env.user.id,
+                    })
 
             partner.write({'property_product_pricelist': False})
             memory.unlink()
