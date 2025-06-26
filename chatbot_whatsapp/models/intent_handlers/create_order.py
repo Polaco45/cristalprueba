@@ -39,15 +39,33 @@ def lookup_product_variants(env, query, limit=5):
     ]
 
 def create_sale_order(env, partner_id, product_id, quantity):
+    product = env['product.product'].browse(product_id)
+    partner = env['res.partner'].browse(partner_id)
+
+    # 1. Crear el pedido
     order = env['sale.order'].sudo().create({
         'partner_id': partner_id,
         'order_line': [(0, 0, {
             'product_id': product_id,
             'product_uom_qty': quantity,
-            'price_unit': env['product.product'].browse(product_id).list_price,
+            'price_unit': product.list_price,
         })]
     })
+
+    # 2. Crear el lead en el CRM
+    env['crm.lead'].sudo().create({
+        'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
+        'partner_id': partner_id,
+        'type': 'opportunity',
+        'description': f"Se generó un pedido desde WhatsApp.\n"
+                      f"Pedido: {order.name}\n"
+                      f"Producto: {product.display_name}\n"
+                      f"Cantidad: {quantity}",
+        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
+    })
+
     return order
+
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     """

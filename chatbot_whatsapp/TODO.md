@@ -7,6 +7,12 @@
         * Si es nuevo contacto, "Nuevo cliente Whatsapp: *Nombre*"
         * Si es contacto existente, "Pedido Whatsapp: *Nombre*"
 
+* Crear lead y actividad en ese lead con tipo de actividad para que revise y envie la cotizacion o se contacte con el cliente.
+    * Nombre de actividad: Iniciativa de venta
+
+* Analizar pedidos anteriores para saber que producto elegir en caso de que el pedido sea muy generico
+    * EJEMPLO: escobillones
+
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 * Escuchar audios
 * Manejar cualquier otro caso que pueda surgir en cuanto a crear pedidos y cotizarlos.
