@@ -27,12 +27,7 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            # 👉 Conversación viva en memoria para incluir respuestas del bot antes de guardarse
-            conversation_log = [{"role": "user", "content": plain}]
-
             def _send_text(to_rec, text_to_send):
-                # 💬 Logueamos también lo que dice el bot
-                conversation_log.append({"role": "assistant", "content": text_to_send})
                 vals = {
                     'mobile_number': to_rec.mobile_number,
                     'body': text_to_send,
@@ -51,7 +46,6 @@ class WhatsAppMessage(models.Model):
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
-            # — Onboarding —
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, memory_model
@@ -112,7 +106,13 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
-            # ——— Construcción del contexto completo ———
+            # Armado del contexto para el intent predictor
+            history = self.env['whatsapp.message'].sudo().search([
+                ('mobile_number','=', record.mobile_number),
+                ('id','<', record.id),
+                ('state','in',['received','inbound','outgoing','sent'])
+            ], order='id desc', limit=6)
+
             conv = []
 
             if memory:
@@ -123,38 +123,36 @@ class WhatsAppMessage(models.Model):
                     ctx += f" Cantidad sugerida: {memory.last_qty_suggested}."
                 conv.append({"role": "system", "content": ctx})
 
-            history = self.env['whatsapp.message'].sudo().search([
-                ('mobile_number','=', record.mobile_number),
-                ('id','<', record.id),
-                ('state','in',['received','inbound','outgoing','sent'])
-            ], order='id desc', limit=6)
-
             for msg in reversed(history):
                 text = clean_html(msg.body or "").strip()
                 if not text or text.lower() in ("ok", "gracias", "dale"):
                     continue
-                role = "user" if msg.state in ("received", "inbound") else "assistant"
-                conv.append({"role": role, "content": text})
+                if msg.state in ("received", "inbound"):
+                    conv.append({"role": "user", "content": text})
+                else:
+                    conv.append({"role": "assistant", "content": text})
 
-            # Agregamos lo que pasó en tiempo real
-            conv += conversation_log
+            conv.append({"role": "user", "content": plain})
 
-            # ——— Intención ———
             intent = detect_intention(
                 conv,
                 self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
 
-            # ——— Routing ———
+            # 🔄 Guardamos la intención detectada en memoria
+            if memory:
+                memory.write({'last_intent': intent})
+            else:
+                memory_model.create({
+                    'partner_id': partner.id,
+                    'last_intent': intent,
+                })
+
+            # Routing
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
                 if result:
-                    memory_model.search([('partner_id','=',partner.id)], limit=1).unlink()
-                    memory_model.create({
-                        'partner_id': partner.id,
-                        'last_intent': intent,
-                    })
                     _send_text(record, result)
 
             elif intent == "solicitar_factura":
