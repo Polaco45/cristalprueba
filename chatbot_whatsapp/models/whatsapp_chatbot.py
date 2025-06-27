@@ -108,12 +108,11 @@ class WhatsAppMessage(models.Model):
                 continue
 
             # Armado del contexto para el intent predictor
-            # Recuperar mensajes en orden cronológico (ascendente)
             history = self.env['whatsapp.message'].sudo().search([
-                ('mobile_number', '=', record.mobile_number),
-                ('id', '<=', record.id),
-                ('state', 'in', ['received', 'inbound', 'outgoing', 'sent']),
-            ], order='id asc', limit=6)
+                ('mobile_number','=', record.mobile_number),
+                ('id','<=', record.id),
+                ('state','in',['received','inbound','outgoing','sent'])
+            ], order='id desc', limit=6)
 
             conv = []
 
@@ -125,7 +124,7 @@ class WhatsAppMessage(models.Model):
                     ctx += f" Cantidad sugerida: {memory.last_qty_suggested}."
                 conv.append({"role": "system", "content": ctx})
 
-            for msg in history:
+            for msg in reversed(history):
                 text = clean_html(msg.body or "").strip()
                 if not text or text.lower() in ("ok", "gracias", "dale"):
                     continue
@@ -133,7 +132,6 @@ class WhatsAppMessage(models.Model):
                     conv.append({"role": "user", "content": text})
                 else:
                     conv.append({"role": "assistant", "content": text})
-
 
             _logger.info("🧠 Conversación enviada:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
 
