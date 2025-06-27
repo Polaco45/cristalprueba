@@ -112,31 +112,35 @@ class WhatsAppMessage(models.Model):
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
                 ('id','<', record.id),
-                ('state','in',['received','outgoing'])
-            ], order='id desc', limit=6)  # Aumentamos el historial a 6
+                ('state','in',['received','inbound','outgoing','sent'])
+            ], order='id desc', limit=6)
 
             conv = []
 
-            # Agregamos contexto adicional si hay memoria activa
+            # Contexto desde memoria si corresponde
             if memory:
-                context = f"Contexto actual: última intención '{memory.last_intent}'."
+                ctx = f"Contexto actual: última intención '{memory.last_intent}'."
                 if memory.last_variant_id:
-                    context += f" Producto sugerido: {memory.last_variant_id.display_name}."
+                    ctx += f" Producto sugerido: {memory.last_variant_id.display_name}."
                 if memory.last_qty_suggested:
-                    context += f" Cantidad sugerida: {memory.last_qty_suggested}."
-                conv.append({"role": "system", "content": context})
+                    ctx += f" Cantidad sugerida: {memory.last_qty_suggested}."
+                conv.append({"role": "system", "content": ctx})
 
-            # Armamos la conversación con los últimos mensajes
-            for m in reversed(history):
-                role = "user" if m.state in ("received", "inbound") else "assistant"
-                c = clean_html(m.body or "").strip()
-                if c and len(c) > 1 and c.lower() not in ["ok", "gracias", "dale"]:
-                    conv.append({"role": role, "content": c})
+            # Armamos el hilo de conversación
+            for msg in reversed(history):
+                text = clean_html(msg.body or "").strip()
+                if not text or text.lower() in ("ok", "gracias", "dale"):
+                    continue
+                # Asignamos rol según state
+                if msg.state in ("received", "inbound"):
+                    conv.append({"role": "user", "content": text})
+                else:  # outgoing o sent
+                    conv.append({"role": "assistant", "content": text})
 
-            # Último mensaje recibido
+            # Agregamos finalmente el último mensaje del usuario
             conv.append({"role": "user", "content": plain})
 
-            # Detección de intención
+            # Llamada al clasificador
             intent = detect_intention(
                 conv,
                 self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
