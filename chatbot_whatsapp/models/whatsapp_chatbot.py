@@ -8,6 +8,7 @@ from .intent_handlers.intent_handlers import (
     handle_respuesta_faq
 )
 import logging
+import json
 
 _logger = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ class WhatsAppMessage(models.Model):
             # Armado del contexto para el intent predictor
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
-                ('id','<', record.id),
+                ('id','<=', record.id),
                 ('state','in',['received','inbound','outgoing','sent'])
             ], order='id desc', limit=6)
 
@@ -132,7 +133,7 @@ class WhatsAppMessage(models.Model):
                 else:
                     conv.append({"role": "assistant", "content": text})
 
-            conv.append({"role": "user", "content": plain})
+            _logger.info("🧠 Conversación enviada:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
 
             intent = detect_intention(
                 conv,
