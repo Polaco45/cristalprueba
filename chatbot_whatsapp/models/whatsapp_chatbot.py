@@ -27,7 +27,12 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
+            # 👉 Conversación viva en memoria para incluir respuestas del bot antes de guardarse
+            conversation_log = [{"role": "user", "content": plain}]
+
             def _send_text(to_rec, text_to_send):
+                # 💬 Logueamos también lo que dice el bot
+                conversation_log.append({"role": "assistant", "content": text_to_send})
                 vals = {
                     'mobile_number': to_rec.mobile_number,
                     'body': text_to_send,
@@ -46,21 +51,20 @@ class WhatsAppMessage(models.Model):
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
-            # ⚠️ Onboarding progresivo (nombre, email, tag)
+            # — Onboarding —
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, memory_model
             )
             if handled:
                 _send_text(record, response_msg)
-                continue  # Hasta completar el onboarding, no seguimos
+                continue
 
             if not is_cotizado(partner):
                 _logger.info("🚫 Cliente no cotizado — se detiene el flujo NLP")
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
                 continue
 
-            # ——— Confirmación stock y creación de pedido ———
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
 
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
@@ -108,16 +112,9 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
-            # ——— Clasificación de intención ———
-            history = self.env['whatsapp.message'].sudo().search([
-                ('mobile_number','=', record.mobile_number),
-                ('id','<', record.id),
-                ('state','in',['received','inbound','outgoing','sent'])
-            ], order='id desc', limit=6)
-
+            # ——— Construcción del contexto completo ———
             conv = []
 
-            # Contexto desde memoria si corresponde
             if memory:
                 ctx = f"Contexto actual: última intención '{memory.last_intent}'."
                 if memory.last_variant_id:
@@ -126,27 +123,28 @@ class WhatsAppMessage(models.Model):
                     ctx += f" Cantidad sugerida: {memory.last_qty_suggested}."
                 conv.append({"role": "system", "content": ctx})
 
-            # Armamos el hilo de conversación
+            history = self.env['whatsapp.message'].sudo().search([
+                ('mobile_number','=', record.mobile_number),
+                ('id','<', record.id),
+                ('state','in',['received','inbound','outgoing','sent'])
+            ], order='id desc', limit=6)
+
             for msg in reversed(history):
                 text = clean_html(msg.body or "").strip()
                 if not text or text.lower() in ("ok", "gracias", "dale"):
                     continue
-                # Asignamos rol según state
-                if msg.state in ("received", "inbound"):
-                    conv.append({"role": "user", "content": text})
-                else:  # outgoing o sent
-                    conv.append({"role": "assistant", "content": text})
+                role = "user" if msg.state in ("received", "inbound") else "assistant"
+                conv.append({"role": role, "content": text})
 
-            # Agregamos finalmente el último mensaje del usuario
-            conv.append({"role": "user", "content": plain})
+            # Agregamos lo que pasó en tiempo real
+            conv += conversation_log
 
-            # Llamada al clasificador
+            # ——— Intención ———
             intent = detect_intention(
                 conv,
                 self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
-
 
             # ——— Routing ———
             if intent == "crear_pedido":
