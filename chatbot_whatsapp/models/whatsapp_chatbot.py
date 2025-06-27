@@ -112,7 +112,7 @@ class WhatsAppMessage(models.Model):
                 ('mobile_number','=', record.mobile_number),
                 ('id','<=', record.id),
                 ('state','in',['received','inbound','outgoing','sent'])
-            ], order='id desc', limit=6)
+            ], order='id desc', limit=10)
 
             conv = []
 
