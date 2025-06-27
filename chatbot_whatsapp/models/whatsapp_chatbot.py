@@ -113,21 +113,36 @@ class WhatsAppMessage(models.Model):
                 ('mobile_number','=', record.mobile_number),
                 ('id','<', record.id),
                 ('state','in',['received','outgoing'])
-            ], order='id desc', limit=3)
+            ], order='id desc', limit=6)  # Aumentamos el historial a 6
 
             conv = []
-            for m in reversed(history):
-                role = "user" if m.state in ("received","inbound") else "assistant"
-                c = clean_html(m.body or "").strip()
-                if c:
-                    conv.append({"role": role, "content": c})
-            conv.append({"role":"user","content":plain})
 
+            # Agregamos contexto adicional si hay memoria activa
+            if memory:
+                context = f"Contexto actual: última intención '{memory.last_intent}'."
+                if memory.last_variant_id:
+                    context += f" Producto sugerido: {memory.last_variant_id.display_name}."
+                if memory.last_qty_suggested:
+                    context += f" Cantidad sugerida: {memory.last_qty_suggested}."
+                conv.append({"role": "system", "content": context})
+
+            # Armamos la conversación con los últimos mensajes
+            for m in reversed(history):
+                role = "user" if m.state in ("received", "inbound") else "assistant"
+                c = clean_html(m.body or "").strip()
+                if c and len(c) > 1 and c.lower() not in ["ok", "gracias", "dale"]:
+                    conv.append({"role": role, "content": c})
+
+            # Último mensaje recibido
+            conv.append({"role": "user", "content": plain})
+
+            # Detección de intención
             intent = detect_intention(
                 conv,
                 self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
+
 
             # ——— Routing ———
             if intent == "crear_pedido":

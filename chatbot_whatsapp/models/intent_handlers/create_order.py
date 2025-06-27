@@ -86,11 +86,6 @@ def create_sale_order(env, partner_id, product_id, quantity):
 
     return order
 
-
-
-
-
-
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     """
     1) Usa GPT para buscar variantes disponibles.

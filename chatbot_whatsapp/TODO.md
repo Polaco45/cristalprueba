@@ -15,6 +15,8 @@
 * Analizar pedidos anteriores para saber que producto elegir en caso de que el pedido sea muy generico
     * EJEMPLO: escobillones
 
+* Que le pregunte en caso de que haya mas de un cliente en el mismo numero
+
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 * Escuchar audios
 * Manejar cualquier otro caso que pueda surgir en cuanto a crear pedidos y cotizarlos.

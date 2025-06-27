@@ -13,9 +13,11 @@ def detect_intention(conversation_history, api_key):
         "content": (
             "Eres un clasificador de intenciones para un chatbot de atención al cliente "
             "de una tienda de productos de limpieza.\n"
-            "Las categorías son: saludo, consulta_horario, consulta_producto, crear_pedido, "
+            "Debes predecir la intención del último mensaje del usuario en función de la conversación completa.\n"
+            "Ten en cuenta tanto los mensajes del usuario como las respuestas del asistente.\n"
+            "Categorías posibles: saludo, consulta_horario, consulta_producto, crear_pedido, "
             "solicitar_factura, otro.\n"
-            "Tu tarea es analizar la conversación y clasificar solo la intención del último mensaje del usuario teniendo en cuenta el contexto de los ultimos 3 mensajes.\n"
+            "Devolvé únicamente la categoría (en minúsculas, sin explicaciones).\n"
         )
     }
 
