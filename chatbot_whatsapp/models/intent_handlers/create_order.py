@@ -1,5 +1,3 @@
-# ✅ create_order.py
-
 import json
 import logging
 import re
@@ -11,10 +9,11 @@ _logger = logging.getLogger(__name__)
 def get_openai_api_key(env):
     return env['ir.config_parameter'].sudo().get_param('openai.api_key')
 
+# Actualizamos la función para recibir partner_id y usar la lista de precios del cliente
 FUNCTIONS = [
     {
         "name": "lookup_product_variants",
-        "description": "Busca variantes de producto en Odoo",
+        "description": "Busca variantes de producto en Odoo considerando la lista de precios del cliente",
         "parameters": {
             "type": "object",
             "properties": {
@@ -25,42 +24,42 @@ FUNCTIONS = [
     }
 ]
 
-def lookup_product_variants(env, query, partner_id=None, limit=5):
+def lookup_product_variants(env, query, partner_id, limit=5):
     """
-    Busca variantes de un producto por nombre y devuelve stock y precio
-    según la lista de precios del partner (si se pasa partner_id).
+    Devuelve variantes con stock y precio según la lista de precios del partner.
     """
     Product = env['product.product'].sudo()
+    Partner = env['res.partner'].sudo().browse(partner_id)
+    Pricelist = Partner.property_product_pricelist
+
+    # Buscar variantes que coincidan
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
 
-    # Filtrar por stock disponible
+    # Filtrar solo con stock
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    # Obtener pricelist del partner si aplica
-    pricelist_id = None
-    if partner_id:
-        partner = env['res.partner'].sudo().browse(partner_id)
-        pricelist_id = partner.property_product_pricelist.id
+    # Calcular precio segun lista de precios
+    prices = env['product.pricelist'].price_get(
+        Pricelist.id,
+        [v.id for v in in_stock],
+        1,
+        Partner.id
+    )
 
-    # Construir lista de variantes con precio según pricelist
-    result = []
-    for v in in_stock:
-        # Si hay pricelist, usar contexto para obtener el precio correcto
-        if pricelist_id:
-            price = v.with_context(pricelist=pricelist_id).price
-        else:
-            price = v.list_price
-        result.append({
+    return [
+        {
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': price
-        })
-    return result
+            'price': prices.get(v.id, v.list_price)
+        }
+        for v in in_stock
+    ]
+
 
 def suggest_ecommerce_categories(env, query):
     Product = env['product.template'].sudo()
@@ -77,6 +76,7 @@ def suggest_ecommerce_categories(env, query):
     categories = sorted(category_counts.values(), key=lambda c: c['count'], reverse=True)
     return categories[:5]
 
+
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
     partner = env['res.partner'].browse(partner_id)
@@ -86,8 +86,13 @@ def create_sale_order(env, partner_id, product_id, quantity):
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
         'type': 'opportunity',
-        'description': f"Se generó un pedido desde WhatsApp.\nProducto: {product.display_name}\nCantidad: {quantity}",
-        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
+        'description': (
+            f"Se generó un pedido desde WhatsApp.\n"
+            f"Producto: {product.display_name}\n"
+            f"Cantidad: {quantity}"
+        ),
+        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False)
+            and env.ref('crm.source_website_leads').id,
     })
 
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
@@ -117,9 +122,11 @@ def create_sale_order(env, partner_id, product_id, quantity):
 
     return order
 
+
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     openai.api_key = get_openai_api_key(env)
 
+    # Mensaje sistema para GPT: solicita function_call
     system_msg = {
         "role": "system",
         "content": (
@@ -142,7 +149,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        # Ahora pasamos el partner.id para calcular precio correcto
+        # Pasamos el partner.id a la búsqueda para obtener precio real
         variants = lookup_product_variants(env, args['query'], partner.id, limit=20)
     except UserError as ue:
         return str(ue)
@@ -150,14 +157,14 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
-    # 💡 Siempre sugerir variantes si hay muchas (aunque venga con cantidad)
+    # Si hay muchas variantes, sugerimos lista
     if len(variants) >= 5:
         buttons = "\n".join([
             f"{i+1}) {v['name']} - ${v['price']}" for i, v in enumerate(variants)
         ])
         memory_payload = {
             'products': variants,
-            'qty': qty  # puede ser None
+            'qty': qty
         }
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
@@ -170,7 +177,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
-    # Si no hay muchas variantes, se asume el primero
+    # Si pocas, seleccionamos la primera
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
