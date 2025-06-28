@@ -125,15 +125,19 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
-    if len(variants) >= 5 and not qty:
-        # Consulta genérica, ofrecer variantes directamente
+    # 💡 Siempre sugerir variantes si hay muchas (aunque venga con cantidad)
+    if len(variants) >= 5:
         buttons = "\n".join([
             f"{i+1}) {v['name']} - ${v['price']}" for i, v in enumerate(variants)
         ])
+        memory_payload = {
+            'products': variants,
+            'qty': qty  # puede ser None
+        }
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_seleccion_producto',
-            'data_buffer': json.dumps({'products': variants})
+            'data_buffer': json.dumps(memory_payload)
         })
         return (
             f"Tenemos varias opciones para {args['query']}:\n"
@@ -141,7 +145,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
-    # Si no es genérico o sí tiene cantidad, tomar primera variante
+    # Si no hay muchas variantes, se asume el primero
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
@@ -167,4 +171,5 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{name}."
+
 
