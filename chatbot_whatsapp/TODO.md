@@ -16,11 +16,13 @@
 
 * Analizar pedidos anteriores para saber que producto elegir en caso de que el pedido sea muy generico
     * EJEMPLO: escobillones
+    * PROMPT: ahora quiero que cuando el cliente diga que quiere pedir algo de forma GENERICA, busque si esa categoria de producto la pidio anteriormente en algun pedido en el pasado, y elija automaticamente el producto especifico que haya pedido anteriormente. Si no hay historial de esa categoria, que le pase las opciones.
 
 * Que le pregunte en caso de que haya mas de un cliente en el mismo numero
 
 * Manejar todos los demas casos de negocio (b2c, mayoristas)
-    * 
+    * B2C: Trato mas seco, derivar a website
+    * mayorista: como en B2B
 
 * Ejecutar el pedido
 

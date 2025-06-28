@@ -25,7 +25,7 @@ FUNCTIONS = [
     }
 ]
 
-def lookup_product_variants(env, query, limit=5):
+def lookup_product_variants(env, query, partner_id=None, limit=5):
     Product = env['product.product'].sudo()
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
@@ -33,10 +33,18 @@ def lookup_product_variants(env, query, limit=5):
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
-    return [
-        {'id': v.id, 'name': v.display_name, 'stock': v.qty_available, 'price': v.list_price}
-        for v in in_stock
-    ]
+
+    res = []
+    for v in in_stock:
+        price = v.price_get(partner_id=partner_id).get(v.id, 0.0) if partner_id else v.list_price
+        res.append({
+            'id': v.id,
+            'name': v.display_name,
+            'stock': v.qty_available,
+            'price': price
+        })
+    return res
+
 
 def suggest_ecommerce_categories(env, query):
     Product = env['product.template'].sudo()
@@ -118,7 +126,8 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        variants = lookup_product_variants(env, args['query'], limit=20)
+        variants = lookup_product_variants(env, args['query'], partner.id, limit=20)
+
     except UserError as ue:
         return str(ue)
 
