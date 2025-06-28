@@ -42,10 +42,11 @@ def lookup_product_variants(env, partner, query, limit=5):
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': v.with_context(**price_context).price if price_context else v.list_price,
+            'price': v.with_context(**price_context).list_price if price_context else v.list_price,
         }
         for v in in_stock
     ]
+
 
 
 def suggest_ecommerce_categories(env, query):
