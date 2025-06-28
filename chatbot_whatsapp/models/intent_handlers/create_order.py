@@ -9,11 +9,10 @@ _logger = logging.getLogger(__name__)
 def get_openai_api_key(env):
     return env['ir.config_parameter'].sudo().get_param('openai.api_key')
 
-# Actualizamos la función para recibir partner_id y usar la lista de precios del cliente
 FUNCTIONS = [
     {
         "name": "lookup_product_variants",
-        "description": "Busca variantes de producto en Odoo considerando la lista de precios del cliente",
+        "description": "Busca variantes de producto en Odoo",
         "parameters": {
             "type": "object",
             "properties": {
@@ -24,51 +23,39 @@ FUNCTIONS = [
     }
 ]
 
-def lookup_product_variants(env, query, partner_id, limit=5):
+def lookup_product_variants(env, partner, query, limit=20):
     Product = env['product.product'].sudo()
-    Partner = env['res.partner'].browse(partner_id)
-    Pricelist = Partner.property_product_pricelist
-
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
 
+    if not variants:
+        raise UserError(f"No se encontraron productos para '{query}'.")
+
+    # obtenemos la pricelist del cliente (o una de fallback)
+    pricelist = partner.property_product_pricelist or env['product.pricelist'].search([], limit=1)
+    if not pricelist:
+        raise UserError("No hay ninguna lista de precios configurada.")
+
+    # filtramos solo los que tienen stock
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    prices = {}
-    # Usar _compute_price que es el método público recomendado
-    prices_dict = Pricelist._compute_price_rule([(v, 1, Partner) for v in in_stock], quantity=1)
+    products_with_prices = []
     for v in in_stock:
-        prices[v.id] = prices_dict.get(v, v.list_price)
+        # ESTE es el cambio clave:
+        price = pricelist._get_product_price(v, 1.0, v.uom_id)
 
-    return [
-        {
+        products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': prices[v.id]
-        }
-        for v in in_stock
-    ]
+            'price': price,
+        })
 
+    return products_with_prices
 
-
-def suggest_ecommerce_categories(env, query):
-    Product = env['product.template'].sudo()
-    Category = env['product.public.category'].sudo()
-    matched_products = Product.search([
-        '|', ('name', 'ilike', query), ('description_sale', 'ilike', query)
-    ])
-    category_counts = {}
-    for product in matched_products:
-        for cat in product.public_categ_ids:
-            if cat.id not in category_counts:
-                category_counts[cat.id] = {'name': cat.name, 'count': 0, 'id': cat.id}
-            category_counts[cat.id]['count'] += 1
-    categories = sorted(category_counts.values(), key=lambda c: c['count'], reverse=True)
-    return categories[:5]
 
 
 def create_sale_order(env, partner_id, product_id, quantity):
@@ -80,13 +67,8 @@ def create_sale_order(env, partner_id, product_id, quantity):
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
         'type': 'opportunity',
-        'description': (
-            f"Se generó un pedido desde WhatsApp.\n"
-            f"Producto: {product.display_name}\n"
-            f"Cantidad: {quantity}"
-        ),
-        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False)
-            and env.ref('crm.source_website_leads').id,
+        'description': f"Se generó un pedido desde WhatsApp.\nProducto: {product.display_name}\nCantidad: {quantity}",
+        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
     })
 
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
@@ -116,11 +98,9 @@ def create_sale_order(env, partner_id, product_id, quantity):
 
     return order
 
-
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     openai.api_key = get_openai_api_key(env)
 
-    # Mensaje sistema para GPT: solicita function_call
     system_msg = {
         "role": "system",
         "content": (
@@ -143,18 +123,16 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        # Pasamos el partner.id a la búsqueda para obtener precio real
-        variants = lookup_product_variants(env, args['query'], partner.id, limit=20)
+        variants = lookup_product_variants(env, partner, args['query'], limit=20)
     except UserError as ue:
         return str(ue)
 
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
-    # Si hay muchas variantes, sugerimos lista
     if len(variants) >= 5:
         buttons = "\n".join([
-            f"{i+1}) {v['name']} - ${v['price']}" for i, v in enumerate(variants)
+            f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
         ])
         memory_payload = {
             'products': variants,
@@ -171,7 +149,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
-    # Si pocas, seleccionamos la primera
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
