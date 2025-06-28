@@ -25,40 +25,34 @@ FUNCTIONS = [
 ]
 
 def lookup_product_variants(env, query, partner_id, limit=5):
-    """
-    Devuelve variantes con stock y precio según la lista de precios del partner.
-    """
     Product = env['product.product'].sudo()
-    Partner = env['res.partner'].sudo().browse(partner_id)
+    Partner = env['res.partner'].browse(partner_id)
     Pricelist = Partner.property_product_pricelist
 
-    # Buscar variantes que coincidan
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
 
-    # Filtrar solo con stock
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    # Calcular precio segun lista de precios
-    prices = env['product.pricelist']._price_get(
-        Pricelist.id,
-        [v.id for v in in_stock],
-        1,
-        Partner.id
-    )
+    prices = {}
+    # Usar _compute_price que es el método público recomendado
+    prices_dict = Pricelist._compute_price([(v, 1, Partner) for v in in_stock])
+    for v in in_stock:
+        prices[v.id] = prices_dict.get(v, v.list_price)
 
     return [
         {
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': prices.get(v.id, v.list_price)
+            'price': prices[v.id]
         }
         for v in in_stock
     ]
+
 
 
 def suggest_ecommerce_categories(env, query):
