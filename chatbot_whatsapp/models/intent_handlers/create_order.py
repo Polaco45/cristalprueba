@@ -42,7 +42,15 @@ def lookup_product_variants(env, partner, query, limit=20):
 
     products_with_prices = []
     for v in in_stock:
-        price = pricelist._get_product_price(v, 1.0, partner) if pricelist else v.list_price
+        try:
+            price = pricelist._get_product_price(v, 1.0, partner)
+        except Exception as e:
+            _logger.warning(
+                f"[⚠️ Precio fallback] Error al obtener precio desde lista '{pricelist.name}' "
+                f"para producto '{v.display_name}': {e}. Usando list_price ({v.list_price})"
+            )
+            price = v.list_price
+
         products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
@@ -51,6 +59,7 @@ def lookup_product_variants(env, partner, query, limit=20):
         })
 
     return products_with_prices
+
 
 
 def create_sale_order(env, partner_id, product_id, quantity):
