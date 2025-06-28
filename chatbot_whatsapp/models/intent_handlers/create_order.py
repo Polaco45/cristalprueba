@@ -60,8 +60,6 @@ def lookup_product_variants(env, partner, query, limit=20):
 
     return products_with_prices
 
-
-
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
     partner = env['res.partner'].browse(partner_id)
