@@ -25,7 +25,7 @@ FUNCTIONS = [
     }
 ]
 
-def lookup_product_variants(env, query, partner_id=None, limit=5):
+def lookup_product_variants(env, query, limit=5):
     Product = env['product.product'].sudo()
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
@@ -34,17 +34,19 @@ def lookup_product_variants(env, query, partner_id=None, limit=5):
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    res = []
-    for v in in_stock:
-        price = v.price_get(partner_id=partner_id).get(v.id, 0.0) if partner_id else v.list_price
-        res.append({
+    partner = env.context.get('partner')
+    pricelist = partner.property_product_pricelist if partner else None
+    price_context = {'pricelist': pricelist.id} if pricelist else {}
+
+    return [
+        {
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': price
-        })
-    return res
-
+            'price': v.with_context(**price_context).price if price_context else v.list_price,
+        }
+        for v in in_stock
+    ]
 
 def suggest_ecommerce_categories(env, query):
     Product = env['product.template'].sudo()
@@ -126,22 +128,20 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        variants = lookup_product_variants(env, args['query'], partner.id, limit=20)
-
+        variants = lookup_product_variants(env.with_context(partner=partner), args['query'], limit=20)
     except UserError as ue:
         return str(ue)
 
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
-    # 💡 Siempre sugerir variantes si hay muchas (aunque venga con cantidad)
     if len(variants) >= 5:
         buttons = "\n".join([
-            f"{i+1}) {v['name']} - ${v['price']}" for i, v in enumerate(variants)
+            f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
         ])
         memory_payload = {
             'products': variants,
-            'qty': qty  # puede ser None
+            'qty': qty
         }
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
@@ -154,7 +154,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
-    # Si no hay muchas variantes, se asume el primero
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
@@ -179,6 +178,4 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         )
 
     order = create_sale_order(env, partner.id, pid, qty)
-    return f"📝 Pedido {order.name} creado: {qty}×{name}."
-
-
+    return f"📍 Pedido {order.name} creado: {qty}×{name}."
