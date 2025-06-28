@@ -43,7 +43,7 @@ def lookup_product_variants(env, query, partner_id, limit=5):
         raise UserError(f"No hay stock disponible para '{query}'.")
 
     # Calcular precio segun lista de precios
-    prices = env['product.pricelist'].price_get(
+    prices = env['product.pricelist']._price_get(
         Pricelist.id,
         [v.id for v in in_stock],
         1,
