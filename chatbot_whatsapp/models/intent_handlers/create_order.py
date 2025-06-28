@@ -39,7 +39,7 @@ def lookup_product_variants(env, query, partner_id, limit=5):
 
     prices = {}
     # Usar _compute_price que es el método público recomendado
-    prices_dict = Pricelist._compute_price([(v, 1, Partner) for v in in_stock])
+    prices_dict = Pricelist._compute_price_rule([(v, 1, Partner) for v in in_stock])
     for v in in_stock:
         prices[v.id] = prices_dict.get(v, v.list_price)
 
