@@ -1,5 +1,3 @@
-# ✅ create_order.py
-
 import json
 import logging
 import re
@@ -25,47 +23,41 @@ FUNCTIONS = [
     }
 ]
 
-def lookup_product_variants(env, partner, query, limit=5):
+def lookup_product_variants(env, partner, query, limit=20):
     Product = env['product.product'].sudo()
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
+
+    if not variants:
+        raise UserError(f"No se encontraron productos para '{query}'.")
+
+    pricelist = partner.property_product_pricelist
+    if not pricelist:
+        pricelist = env['product.pricelist'].search([], limit=1)  # fallback
+
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    pricelist = partner.property_product_pricelist if partner else None
-
-    result = []
+    products_with_prices = []
     for v in in_stock:
-        if pricelist:
-            price = v.with_context(pricelist=pricelist.id).price_compute('price')[0]
-        else:
-            price = v.list_price
-        result.append({
+        price = pricelist.with_context(pricelist=pricelist.id).price_item_get(
+            product_id=v.id,
+            qty=1.0,
+            uom=v.uom_id.id,
+            date=False
+        )['price'] if pricelist else v.list_price
+
+        products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
             'price': price,
         })
-    return result
 
+    return products_with_prices
 
-
-def suggest_ecommerce_categories(env, query):
-    Product = env['product.template'].sudo()
-    Category = env['product.public.category'].sudo()
-    matched_products = Product.search([
-        '|', ('name', 'ilike', query), ('description_sale', 'ilike', query)
-    ])
-    category_counts = {}
-    for product in matched_products:
-        for cat in product.public_categ_ids:
-            if cat.id not in category_counts:
-                category_counts[cat.id] = {'name': cat.name, 'count': 0, 'id': cat.id}
-            category_counts[cat.id]['count'] += 1
-    categories = sorted(category_counts.values(), key=lambda c: c['count'], reverse=True)
-    return categories[:5]
 
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
@@ -182,4 +174,4 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         )
 
     order = create_sale_order(env, partner.id, pid, qty)
-    return f"📍 Pedido {order.name} creado: {qty}×{name}."
+    return f"📝 Pedido {order.name} creado: {qty}×{name}."
