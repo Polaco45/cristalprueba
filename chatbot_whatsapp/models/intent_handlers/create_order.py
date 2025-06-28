@@ -25,7 +25,7 @@ FUNCTIONS = [
     }
 ]
 
-def lookup_product_variants(env, query, limit=5):
+def lookup_product_variants(env, partner, query, limit=5):
     Product = env['product.product'].sudo()
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
@@ -34,7 +34,6 @@ def lookup_product_variants(env, query, limit=5):
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    partner = env.context.get('partner')
     pricelist = partner.property_product_pricelist if partner else None
     price_context = {'pricelist': pricelist.id} if pricelist else {}
 
