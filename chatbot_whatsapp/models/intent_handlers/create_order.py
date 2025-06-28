@@ -47,6 +47,7 @@ def lookup_product_variants(env, partner, query, limit=5):
         for v in in_stock
     ]
 
+
 def suggest_ecommerce_categories(env, query):
     Product = env['product.template'].sudo()
     Category = env['product.public.category'].sudo()
@@ -127,7 +128,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        variants = lookup_product_variants(env.with_context(partner=partner), args['query'], limit=20)
+        variants = lookup_product_variants(env, partner, args['query'], limit=20)
     except UserError as ue:
         return str(ue)
 
