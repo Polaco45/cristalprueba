@@ -128,9 +128,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        env_with_ctx = env(context=dict(env.context, partner=partner))
-        variants = lookup_product_variants(env_with_ctx, args['query'], limit=20)
-
+        variants = lookup_product_variants(env.with_context(partner=partner), args['query'], limit=20)
     except UserError as ue:
         return str(ue)
 
