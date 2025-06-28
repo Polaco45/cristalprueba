@@ -32,21 +32,17 @@ def lookup_product_variants(env, partner, query, limit=20):
     if not variants:
         raise UserError(f"No se encontraron productos para '{query}'.")
 
-    # obtenemos la pricelist del cliente (o una de fallback)
-    pricelist = partner.property_product_pricelist or env['product.pricelist'].search([], limit=1)
+    pricelist = partner.property_product_pricelist
     if not pricelist:
-        raise UserError("No hay ninguna lista de precios configurada.")
+        pricelist = env['product.pricelist'].search([], limit=1)  # fallback
 
-    # filtramos solo los que tienen stock
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
     products_with_prices = []
     for v in in_stock:
-        # ESTE es el cambio clave:
-        price = pricelist._get_product_price(v, 1.0, v.uom_id)
-
+        price = pricelist.get_product_price(v, 1.0, partner) if pricelist else v.list_price
         products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
@@ -55,7 +51,6 @@ def lookup_product_variants(env, partner, query, limit=20):
         })
 
     return products_with_prices
-
 
 
 def create_sale_order(env, partner_id, product_id, quantity):
