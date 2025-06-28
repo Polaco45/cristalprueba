@@ -56,7 +56,7 @@ class WhatsAppMessage(models.Model):
                 continue
 
             if not is_cotizado(partner):
-                _logger.info("🚫 Cliente no cotizado — se detiene el flujo NLP")
+                _logger.info("\U0001f6d1 Cliente no cotizado — se detiene el flujo NLP")
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
                 continue
 
@@ -69,7 +69,7 @@ class WhatsAppMessage(models.Model):
                     qty = memory.last_qty_suggested
                     order = create_sale_order(self.env, partner.id, var.id, qty)
                     memory.unlink()
-                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
+                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{var.display_name}.")
                     continue
                 if choice in ('2','2)','quiero otra cantidad'):
                     memory.write({'last_intent': 'esperando_nueva_cantidad'})
@@ -104,7 +104,7 @@ class WhatsAppMessage(models.Model):
                     continue
                 order = create_sale_order(self.env, partner.id, var.id, new_qty)
                 memory.unlink()
-                _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
+                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
             elif memory and memory.last_intent == 'esperando_seleccion_producto':
@@ -154,7 +154,7 @@ class WhatsAppMessage(models.Model):
 
                 order = create_sale_order(self.env, partner.id, pid, qty)
                 memory.unlink()
-                _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{name}.")
+                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                 continue
 
             elif memory and memory.last_intent == 'esperando_cantidad_producto':
@@ -180,7 +180,7 @@ class WhatsAppMessage(models.Model):
 
                 order = create_sale_order(self.env, partner.id, variant.id, qty)
                 memory.unlink()
-                _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
+                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
                 continue
 
             history = self.env['whatsapp.message'].sudo().search([
@@ -208,7 +208,7 @@ class WhatsAppMessage(models.Model):
                 else:
                     conv.append({"role": "assistant", "content": text})
 
-            _logger.info("🧠 Conversación enviada:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
+            _logger.info("\U0001f9e0 Conversación enviada:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
 
             intent = detect_intention(
                 conv,
