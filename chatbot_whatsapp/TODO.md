@@ -1,3 +1,5 @@
+### V1
+
 - Onboardear a la persona en caso de que sea nueva
     - Validar Email
     - Vincular al contacto
@@ -17,11 +19,16 @@
 
 * Que le pregunte en caso de que haya mas de un cliente en el mismo numero
 
-* Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
-* Escuchar audios
-* Manejar cualquier otro caso que pueda surgir en cuanto a crear pedidos y cotizarlos.
-* Ver cual es el mejor parametro para definir la cantidad de mensajes de contexto tanto en el codigo como en el prompt.
-* Manejar todos los demas casos
+* Manejar todos los demas casos de negocio (b2c, mayoristas)
+    * 
+
 * Ejecutar el pedido
 
 * Refactor y archivo de configuracion
+
+* Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
+
+### V2
+
+* Escuchar audios
+

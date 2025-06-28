@@ -1,4 +1,4 @@
-# models/intent_handlers/create_order.py
+# ✅ create_order.py
 
 import json
 import logging
@@ -38,25 +38,34 @@ def lookup_product_variants(env, query, limit=5):
         for v in in_stock
     ]
 
+def suggest_ecommerce_categories(env, query):
+    Product = env['product.template'].sudo()
+    Category = env['product.public.category'].sudo()
+    matched_products = Product.search([
+        '|', ('name', 'ilike', query), ('description_sale', 'ilike', query)
+    ])
+    category_counts = {}
+    for product in matched_products:
+        for cat in product.public_categ_ids:
+            if cat.id not in category_counts:
+                category_counts[cat.id] = {'name': cat.name, 'count': 0, 'id': cat.id}
+            category_counts[cat.id]['count'] += 1
+    categories = sorted(category_counts.values(), key=lambda c: c['count'], reverse=True)
+    return categories[:5]
+
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
     partner = env['res.partner'].browse(partner_id)
-
-    # Obtener lista de precios del partner (si tiene)
     pricelist = partner.property_product_pricelist
 
-    # Crear el lead
     lead = env['crm.lead'].sudo().create({
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
         'type': 'opportunity',
-        'description': f"Se generó un pedido desde WhatsApp.\n"
-                      f"Producto: {product.display_name}\n"
-                      f"Cantidad: {quantity}",
+        'description': f"Se generó un pedido desde WhatsApp.\nProducto: {product.display_name}\nCantidad: {quantity}",
         'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
     })
 
-    # Crear el pedido con contexto de pricelist
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
         'partner_id': partner_id,
         'opportunity_id': lead.id,
@@ -65,11 +74,9 @@ def create_sale_order(env, partner_id, product_id, quantity):
             'product_id': product_id,
             'product_uom': product.uom_id.id,
             'product_uom_qty': quantity,
-            # No seteamos price_unit, lo deja calcular a Odoo
         })]
     })
 
-    # Crear actividad de seguimiento
     activity_type = env['mail.activity.type'].sudo().search([
         ('name', 'ilike', 'Iniciativa de Venta')
     ], limit=1)
@@ -87,15 +94,8 @@ def create_sale_order(env, partner_id, product_id, quantity):
     return order
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
-    """
-    1) Usa GPT para buscar variantes disponibles.
-    2) Extrae la cantidad del texto con regex.
-    3) Si qty > stock → crea memoria y devuelve texto con 3 opciones numeradas.
-    4) Si qty <= stock → crea pedido y devuelve texto.
-    """
     openai.api_key = get_openai_api_key(env)
 
-    # 1) function_call para buscar variantes
     system_msg = {
         "role": "system",
         "content": (
@@ -118,23 +118,36 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        variants = lookup_product_variants(env, args['query'])
+        variants = lookup_product_variants(env, args['query'], limit=20)
     except UserError as ue:
         return str(ue)
 
-    # Nos quedamos con la primera variante en stock
-    variant = variants[0]
-    pid   = variant['id']
-    avail = int(variant['stock'])
-    name  = variant['name']
+    is_generic = len(variants) >= 5 and not re.search(r'\b(\d+)\b', text)
+    if is_generic:
+        categories = suggest_ecommerce_categories(env, args['query'])
+        if not categories:
+            return "No encontré productos relacionados."
 
-    # 2) Extraer cantidad
+        buttons = "\n".join([
+            f"{i+1}) {c['name']}" for i, c in enumerate(categories)
+        ])
+        env['chatbot.whatsapp.memory'].sudo().create({
+            'partner_id': partner.id,
+            'last_intent': 'esperando_categoria_producto',
+            'data_buffer': json.dumps({'query': args['query'], 'categories': categories})
+        })
+        return f"¿Qué tipo de {args['query']} querés?\n{buttons}\nRespondé con el número o el nombre."
+
+    variant = variants[0]
+    pid = variant['id']
+    avail = int(variant['stock'])
+    name = variant['name']
+
     m = re.search(r'\b(\d+)\b', text)
     if not m:
-        return "¿Cuántas unidades querés?"
+        return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
     qty = int(m.group(1))
 
-    # 3) Si pide más de lo disponible → memoria + texto con opciones
     if qty > avail:
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
@@ -150,6 +163,5 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "3) No, gracias"
         )
 
-    # 4) Si alcanza stock → crear pedido
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{name}."
