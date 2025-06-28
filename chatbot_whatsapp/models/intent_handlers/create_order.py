@@ -35,17 +35,20 @@ def lookup_product_variants(env, partner, query, limit=5):
         raise UserError(f"No hay stock disponible para '{query}'.")
 
     pricelist = partner.property_product_pricelist if partner else None
-    price_context = {'pricelist': pricelist.id} if pricelist else {}
 
-    return [
-        {
+    result = []
+    for v in in_stock:
+        if pricelist:
+            price = v.with_context(pricelist=pricelist.id).price_compute('price')[0]
+        else:
+            price = v.list_price
+        result.append({
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': v.with_context(**price_context).list_price if price_context else v.list_price,
-        }
-        for v in in_stock
-    ]
+            'price': price,
+        })
+    return result
 
 
 
