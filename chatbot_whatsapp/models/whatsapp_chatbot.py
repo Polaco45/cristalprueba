@@ -87,7 +87,7 @@ class WhatsAppMessage(models.Model):
                 )
                 continue
 
-            if memory and memory.last_intent == 'esperando_nueva_cantidad':
+            elif memory and memory.last_intent == 'esperando_nueva_cantidad':
                 try:
                     new_qty = int(plain)
                 except ValueError:
@@ -107,7 +107,82 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
-            # Armado del contexto para el intent predictor
+            elif memory and memory.last_intent == 'esperando_seleccion_producto':
+                data = json.loads(memory.data_buffer or '{}')
+                variants = data.get('products', [])
+                qty = data.get('qty')
+
+                selected_variant = None
+                if plain.strip().isdigit():
+                    index = int(plain.strip()) - 1
+                    if 0 <= index < len(variants):
+                        selected_variant = variants[index]
+                else:
+                    for v in variants:
+                        if plain.lower() in v['name'].lower():
+                            selected_variant = v
+                            break
+
+                if not selected_variant:
+                    _send_text(record, "No entendí cuál producto elegiste. Por favor respondé con el número o el nombre.")
+                    continue
+
+                pid = selected_variant['id']
+                name = selected_variant['name']
+                avail = int(selected_variant['stock'])
+
+                if not qty:
+                    memory.write({
+                        'last_intent': 'esperando_cantidad_producto',
+                        'last_variant_id': pid,
+                        'data_buffer': json.dumps({'product': selected_variant})
+                    })
+                    _send_text(record, f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?")
+                    continue
+
+                if qty > avail:
+                    memory.write({
+                        'last_intent': 'esperando_confirmacion_stock',
+                        'last_variant_id': pid,
+                        'last_qty_suggested': avail
+                    })
+                    _send_text(record,
+                        f"Solo hay {avail} unidades de “{name}”.\n"
+                        "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                    )
+                    continue
+
+                order = create_sale_order(self.env, partner.id, pid, qty)
+                memory.unlink()
+                _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{name}.")
+                continue
+
+            elif memory and memory.last_intent == 'esperando_cantidad_producto':
+                try:
+                    qty = int(plain)
+                except ValueError:
+                    _send_text(record, "No entendí la cantidad. ¿Podés escribir un número?")
+                    continue
+
+                variant = memory.last_variant_id
+                avail = variant.qty_available or 0
+
+                if qty > avail:
+                    memory.write({
+                        'last_intent': 'esperando_confirmacion_stock',
+                        'last_qty_suggested': avail
+                    })
+                    _send_text(record,
+                        f"Solo hay {avail} unidades de “{variant.display_name}”.\n"
+                        "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                    )
+                    continue
+
+                order = create_sale_order(self.env, partner.id, variant.id, qty)
+                memory.unlink()
+                _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
+                continue
+
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
                 ('id','<=', record.id),
@@ -141,7 +216,6 @@ class WhatsAppMessage(models.Model):
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
 
-            # 🔄 Guardamos la intención detectada en memoria
             if memory:
                 memory.write({'last_intent': intent})
             else:
@@ -150,7 +224,6 @@ class WhatsAppMessage(models.Model):
                     'last_intent': intent,
                 })
 
-            # Routing
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
                 if result:
