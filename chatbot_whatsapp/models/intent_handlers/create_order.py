@@ -25,6 +25,9 @@ FUNCTIONS = [
 
 def lookup_product_variants(env, partner, query, limit=20):
     Product = env['product.product'].sudo()
+    Currency = env['res.currency'].sudo()
+    Company = env.company
+
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
@@ -32,9 +35,9 @@ def lookup_product_variants(env, partner, query, limit=20):
     if not variants:
         raise UserError(f"No se encontraron productos para '{query}'.")
 
-    pricelist = partner.property_product_pricelist
-    if not pricelist:
-        pricelist = env['product.pricelist'].search([], limit=1)  # fallback
+    pricelist = partner.property_product_pricelist or env['product.pricelist'].search([], limit=1)
+    pricelist_currency = pricelist.currency_id
+    company_currency = Company.currency_id
 
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
@@ -43,13 +46,19 @@ def lookup_product_variants(env, partner, query, limit=20):
     products_with_prices = []
     for v in in_stock:
         try:
+            # Validar tasa antes de obtener el precio
+            if pricelist_currency != company_currency:
+                rate = Currency._get_conversion_rate(pricelist_currency, company_currency, Company, fields.Date.today())
+                if rate is None or rate == 0.0:
+                    raise UserError(f"No hay tasa de conversión entre {pricelist_currency.name} y {company_currency.name}.")
+
             price = pricelist._get_product_price(v, 1.0, partner)
         except Exception as e:
             _logger.warning(
                 f"[⚠️ Precio fallback] Error al obtener precio desde lista '{pricelist.name}' "
                 f"para producto '{v.display_name}': {e}. Usando list_price ({v.list_price})"
             )
-            price = v.list_price
+            price = v.list_price or 0.0
 
         products_with_prices.append({
             'id': v.id,
@@ -59,6 +68,7 @@ def lookup_product_variants(env, partner, query, limit=20):
         })
 
     return products_with_prices
+
 
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
