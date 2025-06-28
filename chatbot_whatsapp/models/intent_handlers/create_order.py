@@ -122,31 +122,33 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     except UserError as ue:
         return str(ue)
 
-    is_generic = len(variants) >= 5 and not re.search(r'\b(\d+)\b', text)
-    if is_generic:
-        categories = suggest_ecommerce_categories(env, args['query'])
-        if not categories:
-            return "No encontré productos relacionados."
+    m = re.search(r'\b(\d+)\b', text)
+    qty = int(m.group(1)) if m else None
 
+    if len(variants) >= 5 and not qty:
+        # Consulta genérica, ofrecer variantes directamente
         buttons = "\n".join([
-            f"{i+1}) {c['name']}" for i, c in enumerate(categories)
+            f"{i+1}) {v['name']} - ${v['price']}" for i, v in enumerate(variants)
         ])
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
-            'last_intent': 'esperando_categoria_producto',
-            'data_buffer': json.dumps({'query': args['query'], 'categories': categories})
+            'last_intent': 'esperando_seleccion_producto',
+            'data_buffer': json.dumps({'products': variants})
         })
-        return f"¿Qué tipo de {args['query']} querés?\n{buttons}\nRespondé con el número o el nombre."
+        return (
+            f"Tenemos varias opciones para {args['query']}:\n"
+            f"{buttons}\n"
+            "Respondé con el número o el nombre del producto que querés."
+        )
 
+    # Si no es genérico o sí tiene cantidad, tomar primera variante
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
     name = variant['name']
 
-    m = re.search(r'\b(\d+)\b', text)
-    if not m:
+    if not qty:
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
-    qty = int(m.group(1))
 
     if qty > avail:
         env['chatbot.whatsapp.memory'].sudo().create({
@@ -165,3 +167,4 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{name}."
+
