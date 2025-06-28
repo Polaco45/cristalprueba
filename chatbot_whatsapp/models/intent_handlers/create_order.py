@@ -1,3 +1,5 @@
+# ✅ create_order.py
+
 import json
 import logging
 import re
@@ -23,40 +25,57 @@ FUNCTIONS = [
     }
 ]
 
-def lookup_product_variants(env, partner, query, limit=20):
+def lookup_product_variants(env, query, partner_id=None, limit=5):
+    """
+    Busca variantes de un producto por nombre y devuelve stock y precio
+    según la lista de precios del partner (si se pasa partner_id).
+    """
     Product = env['product.product'].sudo()
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
 
-    if not variants:
-        raise UserError(f"No se encontraron productos para '{query}'.")
-
-    # obtenemos la pricelist del cliente (o una de fallback)
-    pricelist = partner.property_product_pricelist or env['product.pricelist'].search([], limit=1)
-    if not pricelist:
-        raise UserError("No hay ninguna lista de precios configurada.")
-
-    # filtramos solo los que tienen stock
+    # Filtrar por stock disponible
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    products_with_prices = []
-    for v in in_stock:
-        # ESTE es el cambio clave:
-        price = pricelist._get_product_price(v, 1.0, v.uom_id)
+    # Obtener pricelist del partner si aplica
+    pricelist_id = None
+    if partner_id:
+        partner = env['res.partner'].sudo().browse(partner_id)
+        pricelist_id = partner.property_product_pricelist.id
 
-        products_with_prices.append({
+    # Construir lista de variantes con precio según pricelist
+    result = []
+    for v in in_stock:
+        # Si hay pricelist, usar contexto para obtener el precio correcto
+        if pricelist_id:
+            price = v.with_context(pricelist=pricelist_id).price
+        else:
+            price = v.list_price
+        result.append({
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': price,
+            'price': price
         })
+    return result
 
-    return products_with_prices
-
-
+def suggest_ecommerce_categories(env, query):
+    Product = env['product.template'].sudo()
+    Category = env['product.public.category'].sudo()
+    matched_products = Product.search([
+        '|', ('name', 'ilike', query), ('description_sale', 'ilike', query)
+    ])
+    category_counts = {}
+    for product in matched_products:
+        for cat in product.public_categ_ids:
+            if cat.id not in category_counts:
+                category_counts[cat.id] = {'name': cat.name, 'count': 0, 'id': cat.id}
+            category_counts[cat.id]['count'] += 1
+    categories = sorted(category_counts.values(), key=lambda c: c['count'], reverse=True)
+    return categories[:5]
 
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
@@ -123,20 +142,22 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     args = json.loads(msg.function_call.arguments)
     try:
-        variants = lookup_product_variants(env, partner, args['query'], limit=20)
+        # Ahora pasamos el partner.id para calcular precio correcto
+        variants = lookup_product_variants(env, args['query'], partner.id, limit=20)
     except UserError as ue:
         return str(ue)
 
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
+    # 💡 Siempre sugerir variantes si hay muchas (aunque venga con cantidad)
     if len(variants) >= 5:
         buttons = "\n".join([
-            f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
+            f"{i+1}) {v['name']} - ${v['price']}" for i, v in enumerate(variants)
         ])
         memory_payload = {
             'products': variants,
-            'qty': qty
+            'qty': qty  # puede ser None
         }
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
@@ -149,6 +170,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
+    # Si no hay muchas variantes, se asume el primero
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
