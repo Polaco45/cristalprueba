@@ -42,7 +42,7 @@ def lookup_product_variants(env, partner, query, limit=20):
 
     products_with_prices = []
     for v in in_stock:
-        price = pricelist.get_product_price(v, 1.0, partner) if pricelist else v.list_price
+        price = pricelist._get_product_price(v, 1.0, partner) if pricelist else v.list_price
         products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
