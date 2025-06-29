@@ -181,9 +181,10 @@ class WhatsAppMessage(models.Model):
                     continue
 
                 order = create_sale_order(self.env, partner.id, variant.id, qty)
-                memory.unlink()
                 _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
-                continue
+                memory.unlink()
+                return records  # ← ✅ evita seguir evaluando intents innecesarios
+
 
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
