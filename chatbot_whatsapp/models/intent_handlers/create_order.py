@@ -55,7 +55,7 @@ def lookup_product_variants(env, partner, query, limit=20):
             'product_uom': v.uom_id.id,
             'order_partner_id': partner.id,
         })
-        line._onchange_product_id()  # dispara precio, impuestos, etc.
+        line._onchange_product()  # dispara precio, impuestos, etc.
         price = line.price_unit
 
         products_with_prices.append({
