@@ -152,10 +152,12 @@ class WhatsAppMessage(models.Model):
                     )
                     continue
 
+                # ✅ AHORA SI: GENERAMOS PEDIDO Y LIMPIAMOS MEMORIA
                 order = create_sale_order(self.env, partner.id, pid, qty)
-                memory.unlink()
                 _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
+                memory.unlink()
                 continue
+
 
             elif memory and memory.last_intent == 'esperando_cantidad_producto':
                 try:

@@ -18,15 +18,20 @@
     * EJEMPLO: escobillones
     * PROMPT: ahora quiero que cuando el cliente diga que quiere pedir algo de forma GENERICA, busque si esa categoria de producto la pidio anteriormente en algun pedido en el pasado, y elija automaticamente el producto especifico que haya pedido anteriormente. Si no hay historial de esa categoria, que le pase las opciones.
 
+* Como hacemos si el cliente en el mismo mensaje dijo que quiere mas de una cosa, o como vamos guardando varios productos en el pedido antes de mandarlo. Y luego mandarlo cuando le preguntemos al cliente si quiere algo mas y nos diga que no.
+    * EJEMPLO: quiero un escobillon Y un blem 
+
 * Que le pregunte en caso de que haya mas de un cliente en el mismo numero
 
 * Manejar todos los demas casos de negocio (b2c, mayoristas)
     * B2C: Trato mas seco, derivar a website
     * mayorista: como en B2B
 
-* Ejecutar el pedido
-
 * Refactor y archivo de configuracion
+
+* Manejar saludo
+
+* Terminar de manejar factura
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 
