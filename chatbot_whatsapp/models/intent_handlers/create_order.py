@@ -1,3 +1,5 @@
+# create_order.py
+
 import json
 import logging
 import re
@@ -39,7 +41,6 @@ def lookup_product_variants(env, partner, query, limit=20):
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    # Creamos un pedido dummy en memoria para obtener precios con precisión
     pricelist = partner.property_product_pricelist
     order = SaleOrder.new({
         'partner_id': partner.id,
@@ -55,7 +56,7 @@ def lookup_product_variants(env, partner, query, limit=20):
             'product_uom': v.uom_id.id,
             'order_partner_id': partner.id,
         })
-        line._onchange_product()  # dispara precio, impuestos, etc.
+        line._onchange_product()
         price = line.price_unit
 
         products_with_prices.append({
@@ -68,7 +69,6 @@ def lookup_product_variants(env, partner, query, limit=20):
     return products_with_prices
 
 
-
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
     partner = env['res.partner'].browse(partner_id)
@@ -79,7 +79,8 @@ def create_sale_order(env, partner_id, product_id, quantity):
         'partner_id': partner_id,
         'type': 'opportunity',
         'description': f"Se generó un pedido desde WhatsApp.\nProducto: {product.display_name}\nCantidad: {quantity}",
-        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
+        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False)
+                     and env.ref('crm.source_website_leads').id,
     })
 
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
@@ -108,6 +109,7 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })
 
     return order
+
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     openai.api_key = get_openai_api_key(env)
@@ -138,17 +140,16 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     except UserError as ue:
         return str(ue)
 
+    # Extraemos una cantidad si el usuario ya la indicó en el mismo texto
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
+    # Si hay muchas variantes, mostramos botones y guardamos la lista en memoria
     if len(variants) >= 5:
         buttons = "\n".join([
             f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
         ])
-        memory_payload = {
-            'products': variants,
-            'qty': qty
-        }
+        memory_payload = {'products': variants, 'qty': qty}
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_seleccion_producto',
@@ -160,11 +161,13 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
+    # Caso de pocas variantes: tomamos la única/primera variante
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
     name = variant['name']
 
+    # Si no indicó cantidad, preguntamos y guardamos en memoria
     if not qty:
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
@@ -174,7 +177,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         })
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
 
-
+    # Si indicó una cantidad mayor al stock disponible
     if qty > avail:
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
@@ -190,5 +193,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "3) No, gracias"
         )
 
+    # Finalmente, creamos el pedido
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{name}."

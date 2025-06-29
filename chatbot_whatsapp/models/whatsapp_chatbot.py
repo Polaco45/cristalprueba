@@ -1,3 +1,5 @@
+# whatsapp_chatbot.py
+
 from odoo import models, api
 from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone, is_cotizado
@@ -47,6 +49,7 @@ class WhatsAppMessage(models.Model):
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
 
+            # Onboarding flow
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, memory_model
@@ -55,21 +58,23 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, response_msg)
                 continue
 
+            # Verificamos si el cliente ya fue cotizado
             if not is_cotizado(partner):
-                _logger.info("\U0001f6d1 Cliente no cotizado — se detiene el flujo NLP")
+                _logger.info("Cliente no cotizado — se detiene el flujo NLP")
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
                 continue
 
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
 
+            # Flujo de confirmación de stock
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
                 choice = plain.lower().strip()
                 if choice in ('1','1)','sí','si'):
                     var = memory.last_variant_id
                     qty = memory.last_qty_suggested
-                    order = create_sale_order(self.env, partner.id, var.id, qty)
+                    order = create_sale_order(self.env, partner.id, var, qty)
                     memory.unlink()
-                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{var.display_name}.")
+                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
                     continue
                 if choice in ('2','2)','quiero otra cantidad'):
                     memory.write({'last_intent': 'esperando_nueva_cantidad'})
@@ -79,6 +84,7 @@ class WhatsAppMessage(models.Model):
                     memory.unlink()
                     _send_text(record, "Entendido, no genero ningún pedido.")
                     continue
+                # Recordamos la pregunta si no entendimos la respuesta
                 var = memory.last_variant_id
                 avail = memory.last_qty_suggested
                 _send_text(record,
@@ -87,6 +93,7 @@ class WhatsAppMessage(models.Model):
                 )
                 continue
 
+            # Flujo de nueva cantidad tras elegir otra cantidad
             elif memory and memory.last_intent == 'esperando_nueva_cantidad':
                 try:
                     new_qty = int(plain)
@@ -104,9 +111,10 @@ class WhatsAppMessage(models.Model):
                     continue
                 order = create_sale_order(self.env, partner.id, var.id, new_qty)
                 memory.unlink()
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {new_qty}×{var.display_name}.")
+                _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
+            # Flujo de selección de variante entre muchas opciones
             elif memory and memory.last_intent == 'esperando_seleccion_producto':
                 data = json.loads(memory.data_buffer or '{}')
                 variants = data.get('products', [])
@@ -132,7 +140,6 @@ class WhatsAppMessage(models.Model):
                 avail = int(selected_variant['stock'])
 
                 if not qty:
-                    # ⚠️ CORRECCIÓN: limpiar qty previa para evitar bugs
                     memory.write({
                         'last_intent': 'esperando_cantidad_producto',
                         'last_variant_id': pid,
@@ -153,11 +160,13 @@ class WhatsAppMessage(models.Model):
                     )
                     continue
 
+                # Generamos el pedido y limpiamos memoria
                 order = create_sale_order(self.env, partner.id, pid, qty)
+                _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{name}.")
                 memory.unlink()
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                 continue
 
+            # Flujo de cantidad tras haber preguntado directamente por pocas variantes
             elif memory and memory.last_intent == 'esperando_cantidad_producto':
                 try:
                     qty = int(plain)
@@ -165,7 +174,8 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, "No entendí la cantidad. ¿Podés escribir un número?")
                     continue
 
-                variant = memory.last_variant_id
+                # Convertimos el ID guardado a registro
+                variant = self.env['product.product'].browse(memory.last_variant_id)
                 avail = variant.qty_available or 0
 
                 if qty > avail:
@@ -181,10 +191,10 @@ class WhatsAppMessage(models.Model):
 
                 order = create_sale_order(self.env, partner.id, variant.id, qty)
                 memory.unlink()
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
+                _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
                 continue
 
-            # NLP fallback
+            # Flujo general con NLP para intenciones
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
                 ('id','<=', record.id),
@@ -192,7 +202,6 @@ class WhatsAppMessage(models.Model):
             ], order='id desc', limit=10)
 
             conv = []
-
             if memory:
                 ctx = f"Contexto actual: última intención '{memory.last_intent}'."
                 if memory.last_variant_id:
@@ -210,7 +219,7 @@ class WhatsAppMessage(models.Model):
                 else:
                     conv.append({"role": "assistant", "content": text})
 
-            _logger.info("\U0001f9e0 Conversación enviada:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
+            _logger.info("Conversación enviada al clasificador:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
 
             intent = detect_intention(
                 conv,
@@ -243,6 +252,6 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, resp)
 
             else:
-                _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
+                _send_text(record, "Perón, no entendí eso 😅. ¿Podés reformular tu consulta?")
 
         return records
