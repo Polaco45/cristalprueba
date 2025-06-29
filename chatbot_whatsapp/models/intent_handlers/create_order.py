@@ -1,5 +1,3 @@
-# create_order.py
-
 import json
 import logging
 import re
@@ -68,7 +66,6 @@ def lookup_product_variants(env, partner, query, limit=20):
 
     return products_with_prices
 
-
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
     partner = env['res.partner'].browse(partner_id)
@@ -109,7 +106,6 @@ def create_sale_order(env, partner_id, product_id, quantity):
 
     return order
 
-
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     openai.api_key = get_openai_api_key(env)
 
@@ -139,7 +135,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     except UserError as ue:
         return str(ue)
 
-    # Buscamos si en el texto hay una cantidad explícita
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
@@ -168,11 +163,11 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     name = variant['name']
 
     if not qty:
-        # Si no dice cantidad, pregunto cantidad y guardo el producto en memoria
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_cantidad_producto',
-            'last_variant_id': env['product.product'].browse(pid).id,
+            'last_variant_id': pid,
+            'data_buffer': json.dumps({'product': variant})
         })
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
 
@@ -180,7 +175,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         env['chatbot.whatsapp.memory'].sudo().create({
             'partner_id': partner.id,
             'last_intent': 'esperando_confirmacion_stock',
-            'last_variant_id': env['product.product'].browse(pid).id,
+            'last_variant_id': pid,
             'last_qty_suggested': avail
         })
         return (
