@@ -62,7 +62,6 @@ class WhatsAppMessage(models.Model):
 
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
 
-            # Manejo de confirmación de stock
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
                 choice = plain.lower().strip()
                 if choice in ('1','1)','sí','si'):
@@ -88,8 +87,7 @@ class WhatsAppMessage(models.Model):
                 )
                 continue
 
-            # Manejo de nueva cantidad cuando eligió "otra cantidad"
-            if memory and memory.last_intent == 'esperando_nueva_cantidad':
+            elif memory and memory.last_intent == 'esperando_nueva_cantidad':
                 try:
                     new_qty = int(plain)
                 except ValueError:
@@ -109,8 +107,7 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                 continue
 
-            # Manejo selección producto si hay varias variantes propuestas
-            if memory and memory.last_intent == 'esperando_seleccion_producto':
+            elif memory and memory.last_intent == 'esperando_seleccion_producto':
                 data = json.loads(memory.data_buffer or '{}')
                 variants = data.get('products', [])
                 qty = data.get('qty')
@@ -137,7 +134,7 @@ class WhatsAppMessage(models.Model):
                 if not qty:
                     memory.write({
                         'last_intent': 'esperando_cantidad_producto',
-                        'last_variant_id': self.env['product.product'].browse(pid).id,
+                        'last_variant_id': pid,
                         'data_buffer': json.dumps({'product': selected_variant})
                     })
                     _send_text(record, f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?")
@@ -146,7 +143,7 @@ class WhatsAppMessage(models.Model):
                 if qty > avail:
                     memory.write({
                         'last_intent': 'esperando_confirmacion_stock',
-                        'last_variant_id': self.env['product.product'].browse(pid).id,
+                        'last_variant_id': pid,
                         'last_qty_suggested': avail
                     })
                     _send_text(record,
@@ -155,13 +152,14 @@ class WhatsAppMessage(models.Model):
                     )
                     continue
 
+                # ✅ AHORA SI: GENERAMOS PEDIDO Y LIMPIAMOS MEMORIA
                 order = create_sale_order(self.env, partner.id, pid, qty)
                 _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                 memory.unlink()
                 continue
 
-            # Manejo cuando ya elegió producto y se espera cantidad
-            if memory and memory.last_intent == 'esperando_cantidad_producto':
+
+            elif memory and memory.last_intent == 'esperando_cantidad_producto':
                 try:
                     qty = int(plain)
                 except ValueError:
@@ -187,7 +185,6 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
                 continue
 
-            # Si no hay memoria ni flujo activo, detectamos intención y procedemos normalmente
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
                 ('id','<=', record.id),

@@ -39,6 +39,7 @@ def lookup_product_variants(env, partner, query, limit=20):
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
+    # Creamos un pedido dummy en memoria para obtener precios con precisión
     pricelist = partner.property_product_pricelist
     order = SaleOrder.new({
         'partner_id': partner.id,
@@ -54,7 +55,7 @@ def lookup_product_variants(env, partner, query, limit=20):
             'product_uom': v.uom_id.id,
             'order_partner_id': partner.id,
         })
-        line._onchange_product()
+        line._onchange_product()  # dispara precio, impuestos, etc.
         price = line.price_unit
 
         products_with_prices.append({
@@ -65,6 +66,8 @@ def lookup_product_variants(env, partner, query, limit=20):
         })
 
     return products_with_prices
+
+
 
 def create_sale_order(env, partner_id, product_id, quantity):
     product = env['product.product'].browse(product_id)
@@ -163,12 +166,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     name = variant['name']
 
     if not qty:
-        env['chatbot.whatsapp.memory'].sudo().create({
-            'partner_id': partner.id,
-            'last_intent': 'esperando_cantidad_producto',
-            'last_variant_id': pid,
-            'data_buffer': json.dumps({'product': variant})
-        })
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
 
     if qty > avail:

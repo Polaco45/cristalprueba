@@ -14,8 +14,25 @@
 
 - Chequear precio en las ordenes de venta con WhatsApp.
 
+* Resolver siguiente bug:
+    *   yo: quiero blem
+        chatbot: ¡Perfecto! Elegiste “[CM0042] Blem Aero x 400Cc Original”. ¿Cuántas unidades querés?
+        yo: 2
+        chatbot: No entendí qué producto querés.
+
 * Como hacemos si el cliente en el mismo mensaje dijo que quiere mas de una cosa, o como vamos guardando varios productos en el pedido antes de mandarlo. Y luego mandarlo cuando le preguntemos al cliente si quiere algo mas y nos diga que no.
-    * EJEMPLO: quiero un escobillon Y un blem 
+    * EJEMPLO de mas de un pedido en mismo mensaje: yo: quiero un escobillon Y un blem 
+                                                    chatbot: perfecto, algo mas?
+                                                    yo: no, gracias!
+                                                    chatbot: pedido creado..... etc, etc
+    * EJEMPLO de varias cosas en el pedido: yo: quiero 3 escobillon crilimp
+               chatbot: perfecto, algo mas?
+               yo: ah si, quiero blem
+               chatbot: cuantos?
+               yo: 3
+               chatbot: genial, algo mas?
+               yo: nono, eso esta bien
+               chatbot: pedido creado.... etc, etc
 
 * Analizar pedidos anteriores para saber que producto elegir en caso de que el pedido sea muy generico
     * EJEMPLO: escobillones
