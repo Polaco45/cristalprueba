@@ -132,6 +132,7 @@ class WhatsAppMessage(models.Model):
                 avail = int(selected_variant['stock'])
 
                 if not qty:
+                    # ⚠️ CORRECCIÓN: limpiar qty previa para evitar bugs
                     memory.write({
                         'last_intent': 'esperando_cantidad_producto',
                         'last_variant_id': pid,
@@ -152,12 +153,10 @@ class WhatsAppMessage(models.Model):
                     )
                     continue
 
-                # ✅ AHORA SI: GENERAMOS PEDIDO Y LIMPIAMOS MEMORIA
                 order = create_sale_order(self.env, partner.id, pid, qty)
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                 memory.unlink()
+                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                 continue
-
 
             elif memory and memory.last_intent == 'esperando_cantidad_producto':
                 try:
@@ -181,11 +180,11 @@ class WhatsAppMessage(models.Model):
                     continue
 
                 order = create_sale_order(self.env, partner.id, variant.id, qty)
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
                 memory.unlink()
-                return records  # ← ✅ evita seguir evaluando intents innecesarios
+                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
+                continue
 
-
+            # NLP fallback
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
                 ('id','<=', record.id),
