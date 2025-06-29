@@ -37,5 +37,7 @@
 
 ### V2
 
+* Si no entiende / la intencion del usuario es otra, que lleve la conversacion como un vendedor
+
 * Escuchar audios
 

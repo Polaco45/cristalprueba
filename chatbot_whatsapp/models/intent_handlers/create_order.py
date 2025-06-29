@@ -166,7 +166,14 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     name = variant['name']
 
     if not qty:
+        env['chatbot.whatsapp.memory'].sudo().create({
+            'partner_id': partner.id,
+            'last_intent': 'esperando_cantidad_producto',
+            'last_variant_id': pid,
+            'data_buffer': json.dumps({'product': variant})
+        })
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
+
 
     if qty > avail:
         env['chatbot.whatsapp.memory'].sudo().create({
