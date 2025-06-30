@@ -110,6 +110,34 @@ def create_sale_order(env, partner_id, product_id, quantity):
     return order
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
+    # ✅ CHECK DE MEMORIA PRIMERO
+    memory_model = env['chatbot.whatsapp.memory'].sudo()
+    memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
+
+    if memory and memory.last_intent == 'esperando_cantidad_producto':
+        try:
+            qty = int(text.strip())
+        except ValueError:
+            return "No entendí la cantidad. ¿Podés escribir un número?"
+
+        variant = memory.last_variant_id
+        avail = variant.qty_available or 0
+
+        if qty > avail:
+            memory.write({
+                'last_intent': 'esperando_confirmacion_stock',
+                'last_qty_suggested': avail
+            })
+            return (
+                f"Solo hay {avail} unidades de “{variant.display_name}”.\n"
+                "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+            )
+
+        order = create_sale_order(env, partner.id, variant.id, qty)
+        memory.unlink()
+        return f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}."
+
+    # ⬇️ RESTO DEL CÓDIGO ORIGINAL
     openai.api_key = get_openai_api_key(env)
 
     system_msg = {
@@ -120,6 +148,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "con el parámetro 'query' igual al nombre del producto solicitado."
         )
     }
+
     resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[system_msg, {"role": "user", "content": text}],
@@ -149,7 +178,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             'products': variants,
             'qty': qty
         }
-        env['chatbot.whatsapp.memory'].sudo().create({
+        memory_model.create({
             'partner_id': partner.id,
             'last_intent': 'esperando_seleccion_producto',
             'data_buffer': json.dumps(memory_payload)
@@ -166,10 +195,16 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     name = variant['name']
 
     if not qty:
+        memory_model.create({
+            'partner_id': partner.id,
+            'last_intent': 'esperando_cantidad_producto',
+            'last_variant_id': pid,
+            'data_buffer': json.dumps({'product': variant})
+        })
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
 
     if qty > avail:
-        env['chatbot.whatsapp.memory'].sudo().create({
+        memory_model.create({
             'partner_id': partner.id,
             'last_intent': 'esperando_confirmacion_stock',
             'last_variant_id': pid,
@@ -177,10 +212,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         })
         return (
             f"Solo hay {avail} unidades de “{name}”.\n"
-            "Respondé con:\n"
-            f"1) Sí, quiero las {avail}\n"
-            "2) Quiero otra cantidad\n"
-            "3) No, gracias"
+            "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
         )
 
     order = create_sale_order(env, partner.id, pid, qty)
