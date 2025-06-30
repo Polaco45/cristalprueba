@@ -190,23 +190,42 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     # Si no especificó cantidad, pedirla
     if not qty:
         memory_model = env['chatbot.whatsapp.memory'].sudo()
-        memory_model.create({
-            'partner_id': partner.id,
-            'last_intent': 'esperando_cantidad_producto',
-            'last_variant_id': pid,
-            'data_buffer': json.dumps({'product': variant})
-        })
+        # Verificar si ya existe memoria para evitar duplicados
+        existing_memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
+        if existing_memory:
+            existing_memory.write({
+                'last_intent': 'esperando_cantidad_producto',
+                'last_variant_id': pid,
+                'data_buffer': json.dumps({'product': variant})
+            })
+        else:
+            memory_model.create({
+                'partner_id': partner.id,
+                'last_intent': 'esperando_cantidad_producto',
+                'last_variant_id': pid,
+                'data_buffer': json.dumps({'product': variant})
+            })
+        _logger.info(f"💾 Memoria creada/actualizada: esperando_cantidad_producto para producto {name} (ID: {pid})")
         return f'¡Perfecto! Elegiste "{name}". ¿Cuántas unidades querés?'
 
     # Si especificó cantidad pero no hay suficiente stock
     if qty > avail:
         memory_model = env['chatbot.whatsapp.memory'].sudo()
-        memory_model.create({
-            'partner_id': partner.id,
-            'last_intent': 'esperando_confirmacion_stock',
-            'last_variant_id': pid,
-            'last_qty_suggested': avail
-        })
+        # Verificar si ya existe memoria para evitar duplicados
+        existing_memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
+        if existing_memory:
+            existing_memory.write({
+                'last_intent': 'esperando_confirmacion_stock',
+                'last_variant_id': pid,
+                'last_qty_suggested': avail
+            })
+        else:
+            memory_model.create({
+                'partner_id': partner.id,
+                'last_intent': 'esperando_confirmacion_stock',
+                'last_variant_id': pid,
+                'last_qty_suggested': avail
+            })
         return (
             f'Solo hay {avail} unidades de "{name}".\n'
             'Respondé con:\n1) Sí\n2) Otra cantidad\n3) No'

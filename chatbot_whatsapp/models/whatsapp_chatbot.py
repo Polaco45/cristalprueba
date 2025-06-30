@@ -63,6 +63,12 @@ class WhatsAppMessage(models.Model):
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
 
             # ✅ VERIFICAR ESTADOS DE MEMORIA ANTES DE CLASIFICAR INTENCIÓN
+            # Log para debug
+            if memory:
+                _logger.info(f"🔍 Memoria encontrada: partner_id={memory.partner_id.id}, last_intent='{memory.last_intent}', variant_id={memory.last_variant_id.id if memory.last_variant_id else None}")
+            else:
+                _logger.info("🔍 No se encontró memoria para este partner")
+
             if memory and memory.last_intent in ['esperando_confirmacion_stock', 'esperando_nueva_cantidad', 'esperando_seleccion_producto', 'esperando_cantidad_producto']:
                 
                 if memory.last_intent == 'esperando_confirmacion_stock':
@@ -72,7 +78,7 @@ class WhatsAppMessage(models.Model):
                         qty = memory.last_qty_suggested
                         order = create_sale_order(self.env, partner.id, var.id, qty)
                         memory.unlink()
-                        _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}x{var.display_name}.")
+                        _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{var.display_name}.")
                         continue
                     if choice in ('2','2)','quiero otra cantidad'):
                         memory.write({'last_intent': 'esperando_nueva_cantidad'})
@@ -107,7 +113,7 @@ class WhatsAppMessage(models.Model):
                         continue
                     order = create_sale_order(self.env, partner.id, var.id, new_qty)
                     memory.unlink()
-                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {new_qty}x{var.display_name}.")
+                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                     continue
 
                 elif memory.last_intent == 'esperando_seleccion_producto':
@@ -157,19 +163,29 @@ class WhatsAppMessage(models.Model):
 
                     # ✅ AHORA SI: GENERAMOS PEDIDO Y LIMPIAMOS MEMORIA
                     order = create_sale_order(self.env, partner.id, pid, qty)
-                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}x{name}.")
+                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                     memory.unlink()
                     continue
 
                 elif memory.last_intent == 'esperando_cantidad_producto':
+                    _logger.info(f"🔢 Procesando cantidad para producto: {memory.last_variant_id.display_name if memory.last_variant_id else 'N/A'}")
                     try:
                         qty = int(plain)
+                        _logger.info(f"🔢 Cantidad parseada: {qty}")
                     except ValueError:
+                        _logger.info(f"❌ Error parseando cantidad: '{plain}'")
                         _send_text(record, "No entendí la cantidad. ¿Podés escribir un número?")
                         continue
 
                     variant = memory.last_variant_id
+                    if not variant:
+                        _logger.error("❌ No se encontró variant en memoria")
+                        memory.unlink()
+                        _send_text(record, "Hubo un error. Por favor, volvé a hacer tu pedido.")
+                        continue
+                        
                     avail = variant.qty_available or 0
+                    _logger.info(f"📦 Stock disponible: {avail}")
 
                     if qty > avail:
                         memory.write({
@@ -182,9 +198,10 @@ class WhatsAppMessage(models.Model):
                         )
                         continue
 
+                    _logger.info(f"✅ Creando pedido: {qty}x{variant.display_name}")
                     order = create_sale_order(self.env, partner.id, variant.id, qty)
                     memory.unlink()
-                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}x{variant.display_name}.")
+                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
                     continue
 
             # ✅ SOLO DESPUÉS DE VERIFICAR MEMORIA, PROCEDEMOS CON CLASIFICACIÓN DE INTENCIÓN
