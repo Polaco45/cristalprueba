@@ -177,6 +177,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         return str(ue)
 
     if len(variants) >= 5:
+        _logger.info(f"🧠 Guardando memoria con {len(variants)} variantes para '{args['query']}'")
+        _logger.debug("➡️ Variantes guardadas: %s", json.dumps(variants, ensure_ascii=False, indent=2))
+
         buttons = "\n".join([
             f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
         ])

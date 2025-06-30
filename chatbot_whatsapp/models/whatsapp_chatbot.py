@@ -108,22 +108,40 @@ class WhatsAppMessage(models.Model):
                 continue
 
             elif memory and memory.last_intent == 'esperando_seleccion_producto':
-                data = json.loads(memory.data_buffer or '{}')
+                _logger.info("🔄 Estado: esperando_seleccion_producto")
+                _logger.debug("🧠 Memoria bruta: %s", memory.data_buffer)
+
+                try:
+                    data = json.loads(memory.data_buffer or '{}')
+                except json.JSONDecodeError as e:
+                    _logger.error("❌ Error decodificando memoria: %s", e)
+                    _send_text(record, "Hubo un error interno leyendo tu selección. ¿Podés volver a escribir el producto?")
+                    memory.unlink()
+                    continue
+
                 variants = data.get('products', [])
                 qty = data.get('qty')
+
+                _logger.info("🧪 Input del usuario: '%s'", plain)
+                _logger.info("📦 Cantidad de variantes disponibles: %d", len(variants))
 
                 selected_variant = None
                 if plain.strip().isdigit():
                     index = int(plain.strip()) - 1
                     if 0 <= index < len(variants):
                         selected_variant = variants[index]
+                        _logger.info("✅ Seleccionó por índice: %d → %s", index, selected_variant['name'])
+                    else:
+                        _logger.warning("❌ Índice fuera de rango: %d", index)
                 else:
                     for v in variants:
                         if plain.lower() in v['name'].lower():
                             selected_variant = v
+                            _logger.info("✅ Seleccionó por nombre: %s", selected_variant['name'])
                             break
 
                 if not selected_variant:
+                    _logger.warning("❌ No se encontró una variante que coincida con '%s'", plain)
                     _send_text(record, "No entendí cuál producto elegiste. Por favor respondé con el número o el nombre.")
                     continue
 
@@ -132,6 +150,7 @@ class WhatsAppMessage(models.Model):
                 avail = int(selected_variant['stock'])
 
                 if not qty:
+                    _logger.info("📥 Pide cantidad para producto: %s (ID %d)", name, pid)
                     memory.write({
                         'last_intent': 'esperando_cantidad_producto',
                         'last_variant_id': pid,
@@ -140,23 +159,6 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?")
                     continue
 
-                if qty > avail:
-                    memory.write({
-                        'last_intent': 'esperando_confirmacion_stock',
-                        'last_variant_id': pid,
-                        'last_qty_suggested': avail
-                    })
-                    _send_text(record,
-                        f"Solo hay {avail} unidades de “{name}”.\n"
-                        "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
-                    )
-                    continue
-
-                # ✅ AHORA SI: GENERAMOS PEDIDO Y LIMPIAMOS MEMORIA
-                order = create_sale_order(self.env, partner.id, pid, qty)
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
-                memory.unlink()
-                continue
 
 
             elif memory and memory.last_intent == 'esperando_cantidad_producto':
@@ -225,17 +227,11 @@ class WhatsAppMessage(models.Model):
                     'partner_id': partner.id,
                     'last_intent': intent,
                 })
-            # ⚠️ Procesamos intención y memoria en conjunto
-            if intent == "crear_pedido" or (memory and memory.last_intent in [
-                'esperando_seleccion_producto',
-                'esperando_cantidad_producto',
-                'esperando_confirmacion_stock',
-                'esperando_nueva_cantidad'
-            ]):
+
+            if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
                 if result:
                     _send_text(record, result)
-
 
             elif intent == "solicitar_factura":
                 r = handle_solicitar_factura(partner, plain)
