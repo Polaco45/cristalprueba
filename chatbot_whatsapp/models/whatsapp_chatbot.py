@@ -159,6 +159,7 @@ class WhatsAppMessage(models.Model):
                 continue
 
 
+            # Proveer cantidad de producto
             elif memory and memory.last_intent == 'esperando_cantidad_producto':
                 try:
                     qty = int(plain)
@@ -180,11 +181,13 @@ class WhatsAppMessage(models.Model):
                     )
                     continue
 
+                # Generar pedido
                 order = create_sale_order(self.env, partner.id, variant.id, qty)
                 memory.unlink()
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
+                _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
                 continue
 
+            # Montar conversación para detección de intención
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
                 ('id','<=', record.id),
@@ -192,8 +195,11 @@ class WhatsAppMessage(models.Model):
             ], order='id desc', limit=10)
 
             conv = []
-
             if memory:
+                # Solo actualizar contexto si no estamos en medio de un flujo
+                if not memory.last_intent.startswith('esperando_'):
+                    memory.write({'last_intent': intent})  # <--- corregido: no sobrescribir si es flow
+                # Construir ctx
                 ctx = f"Contexto actual: última intención '{memory.last_intent}'."
                 if memory.last_variant_id:
                     ctx += f" Producto sugerido: {memory.last_variant_id.display_name}."
@@ -212,20 +218,21 @@ class WhatsAppMessage(models.Model):
 
             _logger.info("\U0001f9e0 Conversación enviada:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
 
+            # Detección de intención
             intent = detect_intention(
                 conv,
                 self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
 
-            if memory:
-                memory.write({'last_intent': intent})
-            else:
+            # Iniciar nuevo contexto si no había memoria previa
+            if not memory:
                 memory_model.create({
                     'partner_id': partner.id,
                     'last_intent': intent,
                 })
 
+            # Disparar handler según intención
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
                 if result:
