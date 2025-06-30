@@ -14,7 +14,7 @@ class WhatsAppMemory(models.Model):
     last_variant_id = fields.Many2one('product.product')
     last_qty_suggested = fields.Integer()
     data_buffer = fields.Text()
-    timestamp = fields.Datetime(string='Timestamp', default=fields.Datetime.now)  # CORREGIDO
+    timestamp = fields.Datetime(auto_now_add=True)
 
     @api.model
     def clean_old_memory(self):
