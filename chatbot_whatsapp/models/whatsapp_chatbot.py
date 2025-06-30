@@ -115,17 +115,19 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                     continue
 
-                elif memory.last_intent == 'esperando_seleccion_producto':
+                if memory and memory.last_intent == 'esperando_seleccion_producto':
                     data = json.loads(memory.data_buffer or '{}')
                     variants = data.get('products', [])
                     qty = data.get('qty')
 
                     selected_variant = None
+                    # Si el mensaje es número, interpretamos como índice
                     if plain.strip().isdigit():
                         index = int(plain.strip()) - 1
                         if 0 <= index < len(variants):
                             selected_variant = variants[index]
                     else:
+                        # Si no, buscamos por nombre (coincidencia parcial)
                         for v in variants:
                             if plain.lower() in v['name'].lower():
                                 selected_variant = v
@@ -139,21 +141,22 @@ class WhatsAppMessage(models.Model):
                     name = selected_variant['name']
                     avail = int(selected_variant['stock'])
 
-                    product_rec = self.env['product.product'].browse(pid)
+                    product_rec = self.env['product.product'].sudo().browse(pid)
 
                     if not qty:
                         memory.write({
                             'last_intent': 'esperando_cantidad_producto',
-                            'last_variant_id': pid,
+                            'last_variant_id': product_rec,  # recordset Odoo
                             'data_buffer': json.dumps({'product': selected_variant})
                         })
                         _send_text(record, f'¡Perfecto! Elegiste "{name}". ¿Cuántas unidades querés?')
                         continue
 
+                    # Si ya había cantidad, validar stock, crear pedido y limpiar memoria
                     if qty > avail:
                         memory.write({
                             'last_intent': 'esperando_confirmacion_stock',
-                            'last_variant_id': pid,
+                            'last_variant_id': product_rec,
                             'last_qty_suggested': avail
                         })
                         _send_text(record,
@@ -166,6 +169,7 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                     memory.unlink()
                     continue
+
 
                 elif memory.last_intent == 'esperando_cantidad_producto':
                     _logger.info(f"🔢 Procesando cantidad para producto: {memory.last_variant_id}")
