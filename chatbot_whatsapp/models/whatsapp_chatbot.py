@@ -3,12 +3,8 @@ from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone, is_cotizado
 from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
 from .intent_handlers.onboarding import WhatsAppOnboardingHandler
-from .intent_handlers.intent_handlers import (
-    handle_solicitar_factura,
-    handle_respuesta_faq
-)
-import logging
-import json
+from .intent_handlers.intent_handlers import handle_solicitar_factura, handle_respuesta_faq
+import logging, json
 
 _logger = logging.getLogger(__name__)
 
@@ -18,32 +14,29 @@ class WhatsAppMessage(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-
         for record in records:
-            if record.state not in ('received', 'inbound'):
+            if record.state not in ('received','inbound'):
                 continue
-
             plain = clean_html(record.body or "").strip()
             phone = normalize_phone(record.mobile_number or record.phone or "")
-            if not (plain and phone):
+            if not plain or not phone:
                 continue
 
-            def _send_text(to_rec, text_to_send):
+            def _send_text(to_rec, text):
                 vals = {
                     'mobile_number': to_rec.mobile_number,
-                    'body': text_to_send,
+                    'body': text,
                     'state': 'outgoing',
                     'wa_account_id': to_rec.wa_account_id.id if to_rec.wa_account_id else False,
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
                 out = self.env['whatsapp.message'].sudo().create(vals)
-                out.sudo().write({'body': text_to_send})
-                if hasattr(out, '_send_message'):
+                out.sudo().write({'body': text})
+                if hasattr(out,'_send_message'):
                     out._send_message()
 
-            partner = self.env['res.partner'].sudo().search([
-                '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
-            ], limit=1)
+            partner = self.env['res.partner'].sudo().search(
+                ['|',('phone','ilike',phone),('mobile','ilike',phone)], limit=1)
 
             # --- GESTIÓN DE MEMORIA CENTRALIZADA ---
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
@@ -164,6 +157,43 @@ class WhatsAppMessage(models.Model):
                 else:
                     _send_text(record, "No entendí tu respuesta. Por favor, respondé 'Sí' o 'No'.")
                 continue
+            
+            # --- NUEVO: después de agregar un ítem, preguntamos si quiere más ---
+            if flow == 'esperando_mas_producto':
+                resp = plain.lower().strip()
+                if resp in ('sí','si','1','claro','dale'):
+                    # Volver a la detección de producto
+                    memory.write({'flow_state': False})
+                    _send_text(record, "Genial, ¿qué otro producto querés?")
+                elif resp in ('no','2','nono','no, gracias'):
+                    # Crear la orden con todo el carrito
+                    data = json.loads(memory.data_buffer or '{}')
+                    cart = data.get('cart', [])
+                    if not cart:
+                        _send_text(record, "No hay productos en el carrito. Empecemos de nuevo.")
+                        memory.write({'flow_state': False, 'data_buffer': ''})
+                    else:
+                        # Crear una sola orden con todas las líneas
+                        order = create_sale_order(self.env, partner.id, cart=cart)
+                        _send_text(record,
+                            f"📝 Pedido {order.name} creado:\n" +
+                            "\n".join([f"{i['qty']}×{i['name']}" for i in cart]))
+                        memory.write({'flow_state': False, 'data_buffer': ''})
+                else:
+                    _send_text(record, "Respondé 'Sí' o 'No', por favor.")
+                continue
+
+            # --- Si no hay flujo alguno, pasamos a intención NLP ---
+            if not flow:
+                # Detección y manejo de intención 'crear_pedido'...
+                intent = detect_intention([...], self.env['ir.config_parameter']
+                                          .sudo().get_param('openai.api_key')).lower().strip()
+                memory.write({'last_intent_detected': intent})
+                if intent == 'crear_pedido':
+                    result = handle_crear_pedido(self.env, partner, plain, memory)
+                    if result:
+                        _send_text(record, result)
+                    continue
 
             # --- INTENCIÓN NLP ---
             history = self.env['whatsapp.message'].sudo().search([

@@ -67,19 +67,29 @@ def lookup_product_variants(env, partner, query, limit=20):
     _logger.info(f"📦 Variantes en stock: {[p['name'] for p in products_with_prices]}")
     return products_with_prices
 
-def create_sale_order(env, partner_id, product_id, quantity):
+def create_sale_order(env, partner_id, product_id=None, quantity=None, cart=None):
+    """Si cart es lista de dicts, ignora product_id/quantity."""
+    SaleOrder = env['sale.order'].sudo()
     partner = env['res.partner'].browse(partner_id)
-    product = env['product.product'].browse(product_id)
     pricelist = partner.property_product_pricelist
 
-    order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
+    if cart:
+        lines = [(0,0,{
+            'product_id': item['id'],
+            'product_uom_qty': item['qty'],
+            'product_uom': env['product.product'].browse(item['id']).uom_id.id,
+        }) for item in cart]
+    else:
+        lines = [(0,0,{
+            'product_id': product_id,
+            'product_uom_qty': quantity,
+            'product_uom': env['product.product'].browse(product_id).uom_id.id,
+        })]
+
+    order = SaleOrder.with_context(pricelist=pricelist.id).create({
         'partner_id': partner_id,
         'pricelist_id': pricelist.id,
-        'order_line': [(0, 0, {
-            'product_id': product_id,
-            'product_uom': product.uom_id.id,
-            'product_uom_qty': quantity,
-        })]
+        'order_line': lines
     })
 
     _logger.info(f"✅ Orden creada: {order.name} — {quantity}×{product.display_name} — ${order.amount_total:.2f}")
@@ -120,8 +130,8 @@ def handle_crear_pedido(env, partner, text, memory): # <-- Pasamos el registro d
     """
     _logger.info(f"📌 Evaluando intención CREAR_PEDIDO — Partner: {partner.name}")
 
-    # --- GPT busca producto en el texto del usuario ---
     openai.api_key = get_openai_api_key(env)
+
     system_msg = {
         "role": "system",
         "content": (
@@ -132,7 +142,7 @@ def handle_crear_pedido(env, partner, text, memory): # <-- Pasamos el registro d
     }
 
     try:
-        resp = openai.ChatCompletion.create(
+        response = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[system_msg, {"role": "user", "content": text}],
             functions=FUNCTIONS,
@@ -140,7 +150,7 @@ def handle_crear_pedido(env, partner, text, memory): # <-- Pasamos el registro d
             temperature=0,
             max_tokens=50
         )
-        msg = resp.choices[0].message
+        msg = response.choices[0].message
     except Exception as e:
         _logger.error(f"❌ Error en la llamada a OpenAI: {e}")
         return "Hubo un problema al procesar tu solicitud. Por favor, intentá de nuevo."
@@ -153,63 +163,84 @@ def handle_crear_pedido(env, partner, text, memory): # <-- Pasamos el registro d
     query = args.get('query')
     if not query:
         return "No entendí qué producto querés."
-        
+
     _logger.info(f"🔧 GPT detectó intención de buscar producto: {query}")
 
     try:
-        variants = lookup_product_variants(env, partner, query, limit=6) # Limitar a 6 para no saturar
+        variants = lookup_product_variants(env, partner, query, limit=6)
     except UserError as ue:
         _logger.warning(f"⚠️ Error buscando variantes: {str(ue)}")
         return str(ue)
 
-    m = re.search(r'\b(\d+)\b', text)
-    qty = int(m.group(1)) if m else None
+    # Intentamos detectar cantidad en el mismo mensaje
+    match = re.search(r'\b(\d+)\b', text)
+    qty = int(match.group(1)) if match else None
 
-    # Si hay más de 1 producto, pedimos que seleccione
+    # Si hay varias variantes, pedimos elegir una
     if len(variants) > 1:
-        buttons = "\n".join([f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)])
-        memory_payload = {'products': variants, 'qty': qty}
-        
-        # ACTUALIZAMOS la memoria, no creamos una nueva
+        options = "\n".join([f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)])
+        payload = {
+            'products': variants,
+            'qty': qty,
+        }
         memory.write({
             'flow_state': 'esperando_seleccion_producto',
-            'data_buffer': json.dumps(memory_payload),
-            'last_intent_detected': 'crear_pedido'
+            'data_buffer': json.dumps(payload),
+            'last_intent_detected': 'crear_pedido',
         })
-        _logger.info(f"🧠 Guardando memoria: flow='esperando_seleccion_producto', productos={len(variants)}, qty={qty}")
-        return f"Tenemos varias opciones para '{query}':\n{buttons}\nRespondé con el número del producto que querés."
+        _logger.info(f"🧠 Memoria actualizada: esperando selección, {len(variants)} opciones, qty={qty}")
+        return f"Tenemos varias opciones para '{query}':\n{options}\nRespondé con el número del producto que querés."
 
-    # Si hay un solo producto
+    # Si hay una sola variante
     variant = variants[0]
     pid = variant['id']
     name = variant['name']
-    avail = int(variant['stock'])
+    stock = int(variant['stock'])
 
     if not qty:
-        # ACTUALIZAMOS la memoria para pedir cantidad
+        # Si no se indicó cantidad, pedimos
+        payload = {
+            'product': variant
+        }
         memory.write({
             'flow_state': 'esperando_cantidad_producto',
             'last_variant_id': pid,
-            'data_buffer': json.dumps({'product': variant}),
-            'last_intent_detected': 'crear_pedido'
+            'data_buffer': json.dumps(payload),
+            'last_intent_detected': 'crear_pedido',
         })
-        _logger.info(f"🟡 Esperando cantidad para producto único: {name}")
+        _logger.info(f"🟡 Esperando cantidad para '{name}'")
         return f"¡Perfecto! Encontramos “{name}”. ¿Cuántas unidades querés?"
 
-    # Si hay cantidad y stock suficiente
-    if qty <= avail:
-        order = create_sale_order(env, partner.id, pid, qty)
-        memory.unlink() # Limpiamos la memoria al completar el flujo
-        _logger.info(f"✅ Pedido directo generado: {qty}×{name}")
-        return f"📝 Pedido {order.name} creado: {qty}×{name}."
-    
-    # Si no hay stock suficiente
-    else:
+    if qty > stock:
+        # Si no hay suficiente stock
         memory.write({
             'flow_state': 'esperando_confirmacion_stock',
             'last_variant_id': pid,
-            'last_qty_suggested': avail,
-            'last_intent_detected': 'crear_pedido'
+            'last_qty_suggested': stock,
+            'last_intent_detected': 'crear_pedido',
         })
-        _logger.info(f"🟠 Stock insuficiente: {qty} solicitado > {avail} disponible")
-        return f"Solo hay {avail} unidades de “{name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar"
+        _logger.info(f"🟠 Stock insuficiente: {qty} solicitado > {stock} disponible")
+        return f"Solo hay {stock} unidades de “{name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar"
+
+    # Si hay suficiente stock: lo agregamos al carrito
+    cart_item = {'id': pid, 'name': name, 'qty': qty}
+
+    try:
+        data = json.loads(memory.data_buffer or '{}')
+    except Exception:
+        data = {}
+
+    cart = data.get('cart', [])
+    cart.append(cart_item)
+
+    # Guardamos el carrito actualizado en memoria
+    memory.write({
+        'flow_state': 'esperando_mas_producto',
+        'data_buffer': json.dumps({'cart': cart}),
+        'last_variant_id': False,
+        'last_qty_suggested': False,
+        'last_intent_detected': 'crear_pedido',
+    })
+
+    _logger.info(f"🛒 Producto agregado al carrito: {qty}×{name}")
+    return f"Agregué {qty}×“{name}” al carrito. ¿Querés algo más?"
