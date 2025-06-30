@@ -186,8 +186,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             'flow_state': 'esperando_seleccion_producto',
             'data_buffer': json.dumps(memory_payload)
         })
-        _logger.info(f"📋 {len(variants)} opciones encontradas. Esperando selección de producto.")
+        _logger.info(f"🧠 Guardando memoria: flow='esperando_seleccion_producto', productos={len(variants)}, qty={qty}")
         return f"Tenemos varias opciones para {args['query']}:\n{buttons}\nRespondé con el número o el nombre del producto que querés."
+
 
     variant = variants[0]
     pid = variant['id']
