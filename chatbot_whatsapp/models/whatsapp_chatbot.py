@@ -196,27 +196,24 @@ class WhatsAppMessage(models.Model):
                         _send_text(record, "No hay productos en tu carrito. ¿Hay algo más en lo que pueda ayudarte?")
                         memory.write({'flow_state': False, 'data_buffer': '', 'last_intent_detected': False}) # Limpiamos la memoria
                     continue
-                else:
-                    # Si no dice "no" o "finalizar", asumimos que quiere seguir agregando productos
-                    # Re-evaluar la intención para buscar productos
-                    _logger.info("➡️ Cliente en 'pedido_en_progreso' no ha finalizado, re-evaluando intención de agregar producto.")
-                    intent = detect_intention(conv, self.env['ir.config_parameter'].sudo().get_param('openai.api_key')).lower().strip()
-                    memory.write({'last_intent_detected': intent}) # Actualizar la intención para que handle_crear_pedido la use
+                # If not finalizing, we'll proceed to NLP to see if they want to add more products.
+                # The NLP context will guide this.
 
             # --- INTENCIÓN NLP ---
-            history = self.env['whatsapp.message'].sudo().search([
-                ('mobile_number', '=', record.mobile_number),
-                ('id', '<=', record.id),
-                ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
-            ], order='id desc', limit=10)
-
-            conv = []
+            # Initialize conv here to avoid UnboundLocalError
+            conv = [] 
             if memory and memory.last_intent_detected:
                 conv.append({
                     "role": "system",
                     "content": f"Contexto actual: intención anterior '{memory.last_intent_detected}'. El usuario está en el proceso de un pedido si el flow_state es 'pedido_en_progreso'."
                 })
             
+            history = self.env['whatsapp.message'].sudo().search([
+                ('mobile_number', '=', record.mobile_number),
+                ('id', '<=', record.id),
+                ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
+            ], order='id desc', limit=10)
+
             # Add previous messages to context, excluding the last one if it's an assistant message
             for msg in reversed(history):
                 text = clean_html(msg.body or "").strip()
