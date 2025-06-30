@@ -73,7 +73,7 @@ class WhatsAppMessage(models.Model):
                 _logger.info(f"⚠️ Memoria activa: {memory.last_intent} para partner {partner.id}")
                 
                 # --- Manejo de selección de producto ---
-                if memory.last_intent == 'esperando_seleccion_producto':
+            if memory.last_intent == 'esperando_seleccion_producto':
                     _logger.info(f"Esperando selección de producto. Mensaje recibido: '{plain}'")
                     try:
                         data = json.loads(memory.data_buffer or '{}')
@@ -120,7 +120,7 @@ class WhatsAppMessage(models.Model):
                         continue
 
                 # --- Manejo de cantidad ---
-                if memory.last_intent == 'esperando_cantidad_producto':
+            if memory.last_intent == 'esperando_cantidad_producto':
                     _logger.info(f"Esperando cantidad para producto ID {memory.last_variant_id}. Mensaje: '{plain}'")
                     try:
                         qty = int(plain.strip())
@@ -148,7 +148,7 @@ class WhatsAppMessage(models.Model):
                     continue
 
                 # --- Manejo confirmación stock ---
-                if memory.last_intent == 'esperando_confirmacion_stock':
+            if memory.last_intent == 'esperando_confirmacion_stock':
                     choice = plain.lower().strip()
                     if choice in ('1', 'sí', 'si'):
                         var = self.env['product.product'].sudo().browse(memory.last_variant_id)
@@ -174,7 +174,7 @@ class WhatsAppMessage(models.Model):
                         continue
 
                 # --- Manejo nueva cantidad tras stock insuficiente ---
-                if memory.last_intent == 'esperando_nueva_cantidad':
+            if memory.last_intent == 'esperando_nueva_cantidad':
                     try:
                         new_qty = int(plain.strip())
                     except ValueError:
