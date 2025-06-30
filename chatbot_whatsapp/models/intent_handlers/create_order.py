@@ -176,16 +176,13 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     except UserError as ue:
         return str(ue)
 
-    m = re.search(r'\b(\d+)\b', text)
-    qty = int(m.group(1)) if m else None
-
     if len(variants) >= 5:
         buttons = "\n".join([
             f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
         ])
         memory_payload = {
-            'products': variants,
-            'qty': qty
+            'products': variants
+            # Nota: No se guarda ninguna cantidad en esta etapa
         }
         memory_model.create({
             'partner_id': partner.id,
@@ -197,6 +194,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             f"{buttons}\n"
             "Respondé con el número o el nombre del producto que querés."
         )
+
 
     variant = variants[0]
     pid = variant['id']
