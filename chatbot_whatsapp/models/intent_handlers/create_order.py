@@ -91,13 +91,11 @@ def create_sale_order(env, partner_id, product_id, quantity):
             f"Producto: {product.display_name}\n"
             f"Cantidad: {quantity}"
         ),
-        'opportunity_type': 'opportunity',
-        # Establece el ingreso esperado en base al total del pedido
         'expected_revenue': order.amount_total,
-        # Fuente opcional
         'source_id': (env.ref('crm.source_website_leads', raise_if_not_found=False)
-                      and env.ref('crm.source_website_leads').id),
+                    and env.ref('crm.source_website_leads').id),
     }
+
     lead = env['crm.lead'].sudo().create(lead_vals)
 
     # Vincula la orden a la oportunidad
