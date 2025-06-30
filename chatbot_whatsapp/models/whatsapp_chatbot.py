@@ -49,7 +49,7 @@ class WhatsAppMessage(models.Model):
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
             memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
             if not memory:
-                memory = memory_model.create({'partner_id': partner.id, 'flow_state': None})
+                memory = memory_model.create({'partner_id': partner.id})
 
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name if partner else 'desconocido'} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}")
@@ -68,9 +68,7 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte.")
                 continue
 
-            # Aseguramos que flow sea str o None, no booleano False
-
-            flow = memory.flow_state # Usamos el estado directamente
+            flow = memory.flow_state
             _logger.info(f"➡️ Flujo actual: {flow}")
 
             # --- CEREBRO DEL CHATBOT: MANEJO DE FLUJOS ---
@@ -85,7 +83,7 @@ class WhatsAppMessage(models.Model):
                         index = int(plain.strip()) - 1
                         if 0 <= index < len(variants):
                             selected_variant = variants[index]
-                    else: # Búsqueda por nombre (opcional, pero útil)
+                    else:
                         for v in variants:
                             if plain.lower() in v['name'].lower():
                                 selected_variant = v
@@ -95,47 +93,47 @@ class WhatsAppMessage(models.Model):
                         _send_text(record, "Opción no válida. Por favor, respondé con el número del producto que querés.")
                         continue
                     
-                    # Lógica para manejar el producto seleccionado (pedir cantidad o crear pedido)
-                    # (Esta lógica es similar a la que movimos desde create_order.py)
-                    
                     pid = selected_variant['id']
                     name = selected_variant['name']
                     avail = int(selected_variant['stock'])
 
-                    if not qty: # Si no sabíamos la cantidad, la pedimos ahora
+                    # --- INICIO DEL BLOQUE CORREGIDO (INDENTACIÓN) ---
+                    if not qty:
                         memory.write({
                             'flow_state': 'esperando_cantidad_producto',
                             'last_variant_id': pid,
+                            'data_buffer': '' # Limpiamos el buffer que ya no necesitamos
                         })
                         _send_text(record, f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?")
-                    elif qty <= avail: # Si teníamos cantidad y hay stock
+                    elif qty <= avail:
                         order = create_sale_order(self.env, partner.id, pid, qty)
                         memory.unlink()
                         _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{name}.")
-                    else: # Si teníamos cantidad pero no hay stock
-                         memory.write({
+                    else:
+                        memory.write({
                             'flow_state': 'esperando_confirmacion_stock',
                             'last_variant_id': pid,
                             'last_qty_suggested': avail
                         })
-                         _send_text(record, f"Solo hay {avail} unidades de “{name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar")
-                    
+                        _send_text(record, f"Solo hay {avail} unidades de “{name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar")
+                    # --- FIN DEL BLOQUE CORREGIDO ---
+
                 except (ValueError, json.JSONDecodeError) as e:
                     _logger.error(f"Error procesando selección: {e}")
                     _send_text(record, "Hubo un error. Empecemos de nuevo. ¿Qué producto buscás?")
                     memory.unlink()
-                continue # Termina el procesamiento de este mensaje
+                continue
 
             if flow == 'esperando_cantidad_producto':
-                # (Aquí iría la lógica que antes estaba en handle_crear_pedido para este estado)
                 try:
                     qty = int(plain.strip())
+                    # --- CORRECCIÓN: Usar .id para browse ---
                     variant = self.env['product.product'].sudo().browse(memory.last_variant_id.id)
                     avail = variant.qty_available or 0
 
                     if qty <= 0:
-                         _send_text(record, "La cantidad debe ser un número positivo. ¿Cuántas unidades querés?")
-                         continue
+                        _send_text(record, "La cantidad debe ser un número positivo. ¿Cuántas unidades querés?")
+                        continue
 
                     if qty > avail:
                         memory.write({
@@ -151,54 +149,24 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, "No entendí la cantidad. Por favor, escribí solo el número.")
                 continue
 
-            # --- Manejo confirmación stock ---
             if flow == 'esperando_confirmacion_stock':
                 choice = plain.lower().strip()
-                if choice in ('1', 'sí', 'si'):
-                    var = self.env['product.product'].sudo().browse(memory.last_variant_id)
+                if choice in ('1', 'sí', 'si', 'si, esa cantidad'):
+                    # --- CORRECCIÓN: Usar .id para browse ---
+                    var = self.env['product.product'].sudo().browse(memory.last_variant_id.id)
                     qty = memory.last_qty_suggested
                     order = create_sale_order(self.env, partner.id, var.id, qty)
                     memory.unlink()
                     _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
-                    continue
-                elif choice in ('2', 'otra cantidad'):
-                    memory.write({'flow_state': 'esperando_nueva_cantidad'})
-                    _send_text(record, "Perfecto, decime cuántas unidades querés.")
-                    continue
-                elif choice in ('3', 'no', 'no gracias'):
+                elif choice in ('2', 'no', 'cancelar'):
                     memory.unlink()
-                    _send_text(record, "Entendido, no genero ningún pedido.")
-                    continue
+                    _send_text(record, "Entendido, cancelamos el pedido.")
                 else:
-                    _send_text(record,
-                               "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
-                               )
-                    continue
-
-            # --- Manejo nueva cantidad tras stock insuficiente ---
-            if flow == 'esperando_nueva_cantidad':
-                try:
-                    new_qty = int(plain.strip())
-                except ValueError:
-                    _send_text(record, "No entendí ese número. ¿Podés escribir la cantidad en dígitos?")
-                    continue
-
-                var = self.env['product.product'].sudo().browse(memory.last_variant_id)
-                avail = var.qty_available or 0
-
-                if new_qty > avail:
-                    memory.write({'flow_state': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
-                    _send_text(record,
-                               f"Sigue siendo más de lo que hay ({avail}).\n"
-                               "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
-                               )
-                    continue
-
-                order = create_sale_order(self.env, partner.id, var.id, new_qty)
-                memory.unlink()
-                _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
+                    _send_text(record, "No entendí tu respuesta. Por favor, respondé 'Sí' o 'No'.")
                 continue
 
+            # ... (resto del código para INTENCIÓN NLP sin cambios) ...
+            
             # --- INTENCIÓN NLP ---
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number', '=', record.mobile_number),
@@ -224,11 +192,9 @@ class WhatsAppMessage(models.Model):
 
             intent = detect_intention(conv, self.env['ir.config_parameter'].sudo().get_param('openai.api_key')).lower().strip()
             
-            # Guardamos la intención detectada en la memoria existente
             memory.write({'last_intent_detected': intent})
 
             if intent == "crear_pedido":
-                # Pasamos el registro de memoria al manejador
                 result = handle_crear_pedido(self.env, partner, plain, memory)
                 if result:
                     _send_text(record, result)
