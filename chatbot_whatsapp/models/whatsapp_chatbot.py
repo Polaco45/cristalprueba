@@ -60,7 +60,7 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
                 continue
 
-            memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
+            memory = memory_model.sudo().search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
 
             # ✅ VERIFICAR ESTADOS DE MEMORIA ANTES DE CLASIFICAR INTENCIÓN
             # Log para debug
