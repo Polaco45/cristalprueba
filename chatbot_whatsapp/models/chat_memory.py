@@ -8,7 +8,7 @@ class WhatsAppMemory(models.Model):
     phone = fields.Char(index=True)
     partner_id = fields.Many2one('res.partner')
 
-    last_intent = fields.Char()  # [DEPRECATED] Reemplazado por `last_intent_detected`
+    # last_intent = fields.Char()  # [DEPRECATED] Reemplazado por `last_intent_detected`
     last_intent_detected = fields.Char()  # 🆕 Intención global NLP
     flow_state = fields.Char()  # 🆕 Estado actual del flujo conversacional
 
