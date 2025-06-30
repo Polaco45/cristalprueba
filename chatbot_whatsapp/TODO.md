@@ -14,6 +14,8 @@
 
 - Chequear precio en las ordenes de venta con WhatsApp.
 
+* Probablemente sea conveniente volver a versiones anteriores, debido a que se rompieron los flujos (todos caen en "no entendi que producto queres").
+
 * Resolver siguiente bug:
     *   yo: quiero blem
         chatbot: ¡Perfecto! Elegiste “[CM0042] Blem Aero x 400Cc Original”. ¿Cuántas unidades querés?
