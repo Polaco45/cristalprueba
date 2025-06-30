@@ -1,4 +1,3 @@
-# create_order.py
 import json
 import logging
 import re
@@ -66,10 +65,12 @@ def lookup_product_variants(env, partner, query, limit=20):
 
 
 def create_sale_order(env, partner_id, product_id, quantity):
+    # Obtiene registros básicos
     partner = env['res.partner'].browse(partner_id)
     product = env['product.product'].browse(product_id)
     pricelist = partner.property_product_pricelist
 
+    # Crea pedido de venta con línea
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
         'partner_id': partner_id,
         'pricelist_id': pricelist.id,
@@ -80,6 +81,7 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })]
     })
 
+    # Crea oportunidad (lead) vinculada al pedido
     lead_vals = {
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
@@ -90,17 +92,20 @@ def create_sale_order(env, partner_id, product_id, quantity):
             f"Cantidad: {quantity}"
         ),
         'expected_revenue': order.amount_total,
-        'source_id': (
-            env.ref('crm.source_website_leads', raise_if_not_found=False)
-            and env.ref('crm.source_website_leads').id
-        ),
+        'source_id': (env.ref('crm.source_website_leads', raise_if_not_found=False)
+                    and env.ref('crm.source_website_leads').id),
     }
+
     lead = env['crm.lead'].sudo().create(lead_vals)
+
+    # Vincula la orden a la oportunidad
     order.write({'opportunity_id': lead.id})
 
+    # Crea actividad de seguimiento
     activity_type = env['mail.activity.type'].sudo().search([
         ('name', 'ilike', 'Iniciativa de Venta')
     ], limit=1)
+
     if activity_type:
         env['mail.activity'].sudo().create({
             'res_model_id': env['ir.model']._get_id('crm.lead'),
@@ -113,12 +118,11 @@ def create_sale_order(env, partner_id, product_id, quantity):
 
     return order
 
-
 def handle_crear_pedido(env, partner, text, send_buttons=None):
+    # ✅ CHECK DE MEMORIA PRIMERO
     memory_model = env['chatbot.whatsapp.memory'].sudo()
     memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
 
-    # Si estamos esperando cantidad, procesamos aquí
     if memory and memory.last_intent == 'esperando_cantidad_producto':
         try:
             qty = int(text.strip())
@@ -127,8 +131,12 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
         variant = memory.last_variant_id
         avail = variant.qty_available or 0
+
         if qty > avail:
-            memory.write({'last_intent': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
+            memory.write({
+                'last_intent': 'esperando_confirmacion_stock',
+                'last_qty_suggested': avail
+            })
             return (
                 f"Solo hay {avail} unidades de “{variant.display_name}”.\n"
                 "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
@@ -138,26 +146,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         memory.unlink()
         return f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}."
 
-    # Si venimos de "otra cantidad"
-    if memory and memory.last_intent == 'esperando_nueva_cantidad':
-        try:
-            new_qty = int(text.strip())
-        except ValueError:
-            return "No entiendo ese número. ¿Podés escribir la cantidad en dígitos?"
-        variant = memory.last_variant_id
-        avail = variant.qty_available or 0
-        if new_qty > avail:
-            memory.write({'last_intent': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
-            return (
-                f"Sigue siendo más de lo que hay ({avail}).\n"
-                "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
-            )
-        order = create_sale_order(env, partner.id, variant.id, new_qty)
-        memory.unlink()
-        return f"📝 Pedido {order.name} creado: {new_qty}×{variant.display_name}."
-
-    # Resto: invocación a OpenAI para buscar variantes
+    # ⬇️ RESTO DEL CÓDIGO ORIGINAL
     openai.api_key = get_openai_api_key(env)
+
     system_msg = {
         "role": "system",
         "content": (
@@ -166,6 +157,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "con el parámetro 'query' igual al nombre del producto solicitado."
         )
     }
+
     resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
         messages=[system_msg, {"role": "user", "content": text}],
@@ -188,11 +180,17 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     qty = int(m.group(1)) if m else None
 
     if len(variants) >= 5:
-        buttons = "\n".join([f"{i+1}) {v['name']} - ${v['price']:.2f}" for i,v in enumerate(variants)])
+        buttons = "\n".join([
+            f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
+        ])
+        memory_payload = {
+            'products': variants,
+            'qty': qty
+        }
         memory_model.create({
             'partner_id': partner.id,
             'last_intent': 'esperando_seleccion_producto',
-            'data_buffer': json.dumps({'products': variants, 'qty': qty})
+            'data_buffer': json.dumps(memory_payload)
         })
         return (
             f"Tenemos varias opciones para {args['query']}:\n"
@@ -200,14 +198,17 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
-    # Un solo resultado: pasamos a preguntar cantidad si hace falta
     variant = variants[0]
-    pid, avail, name = variant['id'], int(variant['stock']), variant['name']
+    pid = variant['id']
+    avail = int(variant['stock'])
+    name = variant['name']
+
     if not qty:
         memory_model.create({
             'partner_id': partner.id,
             'last_intent': 'esperando_cantidad_producto',
-            'last_variant_id': pid
+            'last_variant_id': pid,
+            'data_buffer': json.dumps({'product': variant})
         })
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
 
