@@ -14,10 +14,8 @@
 
 - Chequear precio en las ordenes de venta con WhatsApp.
 
-* Probablemente sea conveniente volver a versiones anteriores, debido a que se rompieron los flujos (todos caen en "no entendi que producto queres").
-
-* Resolver siguiente bug:
-    *   yo: quiero blem
+- Resolver siguiente bug:
+    -   yo: quiero blem
         chatbot: ¡Perfecto! Elegiste “[CM0042] Blem Aero x 400Cc Original”. ¿Cuántas unidades querés?
         yo: 2
         chatbot: No entendí qué producto querés.
@@ -55,6 +53,13 @@
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 
 ### V2
+
+* 
+
+* Cancelacion de pedidos
+
+* Que se pueda pedir lo mismo que antes
+    * Revisar ordenes pasadas y copiar el pedido
 
 * Si no entiende / la intencion del usuario es otra, que lleve la conversacion como un vendedor
 

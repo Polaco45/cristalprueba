@@ -127,7 +127,7 @@ class WhatsAppMessage(models.Model):
             if flow == 'esperando_cantidad_producto':
                 try:
                     qty = int(plain.strip())
-                    # --- CORRECCIÓN: Usar .id para browse ---
+                    # --- CORRECCIÓN ---
                     variant = self.env['product.product'].sudo().browse(memory.last_variant_id.id)
                     avail = variant.qty_available or 0
 
@@ -152,7 +152,7 @@ class WhatsAppMessage(models.Model):
             if flow == 'esperando_confirmacion_stock':
                 choice = plain.lower().strip()
                 if choice in ('1', 'sí', 'si', 'si, esa cantidad'):
-                    # --- CORRECCIÓN: Usar .id para browse ---
+                    # --- CORRECCIÓN PRINCIPAL ---
                     var = self.env['product.product'].sudo().browse(memory.last_variant_id.id)
                     qty = memory.last_qty_suggested
                     order = create_sale_order(self.env, partner.id, var.id, qty)
@@ -164,8 +164,6 @@ class WhatsAppMessage(models.Model):
                 else:
                     _send_text(record, "No entendí tu respuesta. Por favor, respondé 'Sí' o 'No'.")
                 continue
-
-            # ... (resto del código para INTENCIÓN NLP sin cambios) ...
             
             # --- INTENCIÓN NLP ---
             history = self.env['whatsapp.message'].sudo().search([
