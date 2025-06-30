@@ -48,20 +48,26 @@ class WhatsAppMessage(models.Model):
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
             memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
 
-            # Onboarding
+            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name if partner else 'desconocido'} ({phone})")
+            if memory:
+                _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}")
+
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, memory_model
             )
             if handled:
+                _logger.info("🔄 Flujo de onboarding interceptado")
                 _send_text(record, response_msg)
                 continue
 
             if not is_cotizado(partner):
+                _logger.info("🚫 Usuario sin cotización: se envía mensaje de asesoramiento")
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte.")
                 continue
 
             flow = memory.flow_state if memory else None
+            _logger.info(f"➡️ Flujo actual: {flow}")
                 
                 # --- Manejo de selección de producto ---
             if flow == 'esperando_seleccion_producto':
