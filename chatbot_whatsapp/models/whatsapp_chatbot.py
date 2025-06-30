@@ -46,7 +46,9 @@ class WhatsAppMessage(models.Model):
             ], limit=1)
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
+            memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
 
+            # Onboarding
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, memory_model
@@ -56,18 +58,13 @@ class WhatsAppMessage(models.Model):
                 continue
 
             if not is_cotizado(partner):
-                _logger.info("\U0001f6d1 Cliente no cotizado — se detiene el flujo NLP")
-                _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
+                _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte.")
                 continue
 
-            # Dentro del método create, reemplazar los bloques que manejan memoria por este enfoque:
-
-            _logger.info(f"Procesando mensaje para partner {partner.id} con texto: '{plain}'")
-            memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
-            _logger.info(f"Memoria encontrada: {memory} con last_intent: {memory.last_intent if memory else 'None'}")
+            flow = memory.flow_state if memory else None
                 
                 # --- Manejo de selección de producto ---
-            if memory.last_intent == 'esperando_seleccion_producto':
+            if flow == 'esperando_seleccion_producto':
                     _logger.info(f"Esperando selección de producto. Mensaje recibido: '{plain}'")
                     try:
                         data = json.loads(memory.data_buffer or '{}')
@@ -114,7 +111,7 @@ class WhatsAppMessage(models.Model):
                         continue
 
                 # --- Manejo de cantidad ---
-            if memory.last_intent == 'esperando_cantidad_producto':
+            if flow == 'esperando_cantidad_producto':
                     _logger.info(f"Esperando cantidad para producto ID {memory.last_variant_id}. Mensaje: '{plain}'")
                     try:
                         qty = int(plain.strip())
@@ -142,7 +139,7 @@ class WhatsAppMessage(models.Model):
                     continue
 
                 # --- Manejo confirmación stock ---
-            if memory.last_intent == 'esperando_confirmacion_stock':
+            if flow == 'esperando_confirmacion_stock':
                     choice = plain.lower().strip()
                     if choice in ('1', 'sí', 'si'):
                         var = self.env['product.product'].sudo().browse(memory.last_variant_id)
@@ -168,7 +165,7 @@ class WhatsAppMessage(models.Model):
                         continue
 
                 # --- Manejo nueva cantidad tras stock insuficiente ---
-            if memory.last_intent == 'esperando_nueva_cantidad':
+            if flow == 'esperando_nueva_cantidad':
                     try:
                         new_qty = int(plain.strip())
                     except ValueError:
@@ -192,7 +189,7 @@ class WhatsAppMessage(models.Model):
                     continue
 
 
-            # Si no estamos en un flujo especial, detectamos intención
+                        # --- INTENCIÓN NLP ---
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number','=', record.mobile_number),
                 ('id','<=', record.id),
@@ -200,48 +197,30 @@ class WhatsAppMessage(models.Model):
             ], order='id desc', limit=10)
 
             conv = []
-
-            if memory:
-                ctx = f"Contexto actual: última intención '{memory.last_intent}'."
-                if memory.last_variant_id:
-                    variant_ctx = self.env['product.product'].sudo().browse(memory.last_variant_id)
-                    ctx += f" Producto sugerido: {variant_ctx.display_name}."
-                if memory.last_qty_suggested:
-                    ctx += f" Cantidad sugerida: {memory.last_qty_suggested}."
-                conv.append({"role": "system", "content": ctx})
+            if memory and memory.last_intent_detected:
+                conv.append({
+                    "role": "system",
+                    "content": f"Contexto actual: intención anterior '{memory.last_intent_detected}'."
+                })
 
             for msg in reversed(history):
                 text = clean_html(msg.body or "").strip()
                 if not text or text.lower() in ("ok", "gracias", "dale"):
                     continue
-                if msg.state in ("received", "inbound"):
-                    conv.append({"role": "user", "content": text})
-                else:
-                    conv.append({"role": "assistant", "content": text})
+                conv.append({
+                    "role": "user" if msg.state in ("received", "inbound") else "assistant",
+                    "content": text
+                })
 
-            _logger.info("\U0001f9e0 Conversación enviada:\n%s", json.dumps(conv, indent=2, ensure_ascii=False))
+            intent = detect_intention(conv, self.env['ir.config_parameter'].sudo().get_param('openai.api_key')).lower().strip()
 
-            intent = detect_intention(
-                conv,
-                self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-            ).lower().strip()
-            _logger.info("Intención detectada: %s", intent)
-
-            # Solo actualizar la intención si NO estamos en medio de un flujo pendiente
-            if not memory or memory.last_intent not in (
-                'esperando_seleccion_producto',
-                'esperando_cantidad_producto',
-                'esperando_confirmacion_stock',
-                'esperando_nueva_cantidad'
-            ):
-                if memory:
-                    memory.write({'last_intent': intent})
-                else:
-                    memory_model.create({
-                        'partner_id': partner.id,
-                        'last_intent': intent,
-                    })
-
+            if memory:
+                memory.write({'last_intent_detected': intent})
+            else:
+                memory_model.create({
+                    'partner_id': partner.id,
+                    'last_intent_detected': intent
+                })
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
@@ -256,8 +235,7 @@ class WhatsAppMessage(models.Model):
                     record.send_whatsapp_document(r['pdf_base64'], fname, mime_type='application/pdf')
 
             elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
-                resp = handle_respuesta_faq(intent, partner, plain)
-                _send_text(record, resp)
+                _send_text(record, handle_respuesta_faq(intent, partner, plain))
 
             else:
                 _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
