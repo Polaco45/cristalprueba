@@ -60,150 +60,143 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte. ¡Te escribimos pronto!")
                 continue
 
+            # Dentro del método create, reemplazar los bloques que manejan memoria por este enfoque:
+
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
-            
+
             if memory and memory.last_intent in [
                 'esperando_seleccion_producto',
                 'esperando_cantidad_producto',
                 'esperando_confirmacion_stock',
                 'esperando_nueva_cantidad'
             ]:
-                _logger.info("⚠️ Ya hay memoria activa con intención: %s — se evita recalcular intención", memory.last_intent)
-                # Dejamos que otro bloque maneje el flujo
-                pass
-            else:
-                memory = None  # Para que el siguiente bloque se ejecute si no hay memoria
+                _logger.info(f"⚠️ Memoria activa: {memory.last_intent} para partner {partner.id}")
+                
+                # --- Manejo de selección de producto ---
+                if memory.last_intent == 'esperando_seleccion_producto':
+                    _logger.info(f"Esperando selección de producto. Mensaje recibido: '{plain}'")
+                    try:
+                        data = json.loads(memory.data_buffer or '{}')
+                    except Exception as e:
+                        _logger.error(f"Error leyendo memoria: {e}")
+                        memory.unlink()
+                        _send_text(record, "Error interno. Por favor volvé a escribir el producto.")
+                        continue
+                    
+                    variants = data.get('products', [])
+                    qty = data.get('qty')
 
-            # BLOQUE para manejo de confirmación de stock
-            if memory and memory.last_intent == 'esperando_confirmacion_stock':
-                choice = plain.lower().strip()
-                if choice in ('1','1)','sí','si'):
-                    var_id = memory.last_variant_id
-                    var = self.env['product.product'].sudo().browse(var_id)
-                    qty = memory.last_qty_suggested
-                    order = create_sale_order(self.env, partner.id, var.id, qty)
-                    memory.unlink()
-                    _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{var.display_name}.")
-                    continue
-                if choice in ('2','2)','quiero otra cantidad'):
-                    memory.write({'last_intent': 'esperando_nueva_cantidad'})
-                    _send_text(record, "Perfecto, decime cuántas unidades querés.")
-                    continue
-                if choice in ('3','3)','no','no gracias'):
-                    memory.unlink()
-                    _send_text(record, "Entendido, no genero ningún pedido.")
-                    continue
-                var_id = memory.last_variant_id
-                var = self.env['product.product'].sudo().browse(var_id)
-                avail = memory.last_qty_suggested
-                _send_text(record,
-                    f"Solo hay {avail} unidades de “{var.display_name}”.\n"
-                    "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
-                )
-                continue
-
-            # BLOQUE para nueva cantidad cuando se pide cambio por falta de stock
-            if memory and memory.last_intent == 'esperando_nueva_cantidad':
-                try:
-                    new_qty = int(plain)
-                except ValueError:
-                    _send_text(record, "No entiendo ese número. ¿Podés escribir la cantidad en dígitos?")
-                    continue
-                var_id = memory.last_variant_id
-                var = self.env['product.product'].sudo().browse(var_id)
-                avail = var.qty_available or 0
-                if new_qty > avail:
-                    memory.write({'last_intent': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
-                    _send_text(record,
-                        f"Sigue siendo más de lo que hay ({avail}).\n"
-                        "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
-                    )
-                    continue
-                order = create_sale_order(self.env, partner.id, var.id, new_qty)
-                memory.unlink()
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {new_qty}×{var.display_name}.")
-                continue
-
-            # BLOQUE para selección de producto
-            if memory and memory.last_intent == 'esperando_seleccion_producto':
-                _logger.info("🔄 Estado: esperando_seleccion_producto")
-                _logger.debug("🧠 Memoria bruta: %s", memory.data_buffer)
-
-                try:
-                    data = json.loads(memory.data_buffer or '{}')
-                except json.JSONDecodeError as e:
-                    _logger.error("❌ Error decodificando memoria: %s", e)
-                    _send_text(record, "Hubo un error interno leyendo tu selección. ¿Podés volver a escribir el producto?")
-                    memory.unlink()
-                    continue
-
-                variants = data.get('products', [])
-                qty = data.get('qty')
-
-                _logger.info("🧪 Input del usuario: '%s'", plain)
-                _logger.info("📦 Cantidad de variantes disponibles: %d", len(variants))
-
-                selected_variant = None
-                if plain.strip().isdigit():
-                    index = int(plain.strip()) - 1
-                    if 0 <= index < len(variants):
-                        selected_variant = variants[index]
-                        _logger.info("✅ Seleccionó por índice: %d → %s", index, selected_variant['name'])
+                    selected_variant = None
+                    if plain.strip().isdigit():
+                        index = int(plain.strip()) - 1
+                        if 0 <= index < len(variants):
+                            selected_variant = variants[index]
+                            _logger.info(f"Producto seleccionado por índice: {index} - {selected_variant['name']}")
+                        else:
+                            _send_text(record, "Número fuera de rango. Respondé con el número del producto que querés.")
+                            continue
                     else:
-                        _logger.warning("❌ Índice fuera de rango: %d", index)
-                else:
-                    for v in variants:
-                        if plain.lower() in v['name'].lower():
-                            selected_variant = v
-                            _logger.info("✅ Seleccionó por nombre: %s", selected_variant['name'])
-                            break
+                        # Buscar por nombre (mejor si haces match exacto o parcial)
+                        for v in variants:
+                            if plain.lower() in v['name'].lower():
+                                selected_variant = v
+                                _logger.info(f"Producto seleccionado por nombre: {v['name']}")
+                                break
+                        if not selected_variant:
+                            _send_text(record, "No entendí qué producto elegiste. Respondé con el número o el nombre.")
+                            continue
+                    
+                    pid = selected_variant['id']
+                    name = selected_variant['name']
+                    avail = int(selected_variant['stock'])
 
-                if not selected_variant:
-                    _logger.warning("❌ No se encontró una variante que coincida con '%s'", plain)
-                    _send_text(record, "No entendí cuál producto elegiste. Por favor respondé con el número o el nombre.")
+                    if not qty:
+                        memory.write({
+                            'last_intent': 'esperando_cantidad_producto',
+                            'last_variant_id': pid,
+                            'data_buffer': json.dumps({'product': selected_variant})
+                        })
+                        _send_text(record, f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?")
+                        continue
+
+                # --- Manejo de cantidad ---
+                if memory.last_intent == 'esperando_cantidad_producto':
+                    _logger.info(f"Esperando cantidad para producto ID {memory.last_variant_id}. Mensaje: '{plain}'")
+                    try:
+                        qty = int(plain.strip())
+                    except ValueError:
+                        _send_text(record, "No entendí la cantidad. Por favor escribí un número.")
+                        continue
+                    
+                    variant = self.env['product.product'].sudo().browse(memory.last_variant_id)
+                    avail = variant.qty_available or 0
+                    
+                    if qty > avail:
+                        memory.write({
+                            'last_intent': 'esperando_confirmacion_stock',
+                            'last_qty_suggested': avail
+                        })
+                        _send_text(record,
+                            f"Solo hay {avail} unidades de “{variant.display_name}”.\n"
+                            "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                        )
+                        continue
+                    
+                    order = create_sale_order(self.env, partner.id, variant.id, qty)
+                    memory.unlink()
+                    _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}.")
                     continue
 
-                pid = selected_variant['id']
-                name = selected_variant['name']
-                avail = int(selected_variant['stock'])
+                # --- Manejo confirmación stock ---
+                if memory.last_intent == 'esperando_confirmacion_stock':
+                    choice = plain.lower().strip()
+                    if choice in ('1', 'sí', 'si'):
+                        var = self.env['product.product'].sudo().browse(memory.last_variant_id)
+                        qty = memory.last_qty_suggested
+                        order = create_sale_order(self.env, partner.id, var.id, qty)
+                        memory.unlink()
+                        _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
+                        continue
+                    elif choice in ('2', 'otra cantidad'):
+                        memory.write({'last_intent': 'esperando_nueva_cantidad'})
+                        _send_text(record, "Perfecto, decime cuántas unidades querés.")
+                        continue
+                    elif choice in ('3', 'no', 'no gracias'):
+                        memory.unlink()
+                        _send_text(record, "Entendido, no genero ningún pedido.")
+                        continue
+                    else:
+                        var = self.env['product.product'].sudo().browse(memory.last_variant_id)
+                        avail = memory.last_qty_suggested
+                        _send_text(record,
+                            f"Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                        )
+                        continue
 
-                if not qty:
-                    _logger.info("📥 Pide cantidad para producto: %s (ID %d)", name, pid)
-                    memory.write({
-                        'last_intent': 'esperando_cantidad_producto',
-                        'last_variant_id': pid,
-                        'data_buffer': json.dumps({'product': selected_variant})
-                    })
-                    _send_text(record, f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?")
+                # --- Manejo nueva cantidad tras stock insuficiente ---
+                if memory.last_intent == 'esperando_nueva_cantidad':
+                    try:
+                        new_qty = int(plain.strip())
+                    except ValueError:
+                        _send_text(record, "No entendí ese número. ¿Podés escribir la cantidad en dígitos?")
+                        continue
+                    
+                    var = self.env['product.product'].sudo().browse(memory.last_variant_id)
+                    avail = var.qty_available or 0
+
+                    if new_qty > avail:
+                        memory.write({'last_intent': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
+                        _send_text(record,
+                            f"Sigue siendo más de lo que hay ({avail}).\n"
+                            "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                        )
+                        continue
+                    
+                    order = create_sale_order(self.env, partner.id, var.id, new_qty)
+                    memory.unlink()
+                    _send_text(record, f"📝 Pedido {order.name} creado: {new_qty}×{var.display_name}.")
                     continue
 
-            # BLOQUE PARA ESPERAR LA CANTIDAD (AQUÍ ESTÁ LA CORRECCIÓN CLAVE)
-            if memory and memory.last_intent == 'esperando_cantidad_producto':
-                try:
-                    qty = int(plain)
-                except ValueError:
-                    _send_text(record, "No entendí la cantidad. ¿Podés escribir un número?")
-                    continue
-
-                variant_id = memory.last_variant_id
-                variant = self.env['product.product'].sudo().browse(variant_id)
-                avail = variant.qty_available or 0
-
-                if qty > avail:
-                    memory.write({
-                        'last_intent': 'esperando_confirmacion_stock',
-                        'last_qty_suggested': avail
-                    })
-                    _send_text(record,
-                        f"Solo hay {avail} unidades de “{variant.display_name}”.\n"
-                        "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
-                    )
-                    continue
-
-                order = create_sale_order(self.env, partner.id, variant.id, qty)
-                memory.unlink()
-                _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
-                continue
 
             # Si no estamos en un flujo especial, detectamos intención
             history = self.env['whatsapp.message'].sudo().search([
