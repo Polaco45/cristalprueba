@@ -62,15 +62,9 @@ class WhatsAppMessage(models.Model):
 
             # Dentro del método create, reemplazar los bloques que manejan memoria por este enfoque:
 
-            memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
-
-            if memory and memory.last_intent in [
-                'esperando_seleccion_producto',
-                'esperando_cantidad_producto',
-                'esperando_confirmacion_stock',
-                'esperando_nueva_cantidad'
-            ]:
-                _logger.info(f"⚠️ Memoria activa: {memory.last_intent} para partner {partner.id}")
+            _logger.info(f"Procesando mensaje para partner {partner.id} con texto: '{plain}'")
+            memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
+            _logger.info(f"Memoria encontrada: {memory} con last_intent: {memory.last_intent if memory else 'None'}")
                 
                 # --- Manejo de selección de producto ---
             if memory.last_intent == 'esperando_seleccion_producto':
