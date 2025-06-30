@@ -61,6 +61,16 @@ class WhatsAppMessage(models.Model):
                 continue
 
             memory = memory_model.search([('partner_id','=', partner.id)], order='timestamp desc', limit=1)
+            
+            if memory and memory.last_intent in [
+                'esperando_seleccion_producto',
+                'esperando_cantidad_producto',
+                'esperando_confirmacion_stock',
+                'esperando_nueva_cantidad'
+            ]:
+                _logger.info("⚠️ Ya hay memoria activa con intención: %s — se evita recalcular intención", memory.last_intent)
+                # Dejamos que otro bloque maneje el flujo
+                continue
 
             if memory and memory.last_intent == 'esperando_confirmacion_stock':
                 choice = plain.lower().strip()
