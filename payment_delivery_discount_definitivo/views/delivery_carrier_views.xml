@@ -2,11 +2,11 @@
   <record id="delivery_carrier_form_inherit_discount" model="ir.ui.view">
     <field name="name">delivery.carrier.form.discount</field>
     <field name="model">delivery.carrier</field>
-    <!-- Usamos el XML ID real de la vista core; compruébalo en Ajustes → Técnico → Vistas -->
+    <!-- REFERENCIA CORRECTA a la vista core -->
     <field name="inherit_id" ref="delivery.view_delivery_carrier_form"/>
     <field name="arch" type="xml">
-      <!-- Asegúrate de que este XPath realmente exista en la vista base -->
-      <xpath expr="//group[@name='general_info']" position="inside">
+      <!-- Comprueba en Ajustes → Técnico → Vistas que exista realmente este xpath -->
+      <xpath expr="//group[@name='service']" position="inside">
         <field name="discount_percent"/>
         <field name="discount_product_id"/>
       </xpath>
