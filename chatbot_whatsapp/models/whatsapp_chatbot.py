@@ -109,7 +109,7 @@ class WhatsAppMessage(models.Model):
 
                     if not qty:
                         memory.write({
-                            'last_intent': 'esperando_cantidad_producto',
+                            'flow_state': 'esperando_cantidad_producto',
                             'last_variant_id': pid,
                             'data_buffer': json.dumps({'product': selected_variant})
                         })
@@ -130,7 +130,7 @@ class WhatsAppMessage(models.Model):
                     
                     if qty > avail:
                         memory.write({
-                            'last_intent': 'esperando_confirmacion_stock',
+                            'flow_state': 'esperando_confirmacion_stock',
                             'last_qty_suggested': avail
                         })
                         _send_text(record,
@@ -155,7 +155,7 @@ class WhatsAppMessage(models.Model):
                         _send_text(record, f"📝 Pedido {order.name} creado: {qty}×{var.display_name}.")
                         continue
                     elif choice in ('2', 'otra cantidad'):
-                        memory.write({'last_intent': 'esperando_nueva_cantidad'})
+                        memory.write({'flow_state': 'esperando_nueva_cantidad'})
                         _send_text(record, "Perfecto, decime cuántas unidades querés.")
                         continue
                     elif choice in ('3', 'no', 'no gracias'):
@@ -182,7 +182,7 @@ class WhatsAppMessage(models.Model):
                     avail = var.qty_available or 0
 
                     if new_qty > avail:
-                        memory.write({'last_intent': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
+                        memory.write({'flow_state': 'esperando_confirmacion_stock', 'last_qty_suggested': avail})
                         _send_text(record,
                             f"Sigue siendo más de lo que hay ({avail}).\n"
                             "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
