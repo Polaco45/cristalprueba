@@ -65,12 +65,10 @@ def lookup_product_variants(env, partner, query, limit=20):
 
 
 def create_sale_order(env, partner_id, product_id, quantity):
-    # Obtiene registros básicos
     partner = env['res.partner'].browse(partner_id)
     product = env['product.product'].browse(product_id)
     pricelist = partner.property_product_pricelist
 
-    # Crea pedido de venta con línea
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
         'partner_id': partner_id,
         'pricelist_id': pricelist.id,
@@ -81,7 +79,7 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })]
     })
 
-    # Crea oportunidad (lead) vinculada al pedido
+    # Crear oportunidad vinculada
     lead_vals = {
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
@@ -97,11 +95,9 @@ def create_sale_order(env, partner_id, product_id, quantity):
     }
 
     lead = env['crm.lead'].sudo().create(lead_vals)
-
-    # Vincula la orden a la oportunidad
     order.write({'opportunity_id': lead.id})
 
-    # Crea actividad de seguimiento
+    # Actividad de seguimiento
     activity_type = env['mail.activity.type'].sudo().search([
         ('name', 'ilike', 'Iniciativa de Venta')
     ], limit=1)
@@ -118,11 +114,18 @@ def create_sale_order(env, partner_id, product_id, quantity):
 
     return order
 
-def handle_crear_pedido(env, partner, text, send_buttons=None):
-    # ✅ CHECK DE MEMORIA PRIMERO
-    memory_model = env['chatbot.whatsapp.memory'].sudo()
-    memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
 
+def handle_crear_pedido(env, partner, text, send_buttons=None):
+    memory_model = env['chatbot.whatsapp.memory'].sudo()
+    memory = memory_model.search(
+        [('partner_id', '=', partner.id)],
+        order='timestamp desc',
+        limit=1
+    )
+
+    # —————————————————————————
+    # 1) Si ya estábamos esperando la cantidad, la procesamos aquí
+    # —————————————————————————
     if memory and memory.last_intent == 'esperando_cantidad_producto':
         try:
             qty = int(text.strip())
@@ -146,7 +149,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         memory.unlink()
         return f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}."
 
-    # ⬇️ RESTO DEL CÓDIGO ORIGINAL
+    # —————————————————————————
+    # 2) Si no, iniciamos nueva búsqueda de producto
+    # —————————————————————————
     openai.api_key = get_openai_api_key(env)
 
     system_msg = {
@@ -176,12 +181,17 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     except UserError as ue:
         return str(ue)
 
+    # Extraemos cantidad si el usuario ya la indicó en el texto inicial
     m = re.search(r'\b(\d+)\b', text)
     qty = int(m.group(1)) if m else None
 
+    # —————————————————————————
+    # 3) Si hay muchas variantes, listamos opciones
+    # —————————————————————————
     if len(variants) >= 5:
         buttons = "\n".join([
-            f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
+            f"{i+1}) {v['name']} - ${v['price']:.2f}"
+            for i, v in enumerate(variants)
         ])
         memory_payload = {
             'products': variants,
@@ -198,20 +208,25 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con el número o el nombre del producto que querés."
         )
 
+    # —————————————————————————
+    # 4) Solo una variante, seguimos con esa
+    # —————————————————————————
     variant = variants[0]
     pid = variant['id']
     avail = int(variant['stock'])
     name = variant['name']
 
+    # 4.a) Si no vino cantidad, guardamos memoria y preguntamos
     if not qty:
         memory_model.create({
             'partner_id': partner.id,
             'last_intent': 'esperando_cantidad_producto',
-            'last_variant_id': pid,
+            'last_variant_id': pid,            # ← ahora sí guardamos el variant_id
             'data_buffer': json.dumps({'product': variant})
         })
         return f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?"
 
+    # 4.b) Llegó cantidad, pero supera stock: confirmación
     if qty > avail:
         memory_model.create({
             'partner_id': partner.id,
@@ -224,5 +239,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
         )
 
+    # 4.c) Cantidad válida: creamos el pedido
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{name}."
