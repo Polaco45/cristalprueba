@@ -144,6 +144,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         temperature=0,
         max_tokens=50
     )
+    _logger.warning("🔍 RESPUSTA DE OPENAI:")
+    _logger.warning(json.dumps(resp.to_dict_recursive(), indent=2, ensure_ascii=False))
+
     msg = resp.choices[0].message
     if msg.get('function_call', {}).get('name') != 'lookup_product_variants':
         return "No entendí qué producto querés."
