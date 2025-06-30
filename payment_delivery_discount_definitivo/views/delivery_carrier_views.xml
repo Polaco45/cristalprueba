@@ -2,12 +2,15 @@
   <record id="delivery_carrier_form_inherit_discount" model="ir.ui.view">
     <field name="name">delivery.carrier.form.discount</field>
     <field name="model">delivery.carrier</field>
-    <!-- Uso del XML ID correcto de la vista core de transportistas -->
-    <field name="inherit_id" ref="delivery.view_delivery_carrier_form"/>
+    <!-- Apuntamos a la vista core que en Odoo 18 es website_sale_collect.delivery_carrier_form -->
+    <field name="inherit_id" ref="website_sale_collect.delivery_carrier_form"/>
     <field name="arch" type="xml">
-      <xpath expr="//group[@name='service']" position="inside">
-        <field name="discount_percent"/>
-        <field name="discount_product_id"/>
+      <!-- Insertamos nuestro grupo justo antes de la pestaña "Pricing" -->
+      <xpath expr="//page[@name='pricing']" position="before">
+        <group string="Discounts">
+          <field name="discount_percent"/>
+          <field name="discount_product_id"/>
+        </group>
       </xpath>
     </field>
   </record>
