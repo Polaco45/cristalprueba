@@ -140,10 +140,12 @@ class WhatsAppMessage(models.Model):
                     name = selected_variant['name']
                     avail = int(selected_variant['stock'])
 
+                    product_rec = self.env['product.product'].sudo().browse(pid)
+
                     if not qty:
                         memory.write({
                             'last_intent': 'esperando_cantidad_producto',
-                            'last_variant_id': pid,
+                            'last_variant_id': product_rec,  # ✅ ahora es recordset
                             'data_buffer': json.dumps({'product': selected_variant})
                         })
                         _send_text(record, f'¡Perfecto! Elegiste "{name}". ¿Cuántas unidades querés?')
@@ -152,7 +154,7 @@ class WhatsAppMessage(models.Model):
                     if qty > avail:
                         memory.write({
                             'last_intent': 'esperando_confirmacion_stock',
-                            'last_variant_id': pid,
+                            'last_variant_id': product_rec,
                             'last_qty_suggested': avail
                         })
                         _send_text(record,
@@ -166,6 +168,7 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{name}.")
                     memory.unlink()
                     continue
+
 
                 elif memory.last_intent == 'esperando_cantidad_producto':
                     _logger.info(f"🔢 Procesando cantidad para producto: {memory.last_variant_id.display_name if memory.last_variant_id else 'N/A'}")
@@ -248,8 +251,11 @@ class WhatsAppMessage(models.Model):
             else:
                 memory_model.create({
                     'partner_id': partner.id,
-                    'last_intent': intent,
+                    'last_intent': 'esperando_cantidad_producto',
+                    'last_variant_id': product_rec,  # ✅ usar recordset, no entero
+                    'data_buffer': json.dumps({'product': selected_variant})
                 })
+
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
