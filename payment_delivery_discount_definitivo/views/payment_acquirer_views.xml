@@ -1,0 +1,15 @@
+<odoo>
+    <record id="view_payment_acquirer_form_discount" model="ir.ui.view">
+        <field name="name">payment.acquirer.form.discount</field>
+        <field name="model">payment.acquirer</field>
+        <field name="inherit_id" ref="payment.view_payment_acquirer_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='credentials']" position="after">
+                <group string="Descuento">
+                    <field name="discount_percent"/>
+                    <field name="discount_product_id"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>
