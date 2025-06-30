@@ -173,8 +173,8 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     msg = resp.choices[0].message
     # Si OpenAI no llamó a la función de lookup, esto es un fallo de comprensión
-    if msg.get('function_call', {}).get('name') != 'lookup_product_variants':
-        return "No entendí qué producto querés."
+    # if msg.get('function_call', {}).get('name') != 'lookup_product_variants':
+    #     return "No entendí qué producto querés."
 
     # Parsear argumentos y buscar variantes
     args = json.loads(msg.function_call.arguments)
