@@ -123,7 +123,8 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     ✅ FUNCIÓN SIMPLIFICADA: Solo maneja nuevos pedidos
     Los estados de memoria se manejan en el archivo principal
     """
-    
+
+
     openai.api_key = get_openai_api_key(env)
 
     system_msg = {
@@ -162,7 +163,7 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         buttons = "\n".join([
             f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)
         ])
-        
+
         # Guardar en memoria
         memory_model = env['chatbot.whatsapp.memory'].sudo()
         memory_payload = {
@@ -174,7 +175,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             'last_intent': 'esperando_seleccion_producto',
             'data_buffer': json.dumps(memory_payload)
         })
-        
+        env.cr.flush()
+        env.cr.commit()
+
         return (
             f"Tenemos varias opciones para {args['query']}:\n"
             f"{buttons}\n"
@@ -187,17 +190,19 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
     avail = int(variant['stock'])
     name = variant['name']
 
-    # Si no especificó cantidad, pedirla
+    memory_model = env['chatbot.whatsapp.memory'].sudo()
+    existing_memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
+
+    # Si no especificó cantidad, pedirla y guardar en memoria
     if not qty:
-        memory_model = env['chatbot.whatsapp.memory'].sudo()
-        # Verificar si ya existe memoria para evitar duplicados
-        existing_memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
         if existing_memory:
             existing_memory.write({
                 'last_intent': 'esperando_cantidad_producto',
                 'last_variant_id': pid,
                 'data_buffer': json.dumps({'product': variant})
             })
+            env.cr.flush()
+            env.cr.commit()
         else:
             memory_model.create({
                 'partner_id': partner.id,
@@ -205,20 +210,22 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
                 'last_variant_id': pid,
                 'data_buffer': json.dumps({'product': variant})
             })
+            env.cr.flush()
+            env.cr.commit()
+
         _logger.info(f"💾 Memoria creada/actualizada: esperando_cantidad_producto para producto {name} (ID: {pid})")
         return f'¡Perfecto! Elegiste "{name}". ¿Cuántas unidades querés?'
 
     # Si especificó cantidad pero no hay suficiente stock
     if qty > avail:
-        memory_model = env['chatbot.whatsapp.memory'].sudo()
-        # Verificar si ya existe memoria para evitar duplicados
-        existing_memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
         if existing_memory:
             existing_memory.write({
                 'last_intent': 'esperando_confirmacion_stock',
                 'last_variant_id': pid,
                 'last_qty_suggested': avail
             })
+            env.cr.flush()
+            env.cr.commit()
         else:
             memory_model.create({
                 'partner_id': partner.id,
@@ -226,6 +233,9 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
                 'last_variant_id': pid,
                 'last_qty_suggested': avail
             })
+            env.cr.flush()
+            env.cr.commit()
+
         return (
             f'Solo hay {avail} unidades de "{name}".\n'
             'Respondé con:\n1) Sí\n2) Otra cantidad\n3) No'
