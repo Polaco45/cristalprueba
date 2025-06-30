@@ -1,15 +1,19 @@
 {
     'name': "Descuento por método de pago y entrega",
-    'version': '18.0.1.0.0',
-    'summary': "Aplica un descuento en función del medio de pago y método de entrega",
+    'version': "1.0",
     'category': 'Website',
-    'author': 'Tu Nombre o Empresa',
-    'depends': ['payment', 'sale', 'delivery', 'website_sale'],
+    'summary': "Aplica descuentos por método de pago y transporte en el e-commerce",
+    'depends': [
+        'website_sale',
+        'delivery',
+        'payment',
+        'sale',
+    ],
     'data': [
-        'views/payment_acquirer_views.xml',
         'views/delivery_carrier_views.xml',
+        'views/payment_provider_views.xml',
         'views/sale_order_views.xml',
     ],
-    'application': True,
-    'license': 'LGPL-3',
+    'installable': True,
+    'application': False,
 }
