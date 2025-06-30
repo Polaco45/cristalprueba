@@ -218,13 +218,20 @@ class WhatsAppMessage(models.Model):
             ).lower().strip()
             _logger.info("Intención detectada: %s", intent)
 
-            if memory:
+            # ⚠️ Solo actualizamos la intención si no estamos en un flujo activo
+            if memory and memory.last_intent not in [
+                'esperando_cantidad_producto',
+                'esperando_confirmacion_stock',
+                'esperando_nueva_cantidad',
+                'esperando_seleccion_producto'
+            ]:
                 memory.write({'last_intent': intent})
-            else:
+            elif not memory:
                 memory_model.create({
                     'partner_id': partner.id,
                     'last_intent': intent,
                 })
+
 
             if intent == "crear_pedido":
                 result = handle_crear_pedido(self.env, partner, plain)
