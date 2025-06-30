@@ -39,7 +39,6 @@ def lookup_product_variants(env, partner, query, limit=20):
     if not in_stock:
         raise UserError(f"No hay stock disponible para '{query}'.")
 
-    # Creamos un pedido dummy en memoria para obtener precios con precisión
     pricelist = partner.property_product_pricelist
     order = SaleOrder.new({
         'partner_id': partner.id,
@@ -55,41 +54,25 @@ def lookup_product_variants(env, partner, query, limit=20):
             'product_uom': v.uom_id.id,
             'order_partner_id': partner.id,
         })
-        line._onchange_product()  # dispara precio, impuestos, etc.
-        price = line.price_unit
-
+        line._onchange_product()
         products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': price,
+            'price': line.price_unit,
         })
-
     return products_with_prices
 
 
-
 def create_sale_order(env, partner_id, product_id, quantity):
-    product = env['product.product'].browse(product_id)
+    # Obtiene registros básicos
     partner = env['res.partner'].browse(partner_id)
+    product = env['product.product'].browse(product_id)
     pricelist = partner.property_product_pricelist
 
-    # Calculamos el precio unitario para ese partner
-    price = pricelist.sudo().get_product_price(product, quantity, partner)
-
-    # Creamos el lead con el ingreso esperado
-    lead = env['crm.lead'].sudo().create({
-        'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
-        'partner_id': partner_id,
-        'type': 'opportunity',
-        'description': f"Se generó un pedido desde WhatsApp.\nProducto: {product.display_name}\nCantidad: {quantity}",
-        'expected_revenue': price * quantity,
-        'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
-    })
-
+    # Crea pedido de venta con línea
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
         'partner_id': partner_id,
-        'opportunity_id': lead.id,
         'pricelist_id': pricelist.id,
         'order_line': [(0, 0, {
             'product_id': product_id,
@@ -98,6 +81,29 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })]
     })
 
+    # Crea oportunidad (lead) vinculada al pedido
+    lead_vals = {
+        'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
+        'partner_id': partner_id,
+        'type': 'opportunity',
+        'description': (
+            f"Se generó un pedido desde WhatsApp.\n"
+            f"Producto: {product.display_name}\n"
+            f"Cantidad: {quantity}"
+        ),
+        'opportunity_type': 'opportunity',
+        # Establece el ingreso esperado en base al total del pedido
+        'expected_revenue': order.amount_total,
+        # Fuente opcional
+        'source_id': (env.ref('crm.source_website_leads', raise_if_not_found=False)
+                      and env.ref('crm.source_website_leads').id),
+    }
+    lead = env['crm.lead'].sudo().create(lead_vals)
+
+    # Vincula la orden a la oportunidad
+    order.write({'opportunity_id': lead.id})
+
+    # Crea actividad de seguimiento
     activity_type = env['mail.activity.type'].sudo().search([
         ('name', 'ilike', 'Iniciativa de Venta')
     ], limit=1)
@@ -113,7 +119,6 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })
 
     return order
-
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     # ✅ CHECK DE MEMORIA PRIMERO
