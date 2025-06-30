@@ -119,7 +119,6 @@ def create_sale_order(env, partner_id, product_id, quantity):
     return order
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
-    # ✅ CHECK DE MEMORIA PRIMERO
     memory_model = env['chatbot.whatsapp.memory'].sudo()
     memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
 
@@ -146,7 +145,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         memory.unlink()
         return f"📝 Pedido {order.name} creado: {qty}×{variant.display_name}."
 
-    # ⬇️ RESTO DEL CÓDIGO ORIGINAL
     openai.api_key = get_openai_api_key(env)
 
     system_msg = {
@@ -157,6 +155,16 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             "con el parámetro 'query' igual al nombre del producto solicitado."
         )
     }
+
+    # Intentamos extraer cantidad del texto
+    qty = None
+    try:
+        import re
+        m = re.match(r'^\s*(\d+)', text)
+        if m:
+            qty = int(m.group(1))
+    except Exception:
+        qty = None
 
     resp = openai.ChatCompletion.create(
         model="gpt-4o-mini",
@@ -185,7 +193,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
         ])
         memory_payload = {
             'products': variants
-            # Nota: No se guarda ninguna cantidad en esta etapa
         }
         memory_model.create({
             'partner_id': partner.id,
@@ -197,7 +204,6 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
             f"{buttons}\n"
             "Respondé con el número o el nombre del producto que querés."
         )
-
 
     variant = variants[0]
     pid = variant['id']
@@ -227,3 +233,4 @@ def handle_crear_pedido(env, partner, text, send_buttons=None):
 
     order = create_sale_order(env, partner.id, pid, qty)
     return f"📝 Pedido {order.name} creado: {qty}×{name}."
+
