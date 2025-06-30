@@ -24,6 +24,7 @@ FUNCTIONS = [
     }
 ]
 
+
 def lookup_product_variants(env, partner, query, limit=20):
     Product = env['product.product'].sudo()
     SaleOrder = env['sale.order'].sudo()
@@ -95,6 +96,20 @@ def create_sale_order_from_cart(env, partner_id, cart_items):
 def handle_crear_pedido(env, partner, text, memory):
     _logger.info(f"📌 Evaluando intención CREAR_PEDIDO — Partner: {partner.name}")
     openai.api_key = get_openai_api_key(env)
+    
+    # Si el usuario quiere completar el pedido existente
+    if memory.flow_state == 'pedido_en_progreso' and re.search(r'\b(complet[ae] el pedido|finaliz[ae]r pedido|terminar pedido)\b', text.lower()):
+        cart_items = json.loads(memory.data_buffer or '{}').get('cart', [])
+        if cart_items:
+            order = create_sale_order_from_cart(env, partner.id, cart_items)
+            memory.write({'flow_state': False, 'data_buffer': '', 'last_intent_detected': False})
+            return (
+                f"¡Excelente! Tu pedido {order.name} ha sido creado con los siguientes artículos:\n"
+                + "\n".join([f"- {item['quantity']}x {item['name']}" for item in cart_items])
+                + "\nEn breve un asesor se contactará contigo para coordinar el pago y envío. ¡Gracias por tu compra!"
+            )
+        else:
+            return "No hay productos en tu carrito para completar. ¿Querés agregar algo primero?"
 
     # Construir mensajes para OpenAI
     system_msg = {
