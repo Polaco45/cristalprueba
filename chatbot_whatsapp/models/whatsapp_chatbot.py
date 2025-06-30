@@ -85,8 +85,8 @@ class WhatsAppMessage(models.Model):
                     var = memory.last_variant_id
                     avail = memory.last_qty_suggested
                     _send_text(record,
-                        f"Solo hay {avail} unidades de "{var.display_name}".\n"
-                        "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                        f'Solo hay {avail} unidades de "{var.display_name}".\n'
+                        'Respondé con:\n1) Sí\n2) Otra cantidad\n3) No'
                     )
                     continue
 
@@ -140,7 +140,7 @@ class WhatsAppMessage(models.Model):
                             'last_variant_id': pid,
                             'data_buffer': json.dumps({'product': selected_variant})
                         })
-                        _send_text(record, f"¡Perfecto! Elegiste "{name}". ¿Cuántas unidades querés?")
+                        _send_text(record, f'¡Perfecto! Elegiste "{name}". ¿Cuántas unidades querés?')
                         continue
 
                     if qty > avail:
@@ -150,8 +150,8 @@ class WhatsAppMessage(models.Model):
                             'last_qty_suggested': avail
                         })
                         _send_text(record,
-                            f"Solo hay {avail} unidades de "{name}".\n"
-                            "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                            f'Solo hay {avail} unidades de "{name}".\n'
+                            'Respondé con:\n1) Sí\n2) Otra cantidad\n3) No'
                         )
                         continue
 
@@ -177,8 +177,8 @@ class WhatsAppMessage(models.Model):
                             'last_qty_suggested': avail
                         })
                         _send_text(record,
-                            f"Solo hay {avail} unidades de "{variant.display_name}".\n"
-                            "Respondé con:\n1) Sí\n2) Otra cantidad\n3) No"
+                            f'Solo hay {avail} unidades de "{variant.display_name}".\n'
+                            'Respondé con:\n1) Sí\n2) Otra cantidad\n3) No'
                         )
                         continue
 
