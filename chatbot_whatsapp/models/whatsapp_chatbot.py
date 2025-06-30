@@ -169,21 +169,24 @@ class WhatsAppMessage(models.Model):
 
                 elif memory.last_intent == 'esperando_cantidad_producto':
                     _logger.info(f"🔢 Procesando cantidad para producto: {memory.last_variant_id.display_name if memory.last_variant_id else 'N/A'}")
+
+                    # Validar que haya un producto en memoria
+                    if not memory.last_variant_id:
+                        _logger.error("❌ No se encontró variant en memoria (esperando_cantidad_producto)")
+                        memory.unlink()
+                        _send_text(record, "Hubo un error. Por favor, volvé a hacer tu pedido.")
+                        continue
+
+                    # Intentar parsear número
                     try:
-                        qty = int(plain)
+                        qty = int(plain.strip())
                         _logger.info(f"🔢 Cantidad parseada: {qty}")
                     except ValueError:
-                        _logger.info(f"❌ Error parseando cantidad: '{plain}'")
+                        _logger.warning(f"❌ No se pudo interpretar cantidad desde '{plain}'")
                         _send_text(record, "No entendí la cantidad. ¿Podés escribir un número?")
                         continue
 
                     variant = memory.last_variant_id
-                    if not variant:
-                        _logger.error("❌ No se encontró variant en memoria")
-                        memory.unlink()
-                        _send_text(record, "Hubo un error. Por favor, volvé a hacer tu pedido.")
-                        continue
-                        
                     avail = variant.qty_available or 0
                     _logger.info(f"📦 Stock disponible: {avail}")
 
@@ -198,11 +201,13 @@ class WhatsAppMessage(models.Model):
                         )
                         continue
 
+                    # ✅ Todo ok: crear pedido
                     _logger.info(f"✅ Creando pedido: {qty}x{variant.display_name}")
                     order = create_sale_order(self.env, partner.id, variant.id, qty)
                     memory.unlink()
                     _send_text(record, f"\U0001f4dd Pedido {order.name} creado: {qty}×{variant.display_name}.")
                     continue
+
 
             # ✅ SOLO DESPUÉS DE VERIFICAR MEMORIA, PROCEDEMOS CON CLASIFICACIÓN DE INTENCIÓN
             history = self.env['whatsapp.message'].sudo().search([
