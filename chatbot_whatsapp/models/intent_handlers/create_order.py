@@ -165,95 +165,114 @@ def handle_crear_pedido(env, partner, text, memory):
     # Initialize cart from memory or as empty
     cart = json.loads(memory.data_buffer or '{}').get('cart', [])
     
-    if msg.get('function_call'):
-        tool_calls = [msg.function_call] if msg.function_call.get('name') == 'lookup_product_variants' else msg.tool_calls
-        
-        products_added_this_turn = []
-        for tool_call in tool_calls:
-            if tool_call.function.name == 'lookup_product_variants':
+    products_added_this_turn = []
+    
+    # --- RÓBUSTA GESTIÓN DE tool_calls ---
+    # Prioritize tool_calls (newer OpenAI API structure for multiple calls)
+    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+        tool_calls = msg.tool_calls
+    # Fallback to function_call (older structure, typically for a single call)
+    elif hasattr(msg, 'function_call') and msg.function_call:
+        tool_calls = [msg.function_call] # Wrap single function_call in a list for consistent processing
+    else:
+        _logger.info("ℹ️ No se detectó ninguna llamada a función en la respuesta de OpenAI.")
+        return "No pude identificar el producto que estás buscando. ¿Podrías ser más específico?"
+
+
+    for tool_call in tool_calls:
+        # Ensure 'function' attribute exists before accessing it
+        if not hasattr(tool_call, 'function'):
+            _logger.warning(f"❌ tool_call object missing 'function' attribute: {tool_call}")
+            continue
+
+        if tool_call.function.name == 'lookup_product_variants':
+            try:
                 args = json.loads(tool_call.function.arguments)
-                query = args.get('query')
-                qty_from_nlp = args.get('quantity') # Quantity detected by NLP
+            except json.JSONDecodeError as e:
+                _logger.error(f"❌ Error decodificando argumentos de función: {e} - Arguments: {tool_call.function.arguments}")
+                products_added_this_turn.append("No pude procesar el producto debido a un error de formato.")
+                continue
 
-                if not query:
-                    _logger.warning("❌ GPT no devolvió un query válido para lookup_product_variants.")
-                    continue
+            query = args.get('query')
+            qty_from_nlp = args.get('quantity') # Quantity detected by NLP
+
+            if not query:
+                _logger.warning("❌ GPT no devolvió un query válido para lookup_product_variants.")
+                continue
+            
+            _logger.info(f"🔧 GPT detectó intención de buscar producto: {query}, con cantidad: {qty_from_nlp}")
+
+            try:
+                variants = lookup_product_variants(env, partner, query, limit=6)
+            except UserError as ue:
+                _logger.warning(f"⚠️ Error buscando variantes: {str(ue)}")
+                products_added_this_turn.append(f"No se encontró stock para '{query}': {str(ue)}")
+                continue
+            
+            # If NLP provided a quantity, use it. Otherwise, try to extract from original text (fallback)
+            qty = qty_from_nlp 
+            if not qty:
+                m = re.search(r'\b(\d+)\b', text)
+                qty = int(m.group(1)) if m else None
+
+            if len(variants) > 1:
+                # If multiple variants, we need to ask the user to select
+                buttons = "\n".join([f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)])
+                memory_payload = {'products': variants, 'qty': qty, 'cart': cart} # Pass existing cart
                 
-                _logger.info(f"🔧 GPT detectó intención de buscar producto: {query}, con cantidad: {qty_from_nlp}")
+                memory.write({
+                    'flow_state': 'esperando_seleccion_producto',
+                    'data_buffer': json.dumps(memory_payload),
+                    'last_intent_detected': 'crear_pedido'
+                })
+                _logger.info(f"🧠 Guardando memoria: flow='esperando_seleccion_producto', productos={len(variants)}, qty={qty}, cart={len(cart)} items")
+                return f"Tenemos varias opciones para '{query}'. Por favor, indicá el número de la opción que deseás:\n{buttons}"
+            
+            elif len(variants) == 1:
+                selected_variant = variants[0]
+                variant_obj = env['product.product'].sudo().browse(selected_variant['id'])
+                avail = variant_obj.qty_available or 0
 
-                try:
-                    variants = lookup_product_variants(env, partner, query, limit=6)
-                except UserError as ue:
-                    _logger.warning(f"⚠️ Error buscando variantes: {str(ue)}")
-                    products_added_this_turn.append(f"No se encontró stock para '{query}': {str(ue)}")
-                    continue
-                
-                # If NLP provided a quantity, use it. Otherwise, try to extract from original text (fallback)
-                qty = qty_from_nlp 
-                if not qty:
-                    m = re.search(r'\b(\d+)\b', text)
-                    qty = int(m.group(1)) if m else None
+                # Determine final quantity
+                final_qty = qty if qty is not None and qty > 0 else 1 # Default to 1 if no quantity specified
 
-                if len(variants) > 1:
-                    # If multiple variants, we need to ask the user to select
-                    buttons = "\n".join([f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)])
-                    memory_payload = {'products': variants, 'qty': qty, 'cart': cart} # Pass existing cart
-                    
-                    memory.write({
-                        'flow_state': 'esperando_seleccion_producto',
-                        'data_buffer': json.dumps(memory_payload),
-                        'last_intent_detected': 'crear_pedido'
-                    })
-                    _logger.info(f"🧠 Guardando memoria: flow='esperando_seleccion_producto', productos={len(variants)}, qty={qty}, cart={len(cart)} items")
-                    return f"Tenemos varias opciones para '{query}':\n{buttons}\nRespondé con el número del producto que querés."
-
-                # If only one product
-                variant = variants[0]
-                pid = variant['id']
-                name = variant['name']
-                avail = int(variant['stock'])
-
-                if not qty:
-                    # Ask for quantity if not provided
-                    memory.write({
-                        'flow_state': 'esperando_cantidad_producto',
-                        'last_variant_id': pid,
-                        'data_buffer': json.dumps({'product_name': name, 'product_id': pid, 'cart': cart}), # Pass existing cart
-                        'last_intent_detected': 'crear_pedido'
-                    })
-                    _logger.info(f"🟡 Esperando cantidad para producto único: {name}")
-                    return f"¡Perfecto! Encontramos “{name}”. ¿Cuántas unidades querés?"
-                
-                if qty > avail:
+                if final_qty > avail:
                     memory.write({
                         'flow_state': 'esperando_confirmacion_stock',
-                        'last_variant_id': pid,
+                        'last_variant_id': variant_obj.id,
                         'last_qty_suggested': avail,
-                        'data_buffer': json.dumps({'product_name': name, 'product_id': pid, 'cart': cart}), # Pass existing cart
-                        'last_intent_detected': 'crear_pedido'
+                        'data_buffer': json.dumps({'cart': cart}) # Preserve existing cart for later merge
                     })
-                    _logger.info(f"🟠 Stock insuficiente: {qty} solicitado > {avail} disponible")
-                    return f"Solo hay {avail} unidades de “{name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar"
+                    return f"Solo hay {avail} unidades de “{variant_obj.display_name}”. ¿Querés llevar esa cantidad? (Sí/No)"
                 else:
-                    # Add directly to cart if quantity is provided and in stock
-                    cart.append({'product_id': pid, 'quantity': qty, 'name': name})
-                    products_added_this_turn.append(f"{qty}x {name}")
-                    _logger.info(f"➕ Agregado al carrito: {qty}x {name}")
-                    
-        if products_added_this_turn:
-            memory.write({
-                'flow_state': 'pedido_en_progreso',
-                'data_buffer': json.dumps({'cart': cart}),
-                'last_variant_id': False,
-                'last_qty_suggested': False,
-                'last_intent_detected': 'crear_pedido'
-            })
-            if len(products_added_this_turn) > 1:
-                return f"Agregamos los siguientes productos a tu pedido:\n" + "\n".join([f"- {p}" for p in products_added_this_turn]) + "\n¿Querés agregar algo más o querés finalizar?"
-            else:
-                return f"¡Perfecto! Agregamos {products_added_this_turn[0]} a tu pedido. ¿Querés algo más?"
+                    # Add item to cart
+                    cart.append({'product_id': variant_obj.id, 'quantity': final_qty, 'name': variant_obj.display_name})
+                    products_added_this_turn.append(f"{final_qty}x {variant_obj.display_name}")
+                    memory.write({
+                        'flow_state': 'pedido_en_progreso',
+                        'data_buffer': json.dumps({'cart': cart}),
+                        'last_variant_id': False,
+                        'last_qty_suggested': False
+                    })
+            else: # No variants found (should be caught by UserError, but as a safeguard)
+                products_added_this_turn.append(f"No se encontró el producto '{query}'.")
+                
+    if products_added_this_turn:
+        if memory.flow_state == 'pedido_en_progreso':
+            return f"Agregamos al carrito: {', '.join(products_added_this_turn)}. ¿Querés agregar algo más o finalizar tu pedido?"
         else:
-            return "No pude identificar ningún producto para agregar. ¿Podrías ser más específico?"
+            # This case means a product was added, but the flow wasn't 'pedido_en_progreso' before.
+            # This might happen if the user jumps directly to "I want 3 items".
+            # We transition to 'pedido_en_progreso' here.
+            memory.write({'flow_state': 'pedido_en_progreso', 'data_buffer': json.dumps({'cart': cart})})
+            return f"Agregamos al carrito: {', '.join(products_added_this_turn)}. ¿Querés agregar algo más o finalizar tu pedido?"
     else:
-        _logger.warning("❌ GPT no devolvió una llamada válida a lookup_product_variants.")
-        return "No entendí qué producto querés. ¿Podés ser más específico?"
+        # If no products were added and no specific error, it implies the NLP didn't find clear product info
+        _logger.warning("No se pudo agregar ningún producto en handle_crear_pedido.")
+        # If the flow is already 'pedido_en_progreso', prompt to add or finalize
+        if memory.flow_state == 'pedido_en_progreso':
+            return "No pude identificar el producto o la cantidad. Por favor, sé más específico. ¿Querés agregar algo más o finalizar tu pedido?"
+        else:
+            # If not in pedido_en_progreso, it's a general request to create an order
+            memory.write({'flow_state': False, 'data_buffer': ''}) # Reset if NLP couldn't extract product
+            return "Para crear un pedido, por favor indicá el producto y la cantidad que deseás."
