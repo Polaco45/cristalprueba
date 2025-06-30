@@ -1,0 +1,15 @@
+<odoo>
+  <record id="payment_provider_form_inherit_discount" model="ir.ui.view">
+    <field name="name">payment.provider.form.discount</field>
+    <field name="model">payment.provider</field>
+    <!-- REFERENCIA CORRECTA a la vista core de Payment Provider -->
+    <field name="inherit_id" ref="payment.view_payment_provider_form"/>
+    <field name="arch" type="xml">
+      <!-- Verifica en Ajustes → Técnico → Vistas que el grupo 'credentials' exista -->
+      <xpath expr="//group[@name='credentials']" position="inside">
+        <field name="discount_percent"/>
+        <field name="discount_product_id"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
