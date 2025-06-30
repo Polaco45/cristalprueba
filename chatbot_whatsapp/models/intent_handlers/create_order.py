@@ -74,11 +74,16 @@ def create_sale_order(env, partner_id, product_id, quantity):
     partner = env['res.partner'].browse(partner_id)
     pricelist = partner.property_product_pricelist
 
+    # Calculamos el precio unitario para ese partner
+    price = pricelist.sudo().get_product_price(product, quantity, partner)
+
+    # Creamos el lead con el ingreso esperado
     lead = env['crm.lead'].sudo().create({
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
         'type': 'opportunity',
         'description': f"Se generó un pedido desde WhatsApp.\nProducto: {product.display_name}\nCantidad: {quantity}",
+        'expected_revenue': price * quantity,
         'source_id': env.ref('crm.source_website_leads', raise_if_not_found=False) and env.ref('crm.source_website_leads').id,
     })
 
@@ -108,6 +113,7 @@ def create_sale_order(env, partner_id, product_id, quantity):
         })
 
     return order
+
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
     # ✅ CHECK DE MEMORIA PRIMERO
