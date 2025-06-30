@@ -1,3 +1,3 @@
-from . import payment_provider
 from . import delivery_carrier
+from . import payment_acquirer
 from . import sale_order
