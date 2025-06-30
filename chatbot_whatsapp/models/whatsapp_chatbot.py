@@ -225,11 +225,17 @@ class WhatsAppMessage(models.Model):
                     'partner_id': partner.id,
                     'last_intent': intent,
                 })
-
-            if intent == "crear_pedido":
+            # ⚠️ Procesamos intención y memoria en conjunto
+            if intent == "crear_pedido" or (memory and memory.last_intent in [
+                'esperando_seleccion_producto',
+                'esperando_cantidad_producto',
+                'esperando_confirmacion_stock',
+                'esperando_nueva_cantidad'
+            ]):
                 result = handle_crear_pedido(self.env, partner, plain)
                 if result:
                     _send_text(record, result)
+
 
             elif intent == "solicitar_factura":
                 r = handle_solicitar_factura(partner, plain)
