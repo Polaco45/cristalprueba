@@ -119,7 +119,7 @@ def create_sale_order(env, partner_id, product_id, quantity):
     return order
 
 def handle_crear_pedido(env, partner, text, send_buttons=None):
-    # ✅ CHECK DE MEMORIA PRIMERO
+    # ✅ CHECK DE MEMORIA PRIMERo
     memory_model = env['chatbot.whatsapp.memory'].sudo()
     memory = memory_model.search([('partner_id', '=', partner.id)], order='timestamp desc', limit=1)
 
