@@ -27,20 +27,15 @@ class ChatbotProcessor:
         flow = self.memory.flow_state
         _logger.info(f"➡️ Procesando flujo: {flow or 'N/A'}")
 
+        # Prioridad 1: Manejar flujos activos.
+        # Ahora 'esperando_confirmacion_pedido' es un flujo formal.
         if flow:
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
                 return flow_handler()
-
-        if self._is_order_in_progress():
-            return self._handle_order_in_progress_intent()
             
+        # Prioridad 2: Si no hay flujo, manejar intenciones generales.
         return self._handle_general_intent()
-
-    def _is_order_in_progress(self):
-        """Verifica si hay un pedido en curso que no esté en un sub-flujo específico."""
-        cart_items = json.loads(self.memory.pending_order_lines or '[]')
-        return bool(cart_items and not self.memory.flow_state)
 
     def _send_text(self, text_to_send):
         """Wrapper para enviar mensajes de texto, replicando la lógica funcional original."""
@@ -52,20 +47,49 @@ class ChatbotProcessor:
             'wa_account_id': self.record.wa_account_id.id if self.record.wa_account_id else False,
             'create_uid': self.env.ref('base.user_admin').id,
         }
-        # 1. Se crea el mensaje
         outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-        
-        # 2. Se vuelve a escribir el body (paso clave de la versión anterior)
         outgoing_msg.sudo().write({'body': text_to_send})
-
-        # 3. Se intenta enviar inmediatamente
         if hasattr(outgoing_msg, '_send_message'):
             outgoing_msg._send_message()
         _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
-
     # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
     
+    def _handle_flow_esperando_confirmacion_pedido(self):
+        """
+        NUEVO MANEJADOR DE FLUJO DEDICADO.
+        Se activa después de preguntar '¿Querés agregar algo más?'.
+        Usa un prompt especializado para entender la respuesta del usuario.
+        """
+        system_prompt = prompts_config['order_confirmation_system']
+        api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        
+        specialized_intent = detect_intention([{"role": "user", "content": self.plain_text}], api_key, system_prompt)
+        
+        if specialized_intent == "finalizar_pedido":
+            _logger.info("✅ Intención detectada: finalizar_pedido")
+            order_lines_data = json.loads(self.memory.pending_order_lines or '[]')
+            if not order_lines_data:
+                self.memory.write({'flow_state': False, 'pending_order_lines': '[]'})
+                return self._send_text(messages_config['cart_is_empty'])
+
+            order = create_sale_order(self.env, self.partner.id, order_lines_data)
+            summary = "\n".join([f"  - {int(line.product_uom_qty)} × {line.name.splitlines()[0]}" for line in order.order_line])
+            response = messages_config['order_finalized'].format(order_name=order.name, summary=summary)
+            
+            self.memory.write({'flow_state': False, 'data_buffer': '', 'last_variant_id': False, 'last_qty_suggested': False, 'pending_order_lines': '[]'})
+            return self._send_text(response)
+        
+        elif specialized_intent == 'modificar_pedido':
+            _logger.info("✅ Intención detectada: modificar_pedido")
+            response = handle_modificar_pedido(self.env, self.memory)
+            return self._send_text(response)
+        
+        else: # Asume 'continuar_pedido' o un nuevo producto
+            _logger.info("✅ Intención detectada: continuar_pedido. Se procesará como una intención general.")
+            self.memory.write({'flow_state': False}) # Salimos del flujo para que se procese como una nueva petición
+            return self._handle_general_intent()
+
     def _handle_flow_esperando_seleccion_eliminar(self):
         cart_lines = json.loads(self.memory.pending_order_lines or '[]')
         if self.plain_text.lower() == 'cancelar':
@@ -160,35 +184,10 @@ class ChatbotProcessor:
         else:
             return self._send_text(messages_config['invalid_stock_confirmation'])
 
-    # --- MANEJADORES DE INTENCIONES ---
-
-    def _handle_order_in_progress_intent(self):
-        system_prompt = prompts_config['order_confirmation_system']
-        api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-        
-        specialized_intent = detect_intention([{"role": "user", "content": self.plain_text}], api_key, system_prompt)
-        
-        if specialized_intent == "finalizar_pedido":
-            order_lines_data = json.loads(self.memory.pending_order_lines or '[]')
-            if not order_lines_data:
-                self.memory.write({'flow_state': False, 'pending_order_lines': '[]'})
-                return self._send_text(messages_config['cart_is_empty'])
-
-            order = create_sale_order(self.env, self.partner.id, order_lines_data)
-            summary = "\n".join([f"  - {int(line.product_uom_qty)} × {line.name.splitlines()[0]}" for line in order.order_line])
-            response = messages_config['order_finalized'].format(order_name=order.name, summary=summary)
-            
-            self.memory.write({'flow_state': False, 'data_buffer': '', 'last_variant_id': False, 'last_qty_suggested': False, 'pending_order_lines': '[]'})
-            return self._send_text(response)
-        
-        elif specialized_intent == 'modificar_pedido':
-            response = handle_modificar_pedido(self.env, self.memory)
-            return self._send_text(response)
-        
-        else:
-            return self._handle_general_intent()
+    # --- MANEJADOR DE INTENCIÓN GENERAL ---
 
     def _handle_general_intent(self):
+        """Detecta y despacha la intención general del usuario."""
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
         
