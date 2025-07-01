@@ -52,12 +52,21 @@ def lookup_product_variants(env, partner, query, limit=20):
 
     pricelist = partner.property_product_pricelist
     products_with_prices = []
+    
+    if not pricelist:
+        raise UserError("El cliente no tiene una tarifa asignada.")
+
+    # --- CORRECCIÓN FINAL ---
+    # Pasamos el recordset del producto (v) directamente a la función de cálculo de precios.
+    # Esta espera un objeto, no un entero (ID), para poder realizar las validaciones internas.
+    # Usamos _compute_price_rule que es más directa para este caso.
+    
+    # Obtenemos los precios para todos los productos en stock de una sola vez
+    products_prices = pricelist._compute_price_rule(in_stock, 1.0)
+
     for v in in_stock:
-        # --- CORRECCIÓN ---
-        # Usamos el método pricelist._price_get para obtener el precio correcto y evitar el error.
-        # Es el método estándar de Odoo para esta tarea.
-        price_info = pricelist._price_get(v.id, 1.0)
-        price = price_info.get(pricelist.id, 0.0)
+        # El resultado es un diccionario {product_id: (price, rule_id)}
+        price = products_prices.get(v.id, (v.list_price, False))[0]
         
         products_with_prices.append({
             'id': v.id,
