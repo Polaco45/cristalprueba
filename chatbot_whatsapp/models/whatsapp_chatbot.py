@@ -23,17 +23,23 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
             
-            def _send_text(text_to_send):
+            # --- FUNCIÓN DE ENVÍO RESTAURADA A LA VERSIÓN FUNCIONAL ---
+            def _send_text(to_record, text_to_send):
                 _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
                 vals = {
-                    'mobile_number': record.mobile_number,
+                    'mobile_number': to_record.mobile_number,
                     'body': text_to_send,
                     'state': 'outgoing',
-                    'wa_account_id': record.wa_account_id.id if record.wa_account_id else False,
+                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
+                # 1. Se crea el mensaje
                 outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+                
+                # 2. Se vuelve a escribir el body (paso clave de la versión anterior)
                 outgoing_msg.sudo().write({'body': text_to_send})
+                
+                # 3. Se intenta enviar inmediatamente
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
                 _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
@@ -64,15 +70,16 @@ class WhatsAppMessage(models.Model):
             )
             if handled:
                 _logger.info("🔄 Flujo de onboarding interceptado")
-                _send_text(response_msg)
+                _send_text(record, response_msg)
                 continue
 
             if not is_cotizado(partner):
                 _logger.info("🚫 Usuario sin cotización")
-                _send_text(messages_config['onboarding_unquoted'])
+                _send_text(record, messages_config['onboarding_unquoted'])
                 continue
 
-            processor = ChatbotProcessor(self.env, record, partner, memory, _send_text)
+            # --- DELEGACIÓN AL PROCESADOR CENTRAL ---
+            processor = ChatbotProcessor(self.env, record, partner, memory)
             processor.process_message()
 
         return records
