@@ -4,31 +4,38 @@ from datetime import timedelta
 class WhatsAppMemory(models.Model):
     _name = 'chatbot.whatsapp.memory'
     _description = 'Memoria del chatbot de WhatsApp'
-    _order = 'timestamp desc'
 
     phone = fields.Char(index=True)
-    partner_id = fields.Many2one('res.partner', ondelete='cascade')
+    partner_id = fields.Many2one('res.partner', string="Cliente")
 
-    # --- ESTADO DEL FLUJO ---
-    flow_state = fields.Char(index=True)
-    last_intent_detected = fields.Char()
+    # Estado y contexto
+    last_intent_detected = fields.Char(string="Última Intención Detectada")
+    flow_state = fields.Char(string="Estado del Flujo")
+    data_buffer = fields.Text(string="Buffer de Datos Temporales")
+    timestamp = fields.Datetime(string="Última Actividad", default=fields.Datetime.now, required=True)
+
+    # Contexto específico del pedido
+    last_variant_id = fields.Many2one('product.product', string="Última Variante Seleccionada")
+    last_qty_suggested = fields.Integer(string="Última Cantidad Sugerida")
     
-    # --- BUFFER DE DATOS ---
-    order_lines_buffer = fields.Text(default='[]') # Carrito de compras en formato JSON
-    data_buffer = fields.Text() # Buffer para datos temporales (ej. selección de variantes)
+    # Carrito de Compras
+    pending_order_lines = fields.Text(string="Líneas de Pedido Pendientes (JSON)", default='[]')
 
-    # --- DATOS TEMPORALES PARA UN SOLO PRODUCTO ---
-    last_variant_id = fields.Many2one('product.product')
-    last_qty_suggested = fields.Integer()
-
-    timestamp = fields.Datetime(default=fields.Datetime.now, required=True)
+    _sql_constraints = [
+        ('partner_id_unique', 'unique(partner_id)', 'Solo puede existir un registro de memoria por cliente.')
+    ]
 
     @api.model
     def clean_old_memory(self):
-        # Limpia memorias inactivas de más de 30 minutos
+        # Limpia memorias inactivas por más de 30 minutos para evitar que queden carritos abandonados.
         expired_time = fields.Datetime.now() - timedelta(minutes=30)
-        old_memory_records = self.search([
-            ('timestamp', '<', expired_time),
-            ('flow_state', '=', False) # Solo limpia las que no están en un flujo activo
-        ])
-        old_memory_records.unlink()
+        old_memory_records = self.sudo().search([('timestamp', '<', expired_time)])
+        if old_memory_records:
+            _logger.info(f"🗑️ Limpiando {len(old_memory_records)} registros de memoria expirados.")
+            old_memory_records.unlink()
+
+    def write(self, vals):
+        # Actualiza el timestamp en cada escritura para mantener la sesión activa
+        if 'timestamp' not in vals:
+            vals['timestamp'] = fields.Datetime.now()
+        return super(WhatsAppMemory, self).write(vals)

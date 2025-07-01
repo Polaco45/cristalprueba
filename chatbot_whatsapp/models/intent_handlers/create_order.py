@@ -12,62 +12,73 @@ def get_openai_api_key(env):
 FUNCTIONS = [
     {
         "name": "lookup_product_variants",
-        "description": "Busca variantes de producto en Odoo a partir de un texto de usuario. Puede extraer múltiples productos.",
+        "description": "Busca variantes de producto en Odoo a partir de un texto de usuario. Puede identificar múltiples productos en el mismo texto.",
         "parameters": {
             "type": "object",
             "properties": {
-                "queries": {
+                "products": {
                     "type": "array",
+                    "description": "Una lista de productos que el usuario mencionó.",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "product_name": {"type": "string", "description": "El nombre del producto que busca el usuario."},
-                            "quantity": {"type": "integer", "description": "La cantidad solicitada para ese producto, si se especifica."}
+                            "query": {"type": "string", "description": "El nombre del producto a buscar."},
+                            "quantity": {"type": "integer", "description": "La cantidad solicitada del producto."}
                         },
-                        "required": ["product_name"]
+                        "required": ["query"]
                     }
                 }
             },
-            "required": ["queries"]
+            "required": ["products"]
         },
     }
 ]
 
 def lookup_product_variants(env, partner, query, limit=20):
     Product = env['product.product'].sudo()
+    SaleOrderLine = env['sale.order.line'].sudo()
+
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
     ], limit=limit)
 
+    _logger.info(f"🔍 Buscando variantes para query '{query}' — Encontradas: {len(variants)}")
+
     if not variants:
-        raise UserError(f"No se encontraron productos para '{query}'.")
+        raise UserError(f"No encontramos ningún producto que coincida con '{query}'.")
 
     in_stock = [v for v in variants if (v.qty_available or 0) > 0]
     if not in_stock:
-        raise UserError(f"No hay stock disponible para '{query}'.")
+        raise UserError(f"Lo sentimos, no hay stock disponible para '{query}'.")
 
     pricelist = partner.property_product_pricelist
     products_with_prices = []
     for v in in_stock:
-        price = v.with_context(pricelist=pricelist.id).price
+        line = SaleOrderLine.new({
+            'order_id': False,
+            'product_id': v.id,
+            'product_uom_qty': 1.0,
+            'product_uom': v.uom_id.id,
+            'order_partner_id': partner.id,
+            'pricelist_id': pricelist.id,
+        })
+        line.product_id_change()
         products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': price,
+            'price': line.price_unit,
         })
+
+    _logger.info(f"📦 Variantes en stock con precio: {[p['name'] for p in products_with_prices]}")
     return products_with_prices
 
 def create_sale_order(env, partner_id, order_lines):
-    if not order_lines:
-        return None
-        
     partner = env['res.partner'].browse(partner_id)
     pricelist = partner.property_product_pricelist
 
     order_line_vals = []
-    description_parts = ["Se generó un pedido desde WhatsApp:"]
-    
+    description_lines = []
     for line in order_lines:
         product = env['product.product'].browse(line['product_id'])
         order_line_vals.append((0, 0, {
@@ -75,7 +86,7 @@ def create_sale_order(env, partner_id, order_lines):
             'product_uom': product.uom_id.id,
             'product_uom_qty': line['quantity'],
         }))
-        description_parts.append(f"- {line['quantity']} x {product.display_name}")
+        description_lines.append(f"  - Producto: {product.display_name}, Cantidad: {line['quantity']}")
 
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
         'partner_id': partner_id,
@@ -83,37 +94,47 @@ def create_sale_order(env, partner_id, order_lines):
         'order_line': order_line_vals
     })
 
-    _logger.info(f"✅ Orden creada: {order.name} — ${order.amount_total:.2f}")
+    _logger.info(f"✅ Orden creada: {order.name} — {len(order_lines)} productos — ${order.amount_total:.2f}")
 
     lead_vals = {
-        'name': f"Pedido WhatsApp: {partner.name or 'Cliente'}",
+        'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
         'type': 'opportunity',
-        'description': "\n".join(description_parts),
+        'description': "Se generó un pedido desde WhatsApp con los siguientes items:\n" + "\n".join(description_lines),
         'expected_revenue': order.amount_total,
     }
     lead = env['crm.lead'].sudo().create(lead_vals)
     order.write({'opportunity_id': lead.id})
 
-    activity_type = env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
-    if activity_type:
+    activity_type_id = env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
+    if activity_type_id:
         env['mail.activity'].sudo().create({
             'res_model_id': env['ir.model']._get_id('crm.lead'),
             'res_id': lead.id,
-            'activity_type_id': activity_type.id,
+            'activity_type_id': activity_type_id.id,
             'summary': 'Seguimiento pedido desde WhatsApp',
             'note': f"Revisar el pedido {order.name} para contacto con el cliente.",
             'user_id': partner.user_id.id or env.user.id,
         })
+
     return order
 
 def handle_crear_pedido(env, partner, text, memory):
-    _logger.info(f"📌 Evaluando CREAR_PEDIDO para: {partner.name} | Texto: '{text}'")
+    _logger.info(f"📌 Evaluando CREAR_PEDIDO — Partner: {partner.name} — Texto: '{text}'")
     openai.api_key = get_openai_api_key(env)
     
+    # Adaptar el prompt para que entienda el contexto del carrito
+    cart_items = json.loads(memory.pending_order_lines or '[]')
+    context_info = "El usuario ya tiene productos en su carrito." if cart_items else "El carrito del usuario está vacío."
+
     system_msg = {
         "role": "system",
-        "content": "Eres un asistente para pedidos. Extrae los nombres de productos y sus cantidades del texto del usuario. Si un usuario pide 'un escobillon y un blem', extrae ambos. Devuelve un function_call a 'lookup_product_variants'."
+        "content": (
+            "Eres un asistente para pedidos. Extrae los productos y cantidades del texto del usuario. "
+            f"Contexto actual: {context_info}."
+            "Usa la función 'lookup_product_variants' para CADA producto que identifiques. "
+            "Si dice 'uno' o no especifica cantidad, asume 1."
+        )
     }
 
     try:
@@ -130,24 +151,26 @@ def handle_crear_pedido(env, partner, text, memory):
         return "Hubo un problema al procesar tu solicitud. Por favor, intentá de nuevo."
 
     if not msg.get('function_call'):
+        _logger.warning("❌ GPT no devolvió una llamada a función.")
         return "No entendí qué producto querés. ¿Podés ser más específico?"
 
     args = json.loads(msg.function_call.arguments)
-    queries = args.get('queries', [])
-    if not queries:
-        return "No entendí qué producto querés."
+    products_to_add = args.get('products', [])
     
-    # Por simplicidad, manejamos el primer producto que se encuentre.
-    # El bucle de "¿Algo más?" se encargará del resto.
-    first_query = queries[0]
-    product_name = first_query.get('product_name')
-    qty = first_query.get('quantity')
+    if not products_to_add:
+        return "No pude identificar ningún producto en tu mensaje. ¿Podés intentarlo de nuevo?"
 
-    _logger.info(f"🔧 GPT detectó producto: '{product_name}' con cantidad: {qty}")
+    # Tomamos solo el primer producto para un flujo simple de un producto a la vez
+    first_product = products_to_add[0]
+    query = first_product.get('query')
+    qty = first_product.get('quantity')
+
+    _logger.info(f"🔧 GPT detectó producto: {query} (Cantidad: {qty})")
 
     try:
-        variants = lookup_product_variants(env, partner, product_name, limit=6)
+        variants = lookup_product_variants(env, partner, query, limit=6)
     except UserError as ue:
+        _logger.warning(f"⚠️ Error buscando variantes: {str(ue)}")
         return str(ue)
 
     if len(variants) > 1:
@@ -157,10 +180,12 @@ def handle_crear_pedido(env, partner, text, memory):
             'flow_state': 'esperando_seleccion_producto',
             'data_buffer': json.dumps(memory_payload),
         })
-        return f"Tenemos varias opciones para '{product_name}':\n{buttons}\nRespondé con el número del producto que querés."
+        _logger.info(f"🧠 Pidiendo clarificación para '{query}'")
+        return f"Tenemos varias opciones para '{query}':\n{buttons}\nRespondé con el número del producto que querés."
 
     variant = variants[0]
     pid = variant['id']
+    name = variant['name']
     avail = int(variant['stock'])
 
     if not qty:
@@ -169,16 +194,23 @@ def handle_crear_pedido(env, partner, text, memory):
             'last_variant_id': pid,
             'data_buffer': json.dumps({'product': variant}),
         })
-        return f"¡Perfecto! Encontramos “{variant['name']}”. ¿Cuántas unidades querés?"
+        _logger.info(f"🟡 Esperando cantidad para: {name}")
+        return f"¡Perfecto! Encontramos “{name}”. ¿Cuántas unidades querés?"
 
-    if qty > avail:
+    if qty <= avail:
+        cart_items = json.loads(memory.pending_order_lines or '[]')
+        cart_items.append({'product_id': pid, 'quantity': qty})
+        memory.write({
+            'flow_state': 'esperando_confirmacion_pedido',
+            'pending_order_lines': json.dumps(cart_items)
+        })
+        _logger.info(f"🛒 Producto agregado al carrito: {qty}×{name}")
+        return f"👍 Agregado: {qty}×{name}.\n¿Querés agregar algo más?"
+    else:
         memory.write({
             'flow_state': 'esperando_confirmacion_stock',
             'last_variant_id': pid,
             'last_qty_suggested': avail,
-            'data_buffer': json.dumps({'original_qty': qty})
         })
-        return f"Solo hay {avail} unidades de “{variant['name']}”.\nRespondé con:\n1) Sí, agregar esa cantidad\n2) No, cancelar este producto"
-
-    # Si todo está bien, no se devuelve mensaje. La lógica principal lo manejará.
-    return {'product_id': pid, 'quantity': qty, 'name': variant['name']}
+        _logger.info(f"🟠 Stock insuficiente para {name}: {qty} solicitado > {avail} disponible")
+        return f"Solo hay {avail} unidades de “{name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar"
