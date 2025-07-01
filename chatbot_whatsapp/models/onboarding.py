@@ -28,6 +28,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
     @api.model
     def process_onboarding_flow(self, env, record, phone, plain_body, memory_model):
+        # En onboarding, la memoria se busca por 'phone' porque el partner puede no existir aún
         memory = memory_model.search([('phone', '=', phone)], limit=1)
         partner = env['res.partner'].sudo().search([
             '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
@@ -52,17 +53,18 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             if not missing:
                 return False, ""
 
-            last_intent = 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
+            # CORRECCIÓN: Usar 'flow_state' en lugar de 'last_intent'
+            flow_state = 'esperando_nombre_nuevo_cliente' if 'nombre' in missing else (
                 'esperando_email_nuevo_cliente' if 'email' in missing else 'esperando_tipo_cliente'
             )
 
             if 'tag' not in missing:
-                last_intent = 'finalizado'
+                flow_state = 'finalizado'
 
             memory = memory_model.create({
                 'phone': phone,
                 'partner_id': partner.id if partner else False,
-                'last_intent': last_intent,
+                'flow_state': flow_state,
                 'data_buffer': buffer,
             })
 
@@ -81,33 +83,27 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 )
             return False, ""
 
-        if memory.last_intent == 'esperando_nombre_nuevo_cliente':
+        # CORRECCIÓN: Leer y escribir en 'flow_state'
+        if memory.flow_state == 'esperando_nombre_nuevo_cliente':
             nombre = plain_body.strip()
             memory.write({
-                'last_intent': 'esperando_email_nuevo_cliente',
+                'flow_state': 'esperando_email_nuevo_cliente',
                 'data_buffer': nombre,
             })
             if memory.partner_id:
                 memory.partner_id.write({'name': nombre})
             return True, "Gracias 😊. ¿Cuál es tu *correo electrónico*?"
 
-        if memory.last_intent == 'esperando_email_nuevo_cliente':
+        # CORRECCIÓN: Leer y escribir en 'flow_state'
+        if memory.flow_state == 'esperando_email_nuevo_cliente':
             email = plain_body.strip()
             if not self._is_valid_email(email):
                 return True, "Mmm... ese correo no parece válido 🤔. ¿Podés escribirlo de nuevo?"
 
             nombre = memory.data_buffer.strip()
-            tipo_cliente_cache = None
-            if "|||" in nombre:
-                partes = nombre.split("|||")
-                if len(partes) == 2:
-                    nombre = partes[0].strip()
-                    posible_tag = self._parse_cliente_tag(partes[1].strip())
-                    if posible_tag:
-                        tipo_cliente_cache = posible_tag
-
+            
             memory.write({
-                'last_intent': 'esperando_tipo_cliente',
+                'flow_state': 'esperando_tipo_cliente',
                 'data_buffer': f"{nombre}|||{email}",
             })
             if memory.partner_id:
@@ -115,31 +111,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             partner = memory.partner_id
             if partner and partner.category_id:
-                partner.write({'property_product_pricelist': False})
-
-                if not is_cotizado(partner):
-                    lead = env['crm.lead'].sudo().create({
-                        'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
-                        'contact_name': nombre.strip(),
-                        'email_from': email.strip(),
-                        'phone': phone,
-                        'partner_id': partner.id,
-                        'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
-                    })
-
-                    activity_type = env['mail.activity.type'].sudo().search([
-                        ('name', 'ilike', 'Iniciativa de Venta')
-                    ], limit=1)
-                    if activity_type:
-                        env['mail.activity'].sudo().create({
-                            'res_model_id': env['ir.model']._get_id('crm.lead'),
-                            'res_id': lead.id,
-                            'activity_type_id': activity_type.id,
-                            'summary': 'Seguimiento nuevo contacto',
-                            'note': 'Este cliente se registró desde el chatbot de WhatsApp.',
-                            'user_id': partner.user_id.id or env.user.id,
-                        })
-
+                # Si ya tiene categoría, el onboarding para este dato ha terminado.
                 memory.unlink()
                 if not is_cotizado(partner):
                     return True, "¡Ahora sí! Ya tenemos todo 🙌. Un asesor te va a contactar para cotizarte 😊"
@@ -155,9 +127,11 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 "Podés responder con el número o el texto."
             )
 
-        if memory.last_intent == 'esperando_tipo_cliente':
+        # CORRECCIÓN: Leer y escribir en 'flow_state'
+        if memory.flow_state == 'esperando_tipo_cliente':
             tipo_etiqueta = self._parse_cliente_tag(plain_body)
             if not tipo_etiqueta:
+                # Si ya está cotizado y se equivoca, no insistimos.
                 if is_cotizado(memory.partner_id):
                     return False, ""
                 else:
@@ -170,49 +144,44 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
             data_parts = memory.data_buffer.split("|||")
             if len(data_parts) != 2 or not data_parts[1].strip():
-                memory.write({'last_intent': 'esperando_email_nuevo_cliente'})
+                memory.write({'flow_state': 'esperando_email_nuevo_cliente'})
                 return True, "Me faltó tu correo electrónico. ¿Podés escribirme tu *email* por favor?"
 
             nombre, email = data_parts
             partner = memory.partner_id
 
+            partner_vals = {
+                'name': nombre.strip(),
+                'phone': phone,
+                'email': email.strip(),
+                'company_type': 'company',
+            }
             if not partner:
-                partner = env['res.partner'].sudo().create({
-                    'name': nombre.strip(),
-                    'phone': phone,
-                    'email': email.strip(),
-                    'company_type': 'company',
-                })
+                partner = env['res.partner'].sudo().create(partner_vals)
             else:
-                partner.write({
-                    'name': nombre.strip(),
-                    'email': email.strip(),
-                    'company_type': 'company',
-                })
+                partner.write(partner_vals)
 
             tag = env['res.partner.category'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
             if not tag:
                 tag = env['res.partner.category'].sudo().create({'name': tipo_etiqueta})
-            partner.category_id = [(4, tag.id)]
+            partner.category_id = [(6, 0, [tag.id])] # Reemplaza las etiquetas existentes
 
-            lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
-            if not lead_tag:
-                lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
-
+            # Lógica de CRM
             if not is_cotizado(partner):
+                lead_tag = env['crm.tag'].sudo().search([('name', '=', tipo_etiqueta)], limit=1)
+                if not lead_tag:
+                    lead_tag = env['crm.tag'].sudo().create({'name': tipo_etiqueta})
+                
                 lead = env['crm.lead'].sudo().create({
                     'name': f"Nuevo cliente WhatsApp: {nombre.strip()}",
                     'contact_name': nombre.strip(),
                     'email_from': email.strip(),
                     'phone': phone,
                     'partner_id': partner.id,
-                    'description': "Nuevo contacto B2B generado automáticamente desde el chatbot de WhatsApp.",
                     'tag_ids': [(6, 0, [lead_tag.id])],
                 })
-
-                activity_type = env['mail.activity.type'].sudo().search([
-                    ('name', 'ilike', 'Iniciativa de Venta')
-                ], limit=1)
+                
+                activity_type = env['mail.activity.type'].sudo().search([('name', 'ilike', 'Iniciativa de Venta')], limit=1)
                 if activity_type:
                     env['mail.activity'].sudo().create({
                         'res_model_id': env['ir.model']._get_id('crm.lead'),
@@ -222,8 +191,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                         'note': 'Contactar al cliente para cotizarlo.',
                         'user_id': partner.user_id.id or env.user.id,
                     })
-
-            partner.write({'property_product_pricelist': False})
+            
             memory.unlink()
 
             if not is_cotizado(partner):
