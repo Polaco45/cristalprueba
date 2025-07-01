@@ -1,5 +1,9 @@
 from odoo import models, fields, api
 from datetime import timedelta
+import logging
+
+_logger = logging.getLogger(__name__)
+
 
 class WhatsAppMemory(models.Model):
     _name = 'chatbot.whatsapp.memory'

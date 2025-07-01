@@ -20,12 +20,12 @@
         yo: 2
         chatbot: No entendí qué producto querés.
 
-* Como hacemos si el cliente en el mismo mensaje dijo que quiere mas de una cosa, o como vamos guardando varios productos en el pedido antes de mandarlo. Y luego mandarlo cuando le preguntemos al cliente si quiere algo mas y nos diga que no.
-    * EJEMPLO de mas de un pedido en mismo mensaje: yo: quiero un escobillon Y un blem 
+- Como hacemos si el cliente en el mismo mensaje dijo que quiere mas de una cosa, o como vamos guardando varios productos en el pedido antes de mandarlo. Y luego mandarlo cuando le preguntemos al cliente si quiere algo mas y nos diga que no.
+    - EJEMPLO de mas de un pedido en mismo mensaje: yo: quiero un escobillon Y un blem 
                                                     chatbot: perfecto, algo mas?
                                                     yo: no, gracias!
                                                     chatbot: pedido creado..... etc, etc
-    * EJEMPLO de varias cosas en el pedido: yo: quiero 3 escobillon crilimp
+    - EJEMPLO de varias cosas en el pedido: yo: quiero 3 escobillon crilimp
                chatbot: perfecto, algo mas?
                yo: ah si, quiero blem
                chatbot: cuantos?
@@ -34,7 +34,9 @@
                yo: nono, eso esta bien
                chatbot: pedido creado.... etc, etc
 
-    * Modificacion del pedido
+    - Modificacion del pedido
+
+* Refactor y archivo de configuracion
 
 * Que le pregunte en caso de que haya mas de un cliente en el mismo numero
 
@@ -46,7 +48,13 @@
 
 * Manejar saludo y prompt
 
+* Manejar agradecimiento
+
 * Mejorar prompt en pedidos y consultas de pedidos
+    * quiero escobas
+    + No encontramos ningún producto que coincida con 'escobas'.
+    * quiero pedir escobillones
+    + No encontramos ningún producto que coincida con 'escobas'.
 
 * Terminar de manejar factura
 
