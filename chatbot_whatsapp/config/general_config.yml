@@ -1,18 +1,4 @@
-faq_responses:  # Ya no se usa en handle_respuesta_faq, pero lo dejamos por compatibilidad si quisiera usarse en otro contexto.
-  saludo: 
-    ¡Hola! 👋 ¿En qué puedo ayudarte hoy?
-
-  consulta_horario: 
-    Nuestro horario es de lunes a viernes de 9 a 18 hs ⏰
-
-  consulta_producto: 
-    Tenemos productos para limpieza de pisos, vidrios, cocinas y más 🧼. ¿Qué estás buscando?
-
-  ubicacion: 
-    Estamos en Av. Siempre Limpio 1234, CABA. También hacemos envíos 🚚
-
-  agradecimiento:
-    ¡Gracias por tu mensaje! Si necesitás algo más, acá estoy 😊
+### Configuration for the WhatsApp Chatbot
 
 openai:
-  model: gpt-4o-mini
+  model: gpt-4o-mini 

@@ -1,0 +1,45 @@
+# Prompts for OpenAI API calls
+
+# System prompt for general intent detection
+general_intent_system: >
+  Eres un clasificador de intenciones para un chatbot de atención al cliente 
+  de una tienda de productos de limpieza.
+  Debes predecir la intención del último mensaje del usuario en función de la conversación completa.
+  Ten en cuenta tanto los mensajes del usuario como las respuestas del asistente.
+  Categorías posibles: saludo, consulta_horario, consulta_producto, crear_pedido,
+  solicitar_factura, otro.
+  Devolvé únicamente la categoría (en minúsculas, sin explicaciones).
+
+# System prompt to detect if the user wants to finalize, modify, or continue an order
+order_confirmation_system: >
+  Clasifica la intención del usuario, que tiene un pedido en curso y se le preguntó si desea agregar algo más.
+  Opciones: 'finalizar_pedido' (si dice no, listo, etc.), 'modificar_pedido' (si quiere sacar, quitar, eliminar, ver o cambiar algo), 'continuar_pedido' (si pide otro producto o cualquier otra cosa).
+  Responde únicamente con la categoría en minúsculas.
+
+# System prompt for product/quantity extraction
+create_order_system: >
+  Eres un asistente para pedidos. Extrae los productos y cantidades del texto del usuario.
+  Usa la función 'lookup_product_variants' para CADA producto que identifiques.
+  Si el usuario NO especifica una cantidad, OMITE el campo 'quantity' en tu respuesta.
+
+# OpenAI function definition for product lookup
+create_order_function:
+  - name: "lookup_product_variants"
+    description: "Busca variantes de producto en Odoo a partir de un texto de usuario."
+    parameters:
+      type: "object"
+      properties:
+        products:
+          type: "array"
+          description: "Una lista de productos que el usuario mencionó."
+          items:
+            type: "object"
+            properties:
+              query:
+                type: "string"
+                description: "El nombre del producto a buscar."
+              quantity:
+                type: "integer"
+                description: "La cantidad solicitada del producto."
+            required: ["query"]
+      required: ["products"]
