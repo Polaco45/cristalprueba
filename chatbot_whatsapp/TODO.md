@@ -36,7 +36,9 @@
 
     - Modificacion del pedido
 
-* Refactor y archivo de configuracion
+- Refactor y archivo de configuracion
+
+* Arreglar onboarding
 
 * Que le pregunte en caso de que haya mas de un cliente en el mismo numero
 
