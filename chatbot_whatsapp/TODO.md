@@ -44,8 +44,6 @@
     * B2C: Trato mas seco, derivar a website
     * mayorista: como en B2B
 
-* Refactor y archivo de configuracion
-
 * Manejar saludo y prompt
 
 * Manejar agradecimiento
