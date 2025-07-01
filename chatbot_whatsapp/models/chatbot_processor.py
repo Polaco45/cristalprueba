@@ -15,12 +15,15 @@ from .intent_handlers.intent_handlers import (
 _logger = logging.getLogger(__name__)
 
 class ChatbotProcessor:
-    def __init__(self, env, record, partner, memory):
+    def __init__(self, env, record, partner, memory, send_text_func):
         self.env = env
         self.record = record
         self.partner = partner
         self.memory = memory
         self.plain_text = clean_html(record.body or "").strip()
+        # --- CORRECCIÓN ---
+        # Recibimos la función de envío en lugar de definirla aquí
+        self._send_text = send_text_func
 
     def process_message(self):
         """Punto de entrada principal para procesar un mensaje."""
@@ -42,20 +45,10 @@ class ChatbotProcessor:
         cart_items = json.loads(self.memory.pending_order_lines or '[]')
         return bool(cart_items and not self.memory.flow_state)
 
-    def _send_text(self, text_to_send):
-        """
-        Wrapper para enviar mensajes de texto usando el método estándar de Odoo.
-        """
-        _logger.info(f"🚀 Intentando enviar mensaje: '{text_to_send}'")
-        if self.record.wa_account_id:
-            # Usamos el método oficial de Odoo para mayor fiabilidad
-            self.record.wa_account_id.send_message(self.partner, text_to_send)
-            _logger.info("✅ Mensaje pasado al método send_message de Odoo.")
-        else:
-            _logger.warning("No se pudo enviar el mensaje porque no se encontró una cuenta de WhatsApp (wa_account_id).")
+    # El método _send_text anterior fue eliminado y ahora se usa el que se inyecta en __init__
 
     # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
-
+    
     def _handle_flow_esperando_seleccion_eliminar(self):
         cart_lines = json.loads(self.memory.pending_order_lines or '[]')
         if self.plain_text.lower() == 'cancelar':
@@ -153,7 +146,6 @@ class ChatbotProcessor:
     # --- MANEJADORES DE INTENCIONES ---
 
     def _handle_order_in_progress_intent(self):
-        """Maneja las intenciones cuando ya hay un pedido en curso."""
         system_prompt = prompts_config['order_confirmation_system']
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         
@@ -176,11 +168,10 @@ class ChatbotProcessor:
             response = handle_modificar_pedido(self.env, self.memory)
             return self._send_text(response)
         
-        else: # Asume 'continuar_pedido'
+        else:
             return self._handle_general_intent()
 
     def _handle_general_intent(self):
-        """Detecta y despacha la intención general del usuario."""
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
         

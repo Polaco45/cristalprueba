@@ -1,7 +1,7 @@
 from odoo import models, api
 from ..utils.utils import clean_html, normalize_phone, is_cotizado
 from .onboarding import WhatsAppOnboardingHandler
-from .chatbot_processor import ChatbotProcessor  # <-- Importamos el nuevo procesador
+from .chatbot_processor import ChatbotProcessor
 from ..config.config import messages_config
 import logging
 
@@ -22,10 +22,34 @@ class WhatsAppMessage(models.Model):
             phone = normalize_phone(record.mobile_number or record.phone or "")
             if not (plain and phone):
                 continue
+            
+            # --- FUNCIÓN DE ENVÍO CENTRALIZADA ---
+            # Se define aquí para tener acceso a self.env y al 'record' actual
+            def _send_text(text_to_send):
+                _logger.info(f"🚀 Intentando enviar mensaje: '{text_to_send}'")
+                vals = {
+                    'mobile_number': record.mobile_number,
+                    'body': text_to_send,
+                    'state': 'outgoing',
+                    'wa_account_id': record.wa_account_id.id if record.wa_account_id else False,
+                    'create_uid': self.env.ref('base.user_admin').id,
+                }
+                out = self.env['whatsapp.message'].sudo().create(vals)
+                if hasattr(out, '_send_message'):
+                    out._send_message()
+                _logger.info("✅ Mensaje creado para envío.")
 
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
+
+            # Si el partner no existe, lo creamos para asociar la memoria
+            if not partner:
+                partner = self.env['res.partner'].sudo().create({
+                    'name': f"WhatsApp: {phone}",
+                    'phone': phone
+                })
+                _logger.info(f"👤 Creado nuevo partner temporal para {phone}")
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
             memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
@@ -35,24 +59,23 @@ class WhatsAppMessage(models.Model):
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name if partner else 'desconocido'} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
             
-            # Flujo de Onboarding
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, memory_model
             )
             if handled:
                 _logger.info("🔄 Flujo de onboarding interceptado")
-                record.wa_account_id.send_message(partner, response_msg)
+                _send_text(response_msg) # CORRECCIÓN: Usar la función local
                 continue
 
-            # Cliente sin cotización
             if not is_cotizado(partner):
                 _logger.info("🚫 Usuario sin cotización")
-                record.wa_account_id.send_message(partner, messages_config['onboarding_unquoted'])
+                _send_text(messages_config['onboarding_unquoted']) # CORRECCIÓN: Usar la función local
                 continue
 
             # --- DELEGACIÓN AL PROCESADOR CENTRAL ---
-            processor = ChatbotProcessor(self.env, record, partner, memory)
+            # Pasamos la función de envío como dependencia
+            processor = ChatbotProcessor(self.env, record, partner, memory, _send_text)
             processor.process_message()
 
         return records
