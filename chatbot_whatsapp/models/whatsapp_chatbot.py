@@ -72,7 +72,6 @@ class WhatsAppMessage(models.Model):
 
             # --- MANEJO DE FLUJOS MULTI-PRODUCTO ---
             if flow == 'esperando_confirmacion_pedido':
-                # Construimos un prompt específico para saber si el usuario quiere finalizar o no.
                 finalization_prompt = [
                     {
                         "role": "system",
@@ -81,7 +80,6 @@ class WhatsAppMessage(models.Model):
                     {"role": "user", "content": plain}
                 ]
                 
-                # Llamamos a detect_intention con el prompt especializado
                 specialized_intent = detect_intention(finalization_prompt, self.env['ir.config_parameter'].sudo().get_param('openai.api_key'))
 
                 if specialized_intent == "finalizar_pedido":
@@ -105,7 +103,6 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, final_message)
                     memory.write({'flow_state': False, 'data_buffer': '', 'last_variant_id': False, 'last_qty_suggested': False, 'pending_order_lines': '[]'})
                     continue
-                # Si no es para finalizar, se asume que quiere agregar otro producto y se deja que el flujo normal continúe.
             
             # --- CEREBRO DEL CHATBOT: MANEJO DE SUB-FLUJOS ---
             if flow == 'esperando_seleccion_producto':
@@ -209,7 +206,7 @@ class WhatsAppMessage(models.Model):
                     })
                     _send_text(record, f"👍 Agregado: {qty}×{var.display_name}.\n¿Querés agregar algo más?")
                 elif choice in ('2', 'no', 'cancelar'):
-                    memory.write({'flow_state': 'esperando_confirmacion_pedido', 'data_buffer': ''}) # Vuelve a preguntar si quiere algo más
+                    memory.write({'flow_state': 'esperando_confirmacion_pedido', 'data_buffer': ''})
                     _send_text(record, "Entendido, cancelamos ese producto. ¿Querés agregar otra cosa?")
                 else:
                     _send_text(record, "No entendí tu respuesta. Por favor, respondé 'Sí' o 'No'.")
@@ -223,7 +220,6 @@ class WhatsAppMessage(models.Model):
 
             conv = []
             if memory and memory.last_intent_detected and flow != 'esperando_confirmacion_pedido':
-                 # Solo agregar contexto si no estamos en medio de la confirmacion, para no confundir a la IA
                 conv.append({"role": "system", "content": f"Contexto actual: intención anterior '{memory.last_intent_detected}'."})
 
             for msg in reversed(history):
@@ -252,7 +248,7 @@ class WhatsAppMessage(models.Model):
             elif intent in ["consulta_horario", "saludo", "consulta_producto", "ubicacion", "agradecimiento"]:
                 _send_text(record, handle_respuesta_faq(intent, partner, plain))
 
-            elif intent not in ["finalizar_pedido", "continuar_pedido"]: # Evita el mensaje de error si la única intención fue finalizar
+            elif intent not in ["finalizar_pedido", "continuar_pedido"]:
                 _send_text(record, "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?")
 
         return records

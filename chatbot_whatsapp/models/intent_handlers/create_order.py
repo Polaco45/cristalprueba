@@ -36,7 +36,6 @@ FUNCTIONS = [
 
 def lookup_product_variants(env, partner, query, limit=20):
     Product = env['product.product'].sudo()
-    SaleOrderLine = env['sale.order.line'].sudo()
 
     variants = Product.search([
         '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
@@ -54,20 +53,17 @@ def lookup_product_variants(env, partner, query, limit=20):
     pricelist = partner.property_product_pricelist
     products_with_prices = []
     for v in in_stock:
-        line = SaleOrderLine.new({
-            'order_id': False,
-            'product_id': v.id,
-            'product_uom_qty': 1.0,
-            'product_uom': v.uom_id.id,
-            'order_partner_id': partner.id,
-            'pricelist_id': pricelist.id,
-        })
-        line.product_id_change()
+        # --- CORRECCIÓN ---
+        # Usamos el método pricelist.price_get para obtener el precio correcto y evitar el error.
+        # Es el método estándar de Odoo para esta tarea.
+        price_info = pricelist.price_get(v.id, 1.0)
+        price = price_info.get(pricelist.id, 0.0)
+        
         products_with_prices.append({
             'id': v.id,
             'name': v.display_name,
             'stock': v.qty_available,
-            'price': line.price_unit,
+            'price': price,
         })
 
     _logger.info(f"📦 Variantes en stock con precio: {[p['name'] for p in products_with_prices]}")
@@ -123,7 +119,6 @@ def handle_crear_pedido(env, partner, text, memory):
     _logger.info(f"📌 Evaluando CREAR_PEDIDO — Partner: {partner.name} — Texto: '{text}'")
     openai.api_key = get_openai_api_key(env)
     
-    # Adaptar el prompt para que entienda el contexto del carrito
     cart_items = json.loads(memory.pending_order_lines or '[]')
     context_info = "El usuario ya tiene productos en su carrito." if cart_items else "El carrito del usuario está vacío."
 
@@ -160,7 +155,6 @@ def handle_crear_pedido(env, partner, text, memory):
     if not products_to_add:
         return "No pude identificar ningún producto en tu mensaje. ¿Podés intentarlo de nuevo?"
 
-    # Tomamos solo el primer producto para un flujo simple de un producto a la vez
     first_product = products_to_add[0]
     query = first_product.get('query')
     qty = first_product.get('quantity')
