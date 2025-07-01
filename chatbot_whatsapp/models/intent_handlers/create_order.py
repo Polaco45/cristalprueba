@@ -34,6 +34,44 @@ FUNCTIONS = [
     }
 ]
 
+def _format_cart_for_display(env, cart_lines):
+    """Función helper para formatear el carrito y mostrarlo al usuario."""
+    if not cart_lines:
+        return "Tu carrito está vacío."
+
+    product_ids = [item['product_id'] for item in cart_lines]
+    products = env['product.product'].sudo().browse(product_ids)
+    product_map = {p.id: p.display_name for p in products}
+
+    summary_lines = []
+    for i, item in enumerate(cart_lines, 1):
+        product_name = product_map.get(item['product_id'], 'Producto no encontrado')
+        summary_lines.append(f"{i}) {item['quantity']} × {product_name}")
+    
+    return "\n".join(summary_lines)
+
+
+def handle_modificar_pedido(env, memory):
+    """Prepara el mensaje para mostrar el carrito y permitir la eliminación."""
+    cart_lines = json.loads(memory.pending_order_lines or '[]')
+
+    if not cart_lines:
+        memory.write({'flow_state': False}) # Salir del flujo si no hay nada que modificar
+        return "Tu carrito de compras está vacío. ¿Qué producto querés agregar?"
+
+    cart_summary = _format_cart_for_display(env, cart_lines)
+    
+    # Entramos en el nuevo estado de flujo, esperando que el usuario elija qué borrar
+    memory.write({'flow_state': 'esperando_seleccion_eliminar'})
+    
+    response_message = (
+        "Este es tu pedido actual:\n"
+        f"{cart_summary}\n\n"
+        "Respondé con el número del producto que querés eliminar, o escribí *cancelar* para volver."
+    )
+    return response_message
+
+
 def lookup_product_variants(env, partner, query, limit=20):
     Product = env['product.product'].sudo()
 
@@ -46,9 +84,6 @@ def lookup_product_variants(env, partner, query, limit=20):
     if not variants:
         raise UserError(f"No encontramos ningún producto que coincida con '{query}'.")
 
-    # --- CORRECCIÓN ---
-    # Usamos .filtered() para mantener el tipo de objeto como un 'recordset' de Odoo.
-    # Una lista por comprensión [v for v in variants] crea una 'list' de Python, que causa el error.
     in_stock = variants.filtered(lambda p: (p.qty_available or 0) > 0)
     
     if not in_stock:
@@ -60,11 +95,9 @@ def lookup_product_variants(env, partner, query, limit=20):
 
     products_with_prices = []
     
-    # Obtenemos los precios para todos los productos en stock de una sola vez
     products_prices = pricelist._compute_price_rule(in_stock, 1.0)
 
     for v in in_stock:
-        # El resultado es un diccionario {product_id: (price, rule_id)}
         price = products_prices.get(v.id, (v.list_price, False))[0]
         
         products_with_prices.append({

@@ -1,7 +1,12 @@
 from odoo import models, api
 from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html, normalize_phone, is_cotizado
-from .intent_handlers.create_order import handle_crear_pedido, create_sale_order
+from .intent_handlers.create_order import (
+    handle_crear_pedido, 
+    create_sale_order, 
+    handle_modificar_pedido,
+    _format_cart_for_display
+)
 from .intent_handlers.onboarding import WhatsAppOnboardingHandler
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura,
@@ -63,19 +68,50 @@ class WhatsAppMessage(models.Model):
                 continue
 
             if not is_cotizado(partner):
-                _logger.info("🚫 Usuario sin cotización: se envía mensaje de asesoramiento")
+                _logger.info("🚫 Usuario sin cotización")
                 _send_text(record, "Gracias por escribirnos 😊. Un asesor te va a contactar para cotizarte.")
                 continue
 
             flow = memory.flow_state
             _logger.info(f"➡️ Flujo actual: {flow}")
 
-            # --- MANEJO DE FLUJOS MULTI-PRODUCTO ---
+            # --- MANEJO DE FLUJOS ---
+            if flow == 'esperando_seleccion_eliminar':
+                cart_lines = json.loads(memory.pending_order_lines or '[]')
+                
+                if plain.lower() == 'cancelar':
+                    memory.write({'flow_state': 'esperando_confirmacion_pedido'})
+                    _send_text(record, "Ok, no se eliminó nada. ¿Querés agregar o finalizar tu pedido?")
+                    continue
+
+                try:
+                    index_to_remove = int(plain.strip())
+                    if not (1 <= index_to_remove <= len(cart_lines)):
+                        _send_text(record, "Número no válido. Por favor, elegí un número de la lista.")
+                        continue
+                    
+                    removed_item = cart_lines.pop(index_to_remove - 1)
+                    memory.write({'pending_order_lines': json.dumps(cart_lines)})
+                    
+                    _logger.info(f"🗑️ Item eliminado del carrito: {removed_item}")
+
+                    new_cart_summary = _format_cart_for_display(self.env, cart_lines)
+                    response = f"Listo, producto eliminado.\n\nTu pedido ahora es:\n{new_cart_summary}\n\n¿Querés hacer algo más?"
+                    
+                    memory.write({'flow_state': 'esperando_confirmacion_pedido'})
+                    _send_text(record, response)
+
+                except ValueError:
+                    _send_text(record, "Respuesta no válida. Por favor, enviá el número del producto a eliminar o 'cancelar'.")
+                
+                continue
+
             if flow == 'esperando_confirmacion_pedido':
+                # El prompt ahora debe incluir la posibilidad de modificar el pedido
                 finalization_prompt = [
                     {
                         "role": "system",
-                        "content": "Eres un clasificador de intenciones. El usuario acaba de recibir la pregunta '¿Querés agregar algo más?'. Si su respuesta es una negación o confirma que ha terminado (ej: 'no', 'nono', 'eso es todo', 'listo'), tu única respuesta debe ser 'finalizar_pedido'. Si pide otro producto o dice cualquier otra cosa, tu única respuesta debe ser 'continuar_pedido'."
+                        "content": "Clasifica la intención del usuario, que tiene un pedido en curso. Opciones: 'finalizar_pedido' (si dice no, listo, etc.), 'modificar_pedido' (si quiere sacar, quitar, eliminar, ver o cambiar algo), 'continuar_pedido' (si pide otro producto o cualquier otra cosa)."
                     },
                     {"role": "user", "content": plain}
                 ]
@@ -98,13 +134,19 @@ class WhatsAppMessage(models.Model):
                         summary_lines.append(f"  - {int(line.product_uom_qty)} × {line.name.splitlines()[0]}")
                     
                     summary_text = "\n".join(summary_lines)
-                    final_message = f"¡Perfecto! ✨ Tu pedido {order.name} fue creado con los siguientes productos:\n{summary_text}\n\nUn asesor comercial lo revisará a la brevedad. ¡Gracias por tu compra!"
+                    final_message = f"¡Perfecto! ✨ Tu pedido {order.name} fue creado con:\n{summary_text}\n\nUn asesor lo revisará a la brevedad. ¡Gracias!"
 
                     _send_text(record, final_message)
                     memory.write({'flow_state': False, 'data_buffer': '', 'last_variant_id': False, 'last_qty_suggested': False, 'pending_order_lines': '[]'})
                     continue
-            
-            # --- CEREBRO DEL CHATBOT: MANEJO DE SUB-FLUJOS ---
+                
+                elif specialized_intent == 'modificar_pedido':
+                    # Si la intención es modificar, se transfiere el control al manejador
+                    response = handle_modificar_pedido(self.env, memory)
+                    _send_text(record, response)
+                    continue
+
+            # ... resto de los flujos ('esperando_seleccion_producto', etc.) sin cambios ...
             if flow == 'esperando_seleccion_producto':
                 try:
                     data = json.loads(memory.data_buffer or '{}')
@@ -212,7 +254,8 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, "No entendí tu respuesta. Por favor, respondé 'Sí' o 'No'.")
                 continue
 
-            # --- INTENCIÓN NLP ---
+
+            # --- INTENCIÓN NLP GENERAL ---
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number', '=', record.mobile_number), ('id', '<=', record.id),
                 ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
@@ -230,11 +273,20 @@ class WhatsAppMessage(models.Model):
                     "content": text
                 })
             
-            intent = detect_intention(conv, self.env['ir.config_parameter'].sudo().get_param('openai.api_key')).lower().strip()
+            # El prompt general ahora debe saber sobre la nueva intención
+            general_prompt = [
+                {"role": "system", "content": "Clasifica la intención del usuario. Opciones: crear_pedido, modificar_pedido, solicitar_factura, consulta_horario, saludo, consulta_producto, ubicacion, agradecimiento, otro."},
+            ] + conv
+            intent = detect_intention(general_prompt, self.env['ir.config_parameter'].sudo().get_param('openai.api_key')).lower().strip()
             memory.write({'last_intent_detected': intent})
 
             if intent == "crear_pedido":
                 result_message = handle_crear_pedido(self.env, partner, plain, memory)
+                if result_message:
+                    _send_text(record, result_message)
+            
+            elif intent == "modificar_pedido":
+                result_message = handle_modificar_pedido(self.env, memory)
                 if result_message:
                     _send_text(record, result_message)
 
