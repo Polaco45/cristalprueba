@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 class ChatbotProcessor:
     def __init__(self, env, record, partner, memory):
         self.env = env
-        self.record = record # El registro del mensaje entrante
+        self.record = record
         self.partner = partner
         self.memory = memory
         self.plain_text = clean_html(record.body or "").strip()
@@ -43,9 +43,7 @@ class ChatbotProcessor:
         return bool(cart_items and not self.memory.flow_state)
 
     def _send_text(self, text_to_send):
-        """
-        Wrapper para enviar mensajes de texto, replicando la lógica funcional original.
-        """
+        """Wrapper para enviar mensajes de texto, replicando la lógica funcional original."""
         _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
         vals = {
             'mobile_number': self.record.mobile_number,
@@ -54,7 +52,13 @@ class ChatbotProcessor:
             'wa_account_id': self.record.wa_account_id.id if self.record.wa_account_id else False,
             'create_uid': self.env.ref('base.user_admin').id,
         }
+        # 1. Se crea el mensaje
         outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+        
+        # 2. Se vuelve a escribir el body (paso clave de la versión anterior)
+        outgoing_msg.sudo().write({'body': text_to_send})
+
+        # 3. Se intenta enviar inmediatamente
         if hasattr(outgoing_msg, '_send_message'):
             outgoing_msg._send_message()
         _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")

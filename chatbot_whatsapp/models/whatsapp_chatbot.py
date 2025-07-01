@@ -23,10 +23,9 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
             
-            # --- FUNCIÓN DE ENVÍO BASADA EN TU VERSIÓN ANTERIOR FUNCIONAL ---
+            # --- FUNCIÓN DE ENVÍO RESTAURADA A LA VERSIÓN FUNCIONAL ---
             def _send_text(to_record, text_to_send):
                 _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
-                # Crear y enviar el mensaje en el mismo flujo
                 vals = {
                     'mobile_number': to_record.mobile_number,
                     'body': text_to_send,
@@ -34,9 +33,13 @@ class WhatsAppMessage(models.Model):
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
-                # Se crea el mensaje...
+                # 1. Se crea el mensaje
                 outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-                # ...y se intenta enviar inmediatamente.
+                
+                # 2. Se vuelve a escribir el body (paso clave de la versión anterior)
+                outgoing_msg.sudo().write({'body': text_to_send})
+                
+                # 3. Se intenta enviar inmediatamente
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
                 _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
@@ -76,7 +79,6 @@ class WhatsAppMessage(models.Model):
                 continue
 
             # --- DELEGACIÓN AL PROCESADOR CENTRAL ---
-            # Ahora se le pasa el `record` para que el procesador sepa a quién responder.
             processor = ChatbotProcessor(self.env, record, partner, memory)
             processor.process_message()
 
