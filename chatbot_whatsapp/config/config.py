@@ -10,6 +10,6 @@ def load_config(file_name):
         return yaml.safe_load(file)
 
 # Cargar todas las configuraciones en diccionarios separados
-general_config = load_config('config/general_config.yml')
-prompts_config = load_config('config/prompts.yml')
-messages_config = load_config('config/messages.yml')
+general_config = load_config('general_config.yml')
+prompts_config = load_config('prompts.yml')
+messages_config = load_config('messages.yml')
