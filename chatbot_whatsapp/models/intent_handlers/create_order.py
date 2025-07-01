@@ -46,20 +46,19 @@ def lookup_product_variants(env, partner, query, limit=20):
     if not variants:
         raise UserError(f"No encontramos ningún producto que coincida con '{query}'.")
 
-    in_stock = [v for v in variants if (v.qty_available or 0) > 0]
+    # --- CORRECCIÓN ---
+    # Usamos .filtered() para mantener el tipo de objeto como un 'recordset' de Odoo.
+    # Una lista por comprensión [v for v in variants] crea una 'list' de Python, que causa el error.
+    in_stock = variants.filtered(lambda p: (p.qty_available or 0) > 0)
+    
     if not in_stock:
         raise UserError(f"Lo sentimos, no hay stock disponible para '{query}'.")
 
     pricelist = partner.property_product_pricelist
-    products_with_prices = []
-    
     if not pricelist:
         raise UserError("El cliente no tiene una tarifa asignada.")
 
-    # --- CORRECCIÓN FINAL ---
-    # Pasamos el recordset del producto (v) directamente a la función de cálculo de precios.
-    # Esta espera un objeto, no un entero (ID), para poder realizar las validaciones internas.
-    # Usamos _compute_price_rule que es más directa para este caso.
+    products_with_prices = []
     
     # Obtenemos los precios para todos los productos en stock de una sola vez
     products_prices = pricelist._compute_price_rule(in_stock, 1.0)
