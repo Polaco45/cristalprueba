@@ -2,7 +2,7 @@ import json
 import logging
 from odoo.exceptions import UserError
 from ..utils.nlp import detect_intention
-from ..utils.utils import clean_html # Importación movida aquí para mayor claridad
+from ..utils.utils import clean_html
 from ..config.config import prompts_config, messages_config
 from .intent_handlers.create_order import (
     handle_crear_pedido, create_sale_order, handle_modificar_pedido,
@@ -27,37 +27,32 @@ class ChatbotProcessor:
         flow = self.memory.flow_state
         _logger.info(f"➡️ Procesando flujo: {flow or 'N/A'}")
 
-        # Prioridad 1: Manejar flujos activos
         if flow:
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
                 return flow_handler()
 
-        # Prioridad 2: Manejar intenciones específicas del pedido en curso
-        # (Se activa si hay items en el carrito y no hay un flujo activo)
         if self._is_order_in_progress():
             return self._handle_order_in_progress_intent()
             
-        # Prioridad 3: Manejar intenciones generales
         return self._handle_general_intent()
 
     def _is_order_in_progress(self):
         """Verifica si hay un pedido en curso que no esté en un sub-flujo específico."""
         cart_items = json.loads(self.memory.pending_order_lines or '[]')
-        return cart_items and not self.memory.flow_state
+        return bool(cart_items and not self.memory.flow_state)
 
     def _send_text(self, text_to_send):
-        """Wrapper para enviar mensajes de texto."""
-        vals = {
-            'mobile_number': self.record.mobile_number,
-            'body': text_to_send,
-            'state': 'outgoing',
-            'wa_account_id': self.record.wa_account_id.id if self.record.wa_account_id else False,
-            'create_uid': self.env.ref('base.user_admin').id,
-        }
-        out = self.env['whatsapp.message'].sudo().create(vals)
-        if hasattr(out, '_send_message'):
-            out._send_message()
+        """
+        Wrapper para enviar mensajes de texto usando el método estándar de Odoo.
+        """
+        _logger.info(f"🚀 Intentando enviar mensaje: '{text_to_send}'")
+        if self.record.wa_account_id:
+            # Usamos el método oficial de Odoo para mayor fiabilidad
+            self.record.wa_account_id.send_message(self.partner, text_to_send)
+            _logger.info("✅ Mensaje pasado al método send_message de Odoo.")
+        else:
+            _logger.warning("No se pudo enviar el mensaje porque no se encontró una cuenta de WhatsApp (wa_account_id).")
 
     # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
 
@@ -93,7 +88,7 @@ class ChatbotProcessor:
                 if 0 <= index < len(variants):
                     selected_variant = variants[index]
             else:
-                 for v in variants:
+                for v in variants:
                     if self.plain_text.lower() in v['name'].lower():
                         selected_variant = v
                         break
