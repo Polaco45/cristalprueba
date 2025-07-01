@@ -15,15 +15,12 @@ from .intent_handlers.intent_handlers import (
 _logger = logging.getLogger(__name__)
 
 class ChatbotProcessor:
-    def __init__(self, env, record, partner, memory, send_text_func):
+    def __init__(self, env, record, partner, memory):
         self.env = env
-        self.record = record
+        self.record = record # El registro del mensaje entrante
         self.partner = partner
         self.memory = memory
         self.plain_text = clean_html(record.body or "").strip()
-        # --- CORRECCIÓN ---
-        # Recibimos la función de envío en lugar de definirla aquí
-        self._send_text = send_text_func
 
     def process_message(self):
         """Punto de entrada principal para procesar un mensaje."""
@@ -45,7 +42,23 @@ class ChatbotProcessor:
         cart_items = json.loads(self.memory.pending_order_lines or '[]')
         return bool(cart_items and not self.memory.flow_state)
 
-    # El método _send_text anterior fue eliminado y ahora se usa el que se inyecta en __init__
+    def _send_text(self, text_to_send):
+        """
+        Wrapper para enviar mensajes de texto, replicando la lógica funcional original.
+        """
+        _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
+        vals = {
+            'mobile_number': self.record.mobile_number,
+            'body': text_to_send,
+            'state': 'outgoing',
+            'wa_account_id': self.record.wa_account_id.id if self.record.wa_account_id else False,
+            'create_uid': self.env.ref('base.user_admin').id,
+        }
+        outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+        if hasattr(outgoing_msg, '_send_message'):
+            outgoing_msg._send_message()
+        _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
+
 
     # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
     

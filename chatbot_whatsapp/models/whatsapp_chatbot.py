@@ -23,40 +23,42 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
             
-            # --- FUNCIÓN DE ENVÍO CENTRALIZADA ---
-            # Se define aquí para tener acceso a self.env y al 'record' actual
-            def _send_text(text_to_send):
-                _logger.info(f"🚀 Intentando enviar mensaje: '{text_to_send}'")
+            # --- FUNCIÓN DE ENVÍO BASADA EN TU VERSIÓN ANTERIOR FUNCIONAL ---
+            def _send_text(to_record, text_to_send):
+                _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
+                # Crear y enviar el mensaje en el mismo flujo
                 vals = {
-                    'mobile_number': record.mobile_number,
+                    'mobile_number': to_record.mobile_number,
                     'body': text_to_send,
                     'state': 'outgoing',
-                    'wa_account_id': record.wa_account_id.id if record.wa_account_id else False,
+                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
-                out = self.env['whatsapp.message'].sudo().create(vals)
-                if hasattr(out, '_send_message'):
-                    out._send_message()
-                _logger.info("✅ Mensaje creado para envío.")
+                # Se crea el mensaje...
+                outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+                # ...y se intenta enviar inmediatamente.
+                if hasattr(outgoing_msg, '_send_message'):
+                    outgoing_msg._send_message()
+                _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
 
-            # Si el partner no existe, lo creamos para asociar la memoria
             if not partner:
                 partner = self.env['res.partner'].sudo().create({
                     'name': f"WhatsApp: {phone}",
-                    'phone': phone
+                    'phone': phone,
+                    'mobile': phone
                 })
-                _logger.info(f"👤 Creado nuevo partner temporal para {phone}")
+                _logger.info(f"👤 Creado nuevo partner para {phone}")
 
             memory_model = self.env['chatbot.whatsapp.memory'].sudo()
             memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
             if not memory:
                 memory = memory_model.create({'partner_id': partner.id})
 
-            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name if partner else 'desconocido'} ({phone})")
+            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name or 'desconocido'} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
             
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
@@ -65,17 +67,17 @@ class WhatsAppMessage(models.Model):
             )
             if handled:
                 _logger.info("🔄 Flujo de onboarding interceptado")
-                _send_text(response_msg) # CORRECCIÓN: Usar la función local
+                _send_text(record, response_msg)
                 continue
 
             if not is_cotizado(partner):
                 _logger.info("🚫 Usuario sin cotización")
-                _send_text(messages_config['onboarding_unquoted']) # CORRECCIÓN: Usar la función local
+                _send_text(record, messages_config['onboarding_unquoted'])
                 continue
 
             # --- DELEGACIÓN AL PROCESADOR CENTRAL ---
-            # Pasamos la función de envío como dependencia
-            processor = ChatbotProcessor(self.env, record, partner, memory, _send_text)
+            # Ahora se le pasa el `record` para que el procesador sepa a quién responder.
+            processor = ChatbotProcessor(self.env, record, partner, memory)
             processor.process_message()
 
         return records
