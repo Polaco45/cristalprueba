@@ -34,6 +34,8 @@
                yo: nono, eso esta bien
                chatbot: pedido creado.... etc, etc
 
+    * Modificacion del pedido
+
 * Que le pregunte en caso de que haya mas de un cliente en el mismo numero
 
 * Manejar todos los demas casos de negocio (b2c, mayoristas)

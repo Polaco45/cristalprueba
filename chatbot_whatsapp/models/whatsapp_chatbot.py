@@ -75,7 +75,6 @@ class WhatsAppMessage(models.Model):
             flow = memory.flow_state
             _logger.info(f"➡️ Flujo actual: {flow}")
 
-            # --- MANEJO DE FLUJOS ---
             if flow == 'esperando_seleccion_eliminar':
                 cart_lines = json.loads(memory.pending_order_lines or '[]')
                 
@@ -107,7 +106,6 @@ class WhatsAppMessage(models.Model):
                 continue
 
             if flow == 'esperando_confirmacion_pedido':
-                # El prompt ahora debe incluir la posibilidad de modificar el pedido
                 finalization_prompt = [
                     {
                         "role": "system",
@@ -141,12 +139,10 @@ class WhatsAppMessage(models.Model):
                     continue
                 
                 elif specialized_intent == 'modificar_pedido':
-                    # Si la intención es modificar, se transfiere el control al manejador
                     response = handle_modificar_pedido(self.env, memory)
                     _send_text(record, response)
                     continue
 
-            # ... resto de los flujos ('esperando_seleccion_producto', etc.) sin cambios ...
             if flow == 'esperando_seleccion_producto':
                 try:
                     data = json.loads(memory.data_buffer or '{}')
@@ -254,8 +250,6 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, "No entendí tu respuesta. Por favor, respondé 'Sí' o 'No'.")
                 continue
 
-
-            # --- INTENCIÓN NLP GENERAL ---
             history = self.env['whatsapp.message'].sudo().search([
                 ('mobile_number', '=', record.mobile_number), ('id', '<=', record.id),
                 ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
@@ -273,7 +267,6 @@ class WhatsAppMessage(models.Model):
                     "content": text
                 })
             
-            # El prompt general ahora debe saber sobre la nueva intención
             general_prompt = [
                 {"role": "system", "content": "Clasifica la intención del usuario. Opciones: crear_pedido, modificar_pedido, solicitar_factura, consulta_horario, saludo, consulta_producto, ubicacion, agradecimiento, otro."},
             ] + conv

@@ -61,7 +61,6 @@ def handle_modificar_pedido(env, memory):
 
     cart_summary = _format_cart_for_display(env, cart_lines)
     
-    # Entramos en el nuevo estado de flujo, esperando que el usuario elija qué borrar
     memory.write({'flow_state': 'esperando_seleccion_eliminar'})
     
     response_message = (
@@ -163,13 +162,15 @@ def handle_crear_pedido(env, partner, text, memory):
     cart_items = json.loads(memory.pending_order_lines or '[]')
     context_info = "El usuario ya tiene productos en su carrito." if cart_items else "El carrito del usuario está vacío."
 
+    # --- CORRECCIÓN ---
+    # Se modifica el prompt para que la IA omita la cantidad si no se especifica.
     system_msg = {
         "role": "system",
         "content": (
             "Eres un asistente para pedidos. Extrae los productos y cantidades del texto del usuario. "
             f"Contexto actual: {context_info}."
             "Usa la función 'lookup_product_variants' para CADA producto que identifiques. "
-            "Si dice 'uno' o no especifica cantidad, asume 1."
+            "Si el usuario NO especifica una cantidad, OMITE el campo 'quantity' en tu respuesta."
         )
     }
 
@@ -198,6 +199,7 @@ def handle_crear_pedido(env, partner, text, memory):
 
     first_product = products_to_add[0]
     query = first_product.get('query')
+    # Usamos .get() con un valor por defecto de None para manejar el caso en que la IA no devuelva cantidad.
     qty = first_product.get('quantity')
 
     _logger.info(f"🔧 GPT detectó producto: {query} (Cantidad: {qty})")
@@ -223,6 +225,7 @@ def handle_crear_pedido(env, partner, text, memory):
     name = variant['name']
     avail = int(variant['stock'])
 
+    # Este bloque ahora se ejecutará correctamente cuando la IA no especifique una cantidad.
     if not qty:
         memory.write({
             'flow_state': 'esperando_cantidad_producto',
