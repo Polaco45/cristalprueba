@@ -5,7 +5,8 @@ from .intent_handlers.create_order import (
     handle_crear_pedido, 
     create_sale_order, 
     handle_modificar_pedido,
-    _format_cart_for_display
+    _format_cart_for_display,
+    add_item_to_cart  # <-- Importamos la nueva función
 )
 from .intent_handlers.onboarding import WhatsAppOnboardingHandler
 from .intent_handlers.intent_handlers import (
@@ -176,11 +177,9 @@ class WhatsAppMessage(models.Model):
                         })
                         _send_text(record, f"¡Perfecto! Elegiste “{name}”. ¿Cuántas unidades querés?")
                     elif qty <= avail:
-                        cart_items = json.loads(memory.pending_order_lines or '[]')
-                        cart_items.append({'product_id': pid, 'quantity': qty})
+                        add_item_to_cart(memory, pid, qty)
                         memory.write({
                             'flow_state': 'esperando_confirmacion_pedido',
-                            'pending_order_lines': json.dumps(cart_items),
                             'data_buffer': '',
                             'last_variant_id': False,
                         })
@@ -215,11 +214,9 @@ class WhatsAppMessage(models.Model):
                         })
                         _send_text(record, f"Solo hay {int(avail)} unidades de “{variant.display_name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar")
                     else:
-                        cart_items = json.loads(memory.pending_order_lines or '[]')
-                        cart_items.append({'product_id': variant.id, 'quantity': qty})
+                        add_item_to_cart(memory, variant.id, qty)
                         memory.write({
                             'flow_state': 'esperando_confirmacion_pedido',
-                            'pending_order_lines': json.dumps(cart_items),
                             'data_buffer': '',
                             'last_variant_id': False
                         })
@@ -234,12 +231,10 @@ class WhatsAppMessage(models.Model):
                     var = self.env['product.product'].sudo().browse(memory.last_variant_id.id)
                     qty = memory.last_qty_suggested
                     
-                    cart_items = json.loads(memory.pending_order_lines or '[]')
-                    cart_items.append({'product_id': var.id, 'quantity': qty})
+                    add_item_to_cart(memory, var.id, qty)
                     
                     memory.write({
                         'flow_state': 'esperando_confirmacion_pedido',
-                        'pending_order_lines': json.dumps(cart_items),
                         'data_buffer': '', 'last_variant_id': False, 'last_qty_suggested': False
                     })
                     _send_text(record, f"👍 Agregado: {qty}×{var.display_name}.\n¿Querés agregar algo más?")

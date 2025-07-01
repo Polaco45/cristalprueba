@@ -6,13 +6,34 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
+# --- NUEVA FUNCIÓN HELPER ---
+def add_item_to_cart(memory, product_id, quantity):
+    """
+    Agrega un item al carrito en la memoria.
+    Si el producto ya existe, suma la cantidad. Si no, lo agrega como una nueva línea.
+    """
+    cart_items = json.loads(memory.pending_order_lines or '[]')
+    
+    found = False
+    for item in cart_items:
+        if item.get('product_id') == product_id:
+            item['quantity'] += quantity
+            found = True
+            break
+            
+    if not found:
+        cart_items.append({'product_id': product_id, 'quantity': quantity})
+        
+    memory.write({'pending_order_lines': json.dumps(cart_items)})
+    _logger.info(f"🛒 Carrito actualizado: {cart_items}")
+
 def get_openai_api_key(env):
     return env['ir.config_parameter'].sudo().get_param('openai.api_key')
 
 FUNCTIONS = [
     {
         "name": "lookup_product_variants",
-        "description": "Busca variantes de producto en Odoo a partir de un texto de usuario. Puede identificar múltiples productos en el mismo texto.",
+        "description": "Busca variantes de producto en Odoo a partir de un texto de usuario.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -56,7 +77,7 @@ def handle_modificar_pedido(env, memory):
     cart_lines = json.loads(memory.pending_order_lines or '[]')
 
     if not cart_lines:
-        memory.write({'flow_state': False}) # Salir del flujo si no hay nada que modificar
+        memory.write({'flow_state': False})
         return "Tu carrito de compras está vacío. ¿Qué producto querés agregar?"
 
     cart_summary = _format_cart_for_display(env, cart_lines)
@@ -162,8 +183,6 @@ def handle_crear_pedido(env, partner, text, memory):
     cart_items = json.loads(memory.pending_order_lines or '[]')
     context_info = "El usuario ya tiene productos en su carrito." if cart_items else "El carrito del usuario está vacío."
 
-    # --- CORRECCIÓN ---
-    # Se modifica el prompt para que la IA omita la cantidad si no se especifica.
     system_msg = {
         "role": "system",
         "content": (
@@ -199,7 +218,6 @@ def handle_crear_pedido(env, partner, text, memory):
 
     first_product = products_to_add[0]
     query = first_product.get('query')
-    # Usamos .get() con un valor por defecto de None para manejar el caso en que la IA no devuelva cantidad.
     qty = first_product.get('quantity')
 
     _logger.info(f"🔧 GPT detectó producto: {query} (Cantidad: {qty})")
@@ -225,7 +243,6 @@ def handle_crear_pedido(env, partner, text, memory):
     name = variant['name']
     avail = int(variant['stock'])
 
-    # Este bloque ahora se ejecutará correctamente cuando la IA no especifique una cantidad.
     if not qty:
         memory.write({
             'flow_state': 'esperando_cantidad_producto',
@@ -236,13 +253,10 @@ def handle_crear_pedido(env, partner, text, memory):
         return f"¡Perfecto! Encontramos “{name}”. ¿Cuántas unidades querés?"
 
     if qty <= avail:
-        cart_items = json.loads(memory.pending_order_lines or '[]')
-        cart_items.append({'product_id': pid, 'quantity': qty})
-        memory.write({
-            'flow_state': 'esperando_confirmacion_pedido',
-            'pending_order_lines': json.dumps(cart_items)
-        })
-        _logger.info(f"🛒 Producto agregado al carrito: {qty}×{name}")
+        # --- MODIFICACIÓN ---
+        # Se reemplaza la lógica de 'append' por la nueva función centralizada
+        add_item_to_cart(memory, pid, qty)
+        memory.write({'flow_state': 'esperando_confirmacion_pedido'})
         return f"👍 Agregado: {qty}×{name}.\n¿Querés agregar algo más?"
     else:
         memory.write({
