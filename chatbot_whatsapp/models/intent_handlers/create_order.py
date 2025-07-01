@@ -54,9 +54,9 @@ def lookup_product_variants(env, partner, query, limit=20):
     products_with_prices = []
     for v in in_stock:
         # --- CORRECCIÓN ---
-        # Usamos el método pricelist.price_get para obtener el precio correcto y evitar el error.
+        # Usamos el método pricelist._price_get para obtener el precio correcto y evitar el error.
         # Es el método estándar de Odoo para esta tarea.
-        price_info = pricelist.price_get(v.id, 1.0)
+        price_info = pricelist._price_get(v.id, 1.0)
         price = price_info.get(pricelist.id, 0.0)
         
         products_with_prices.append({
