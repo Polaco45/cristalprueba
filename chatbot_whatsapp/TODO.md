@@ -21,7 +21,7 @@
         chatbot: No entendí qué producto querés.
 
 - Como hacemos si el cliente en el mismo mensaje dijo que quiere mas de una cosa, o como vamos guardando varios productos en el pedido antes de mandarlo. Y luego mandarlo cuando le preguntemos al cliente si quiere algo mas y nos diga que no.
-    - EJEMPLO de mas de un pedido en mismo mensaje: yo: quiero un escobillon Y un blem 
+    #### * EJEMPLO de mas de un pedido en mismo mensaje: yo: quiero un escobillon Y un blem 
                                                     chatbot: perfecto, algo mas?
                                                     yo: no, gracias!
                                                     chatbot: pedido creado..... etc, etc
@@ -60,14 +60,17 @@
 
 ### V2
 
-* Analizar pedidos anteriores para saber que producto elegir en caso de que el pedido sea muy generico
-    * EJEMPLO: escobillones
-    * PROMPT: ahora quiero que cuando el cliente diga que quiere pedir algo de forma GENERICA, busque si esa categoria de producto la pidio anteriormente en algun pedido en el pasado, y elija automaticamente el producto especifico que haya pedido anteriormente. Si no hay historial de esa categoria, que le pase las opciones.
+* Mas inteligencia contextual 
+    * PUSH: Como te fue con lo que pediste hace unos dias?
+    
+    * Que se pueda pedir lo mismo que antes
+        * Revisar ordenes pasadas y copiar el pedido
+    
+    * Cancelacion de pedidos
 
-* Cancelacion de pedidos
-
-* Que se pueda pedir lo mismo que antes
-    * Revisar ordenes pasadas y copiar el pedido
+    * Analizar pedidos anteriores para saber que producto elegir en caso de que el pedido sea muy generico
+        * EJEMPLO: escobillones
+        * Pedido bajado a tierra: quiero que cuando el cliente diga que quiere pedir algo de forma GENERICA, busque si esa categoria de producto la pidio anteriormente en algun pedido en el pasado, y elija automaticamente el producto especifico que haya pedido anteriormente. Si no hay historial de esa categoria, que le pase las opciones.
 
 * Si no entiende / la intencion del usuario es otra, que lleve la conversacion como un vendedor
 
