@@ -37,7 +37,11 @@ create_order_function:
             properties:
               query:
                 type: "string"
-                description: "El nombre del producto a buscar."
+                description: >- 
+                  "El nombre del producto a buscar. IMPORTANTE: Debes convertir el nombre del producto
+                  a su forma singular y base. Por ejemplo, si el usuario pide 'escobas', 'lavandinas'
+                  o 'trapos de piso', el valor de 'query' debe ser 'escoba', 'lavandina' o 'trapo de piso',
+                  respectivamente."
               quantity:
                 type: "integer"
                 description: "La cantidad solicitada del producto."
