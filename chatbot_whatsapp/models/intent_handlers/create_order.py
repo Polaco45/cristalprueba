@@ -75,8 +75,6 @@ def lookup_product_variants(env, partner, query, limit=20):
     _logger.info(f"📦 Variantes en stock con precio: {[p['name'] for p in products_with_prices]}")
     return products_with_prices
 
-# En el archivo create_order.py (código nuevo)
-
 def create_sale_order(env, partner_id, order_lines):
     partner = env['res.partner'].browse(partner_id)
     pricelist = partner.property_product_pricelist

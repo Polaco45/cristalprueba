@@ -38,17 +38,9 @@
 
 - Refactor y archivo de configuracion
 
-* Arreglar onboarding
+- Arreglar onboarding
 
-* Que le pregunte en caso de que haya mas de un cliente en el mismo numero
-
-* Manejar todos los demas casos de negocio (b2c, mayoristas)
-    * B2C: Trato mas seco, derivar a website
-    * mayorista: como en B2B
-
-* Manejar saludo y prompt
-
-* Manejar agradecimiento
+#### * EJEMPLO de mas de un pedido en mismo mensaje: yo: quiero un escobillon Y un blem 
 
 * Mejorar prompt en pedidos y consultas de pedidos
     * quiero escobas
@@ -56,7 +48,17 @@
     * quiero pedir escobillones
     + No encontramos ningún producto que coincida con 'escobas'.
 
+* Que le pregunte en caso de que haya mas de un cliente en el mismo numero
+
+* Manejar saludo y prompt
+
+* Manejar agradecimiento
+
 * Terminar de manejar factura
+
+* Manejar todos los demas casos de negocio (b2c, mayoristas)
+    * B2C: Trato mas seco, derivar a website
+    * mayorista: como en B2B
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 
