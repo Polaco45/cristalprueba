@@ -25,7 +25,7 @@ invalid_number_for_deletion: "Número no válido. Por favor, elegí un número d
 invalid_input_for_deletion: "Respuesta no válida. Por favor, enviá el número del producto a eliminar o 'cancelar'."
 
 # --- Sub-flows ---
-invalid_option: "Opción no válida. Por favor, respondé con el número del producto que querés."
+invalid_option: "Opción no válida. Por favor, respondé solo con el número del producto que querés."
 invalid_quantity: "La cantidad debe ser un número positivo. ¿Cuántas unidades querés?"
 invalid_quantity_format: "No entendí la cantidad. Por favor, escribí solo el número."
 confirm_stock_cancellation: "Entendido, cancelamos ese producto. ¿Querés agregar otra cosa?"
