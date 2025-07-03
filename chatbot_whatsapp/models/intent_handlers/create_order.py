@@ -79,7 +79,6 @@ def create_sale_order(env, partner_id, order_lines):
     partner = env['res.partner'].browse(partner_id)
     pricelist = partner.property_product_pricelist
 
-    # Preparar descripción para el lead antes de crear la orden
     description_lines = []
     order_line_vals = []
     for line in order_lines:

@@ -1,4 +1,4 @@
-# User-facing messages for the chatbot
+# messages.yml (COMPLETO)
 
 # --- General ---
 error_default: "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?"
@@ -12,7 +12,9 @@ product_no_stock: "Lo sentimos, no hay stock disponible para '{query}'."
 customer_no_pricelist: "El cliente no tiene una tarifa asignada."
 ask_for_clarification: "Tenemos varias opciones para '{query}':\n{buttons}\nRespondé con el número del producto que querés."
 ask_for_quantity: "¡Perfecto! Encontramos “{name}”. ¿Cuántas unidades querés?"
-confirm_item_added: "👍 Agregado: {qty}×{name}.\n¿Querés agregar algo más?"
+confirm_item_added: "👍 Agregado: {qty}×{name}.\n\nTu pedido ahora es:\n{summary}\n\n¿Querés agregar algo más?"
+item_added_processing_next: "👍 Agregado: {qty}×{name}. Ahora sigo con el próximo producto."
+processing_next_item: "No encontré productos para '{query}'. Continúo con el resto de tu pedido."
 insufficient_stock: "Solo hay {avail} unidades de “{name}”.\nRespondé con:\n1) Sí, esa cantidad\n2) No, cancelar"
 order_finalized: "¡Perfecto! ✨ Tu pedido {order_name} fue creado con:\n{summary}\n\nUn asesor lo revisará a la brevedad. ¡Gracias!"
 cart_is_empty: "Tu carrito de compras está vacío. ¿Qué producto querés agregar?"
