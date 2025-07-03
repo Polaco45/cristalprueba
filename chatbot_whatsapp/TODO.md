@@ -47,7 +47,8 @@
    - quiero pedir escobillones
    - No encontramos ningún producto que coincida con 'escobas'.
 
-* Que le pregunte en caso de que haya mas de un cliente en el mismo numero
+* Direcciones de entrega
+    * Cuando hay mas de una direccion, preguntar a cual.
 
 * Manejar saludo y prompt
 
@@ -59,9 +60,13 @@
     * B2C: Trato mas seco, derivar a website
     * mayorista: como en B2B
 
+* Que aparezcan los mensajes de WhatsApp en Odoo
+
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 
 ### V2
+
+* Detectar inteligentemente la direccion de entrega en caso de que el usuario la mencione sin haberle preguntado.
 
 * Mas inteligencia contextual 
     * PUSH: Como te fue con lo que pediste hace unos dias?
