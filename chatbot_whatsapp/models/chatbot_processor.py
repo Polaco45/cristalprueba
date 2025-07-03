@@ -1,3 +1,5 @@
+# chatbot_processor.py (COMPLETO)
+
 import json
 import logging
 import openai
@@ -51,48 +53,47 @@ class ChatbotProcessor:
             outgoing_msg._send_message()
         _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
-    def _add_item_and_decide_next_step(self, product_id, qty, product_name):
-        """Agrega un item y decide si continuar la cola o pedir confirmación."""
-        add_item_to_cart(self.memory, product_id, qty)
+    # --- LÓGICA DE AGREGACIÓN Y COLA ---
+
+    def _add_item_and_decide_next_step(self, pid, qty, name):
+        """
+        Agrega un ítem al carrito y decide el siguiente paso:
+        - Si la cola tiene más productos, continúa procesándolos.
+        - Si la cola está vacía, pregunta al usuario si desea agregar algo más.
+        """
+        add_item_to_cart(self.memory, pid, qty)
 
         buffer_data = json.loads(self.memory.data_buffer or '{}')
         pending_products = buffer_data.get('pending_products', [])
 
-        if pending_products:
-            # Aún quedan productos en la cola, continuamos procesando
-            self._send_text(messages_config['item_added_processing_next'].format(qty=qty, name=product_name))
-            return self._process_next_product_in_queue()
-        else:
-            # Era el último producto, pedimos confirmación final
+        if not pending_products:
+            # Era el último ítem de la cola.
+            _logger.info("🏁 Cola de productos vacía. Finalizando ciclo de agregación.")
+            
             cart_lines = json.loads(self.memory.pending_order_lines or '[]')
             summary = format_cart_for_display(self.env, cart_lines)
+            response = messages_config['confirm_item_added'].format(qty=qty, name=name, summary=summary)
+            
             self.memory.write({'flow_state': 'esperando_confirmacion_pedido', 'data_buffer': ''})
-            return self._send_text(messages_config['confirm_item_added'].format(qty=qty, name=product_name, summary=summary))
+            return self._send_text(response)
+        else:
+            # Aún quedan ítems en la cola.
+            self._send_text(messages_config['item_added_processing_next'].format(qty=qty, name=name))
+            return self._process_next_product_in_queue()
 
-    # --- MANEJADOR DE COLA DE PRODUCTOS ---
-    
     def _process_next_product_in_queue(self):
         """Procesa el siguiente producto en la cola de `data_buffer`."""
         buffer_data = json.loads(self.memory.data_buffer or '{}')
         pending_products = buffer_data.get('pending_products', [])
 
         if not pending_products:
-            _logger.info("🏁 Cola de productos vacía. Finalizando ciclo de agregación.")
+            # Esto solo debería ocurrir si se llama con una cola ya vacía, lo cual es un caso borde.
+            # La lógica principal de finalización está en _add_item_and_decide_next_step.
+            _logger.info("🏁 Cola de productos ya estaba vacía. Pasando a confirmación final.")
             self.memory.write({'flow_state': 'esperando_confirmacion_pedido', 'data_buffer': ''})
-            # Extrae solo la pregunta "¿Querés agregar algo más?" si el carrito ya tiene items.
-            cart_lines_json = self.memory.pending_order_lines or '[]'
-            if cart_lines_json != '[]':
-                cart_lines = json.loads(cart_lines_json)
-                summary = format_cart_for_display(self.env, cart_lines)
-                # Usamos una parte del mensaje para evitar redundancia
-                question = messages_config['confirm_item_added'].split('\n\n')[-1]
-                return self._send_text(f"Este es tu pedido actual:\n{summary}\n\n{question}")
-            else:
-                 return self._send_text(messages_config['cart_is_empty'])
-
+            return self._send_text("¿Querés agregar algo más?")
 
         current_product = pending_products.pop(0)
-        # Actualiza la memoria con la cola reducida ANTES de procesar
         self.memory.write({'data_buffer': json.dumps({'pending_products': pending_products})})
         
         query = current_product.get('query')
@@ -108,7 +109,6 @@ class ChatbotProcessor:
 
         if len(variants) > 1:
             buttons = "\n".join([f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)])
-            # Guardamos la cola original restante en el buffer de selección
             self.memory.write({
                 'flow_state': 'esperando_seleccion_producto',
                 'data_buffer': json.dumps({'products': variants, 'qty': qty, 'original_queue': pending_products}),
@@ -122,7 +122,6 @@ class ChatbotProcessor:
             self.memory.write({
                 'flow_state': 'esperando_cantidad_producto',
                 'last_variant_id': pid,
-                # Guardamos la cola original restante en el buffer de cantidad
                 'data_buffer': json.dumps({'original_queue': pending_products}),
             })
             return self._send_text(messages_config['ask_for_quantity'].format(name=name))
@@ -134,7 +133,6 @@ class ChatbotProcessor:
                 'flow_state': 'esperando_confirmacion_stock',
                 'last_variant_id': pid,
                 'last_qty_suggested': avail,
-                # Guardamos la cola original restante en el buffer de stock
                 'data_buffer': json.dumps({'original_queue': pending_products}),
             })
             return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
@@ -165,8 +163,8 @@ class ChatbotProcessor:
             response = handle_modificar_pedido(self.env, self.memory)
             return self._send_text(response)
         
-        else: # Asume 'continuar_pedido'
-            _logger.info("✅ Intención detectada: continuar_pedido. Se procesará como una intención general.")
+        else:
+            _logger.info("✅ Intención detectada: continuar_pedido.")
             self.memory.write({'flow_state': False})
             return self._handle_general_intent()
 
@@ -184,7 +182,6 @@ class ChatbotProcessor:
             if not selected_variant:
                 return self._send_text(messages_config['invalid_option'])
 
-            # Restauramos la cola de productos pendientes para el próximo paso
             self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
 
             pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
@@ -193,7 +190,7 @@ class ChatbotProcessor:
                 self.memory.write({
                     'flow_state': 'esperando_cantidad_producto', 
                     'last_variant_id': pid, 
-                    'data_buffer': self.memory.data_buffer # Mantenemos la cola
+                    'data_buffer': self.memory.data_buffer
                 })
                 return self._send_text(messages_config['ask_for_quantity'].format(name=name))
             
@@ -204,7 +201,7 @@ class ChatbotProcessor:
                     'flow_state': 'esperando_confirmacion_stock', 
                     'last_variant_id': pid, 
                     'last_qty_suggested': avail,
-                    'data_buffer': self.memory.data_buffer # Mantenemos la cola
+                    'data_buffer': self.memory.data_buffer
                 })
                 return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
         except (ValueError, json.JSONDecodeError) as e:
@@ -231,14 +228,13 @@ class ChatbotProcessor:
 
     def _handle_flow_esperando_confirmacion_stock(self):
         choice = self.plain_text.lower().strip()
-        var = self.env['product.product'].sudo().browse(self.memory.last_variant_id.id)
-
         if choice in ('1', 'sí', 'si', 'si, esa cantidad'):
+            var = self.env['product.product'].sudo().browse(self.memory.last_variant_id.id)
             qty = self.memory.last_qty_suggested
             return self._add_item_and_decide_next_step(var.id, qty, var.display_name)
         
         elif choice in ('2', 'no', 'cancelar'):
-            self.memory.write({'flow_state': False}) # Limpiamos el flujo parcial
+            self.memory.write({'flow_state': False})
             self._send_text(messages_config['confirm_stock_cancellation'])
             return self._process_next_product_in_queue()
         
@@ -266,7 +262,6 @@ class ChatbotProcessor:
             return self._send_text(messages_config['error_processing'])
 
         if not msg.get('function_call'):
-            _logger.warning("❌ GPT no devolvió una llamada a función.")
             return self._send_text(messages_config['error_default'])
 
         args = json.loads(msg.function_call.arguments)
@@ -276,11 +271,10 @@ class ChatbotProcessor:
 
         _logger.info(f"🛒 Productos detectados por IA para encolar: {products_to_add}")
         self.memory.write({
-            'flow_state': False, # Aseguramos que no hay estado previo
+            'flow_state': False,
             'data_buffer': json.dumps({'pending_products': products_to_add})
         })
         
-        # Inicia el procesamiento de la cola
         return self._process_next_product_in_queue()
 
     def _handle_general_intent(self):
@@ -296,4 +290,41 @@ class ChatbotProcessor:
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         
         intent = detect_intention(conv, api_key, system_prompt)
-        self.memory.write
+        self.memory.write({'last_intent_detected': intent})
+        
+        intent_handlers = {
+            "crear_pedido": self._handle_crear_pedido_intent,
+            "modificar_pedido": lambda: self._send_text(handle_modificar_pedido(self.env, self.memory)),
+            "solicitar_factura": lambda: self._send_text(handle_solicitar_factura(self.partner, self.plain_text).get('message')),
+        }
+        
+        handler = intent_handlers.get(intent)
+        if handler:
+            return handler()
+
+        faq_response = handle_respuesta_faq(intent, self.partner, self.plain_text)
+        if faq_response:
+            return self._send_text(faq_response)
+            
+        return self._send_text(messages_config['error_default'])
+
+    def _handle_flow_esperando_seleccion_eliminar(self):
+        cart_lines = json.loads(self.memory.pending_order_lines or '[]')
+        if self.plain_text.lower() == 'cancelar':
+            self.memory.write({'flow_state': 'esperando_confirmacion_pedido'})
+            return self._send_text(messages_config['cancel_modification'])
+        
+        try:
+            index_to_remove = int(self.plain_text)
+            if not (1 <= index_to_remove <= len(cart_lines)):
+                return self._send_text(messages_config['invalid_number_for_deletion'])
+            
+            cart_lines.pop(index_to_remove - 1)
+            self.memory.write({'pending_order_lines': json.dumps(cart_lines)})
+            
+            new_summary = format_cart_for_display(self.env, cart_lines)
+            response = messages_config['item_removed_confirm'].format(summary=new_summary)
+            self.memory.write({'flow_state': 'esperando_confirmacion_pedido'})
+            return self._send_text(response)
+        except ValueError:
+            return self._send_text(messages_config['invalid_input_for_deletion'])
