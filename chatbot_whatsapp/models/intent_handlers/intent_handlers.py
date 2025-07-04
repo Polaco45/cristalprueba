@@ -36,20 +36,23 @@ def handle_saludo(env, partner):
         fallback_template = messages_config.get('greeting_fallback', "¡Hola! ¿En qué puedo ayudarte?")
         return fallback_template.format(partner_name=partner_name)
     
-def handle_agradecimiento_cierre(env, partner):
+def handle_agradecimiento_cierre(env, partner, text):
     """
-    Genera una respuesta de cierre dinámica y variada usando IA.
+    Genera una respuesta de cierre dinámica usando IA, basada en el mensaje real del usuario.
     """
     partner_name = partner.name if partner and 'WhatsApp:' not in partner.name else ''
     try:
         openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['closing_response_system_prompt']
         
+        # --- MODIFICADO: Se pasa el mensaje del usuario a la IA ---
+        user_message_for_gpt = f"El cliente, llamado {partner_name}, respondió: '{text}'"
+        
         resp = openai.ChatCompletion.create(
             model=general_config['openai']['model'],
             messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"El nombre del cliente es: {partner_name}"}
+                {"role": "system", "content": system_prompt.format(partner_name=partner_name)},
+                {"role": "user", "content": user_message_for_gpt}
             ],
             temperature=0.7,
         )

@@ -345,13 +345,13 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
-        # --- MODIFICADO: Se añade el nuevo manejador de cierre ---
+        # --- MODIFICADO: La lambda de cierre ahora pasa `self.plain_text` ---
         intent_handlers = {
             "crear_pedido": self._handle_crear_pedido_intent,
             "modificar_pedido": lambda: self._send_text(handle_modificar_pedido(self.env, self.memory)),
             "saludo": lambda: self._send_text(handle_saludo(self.env, self.partner)),
             "solicitar_factura": lambda: self._send_text(handle_solicitar_factura(self.partner, self.plain_text).get('message')),
-            "agradecimiento_cierre": lambda: self._send_text(handle_agradecimiento_cierre(self.env, self.partner)),
+            "agradecimiento_cierre": lambda: self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text)),
         }
         
         handler = intent_handlers.get(intent)
