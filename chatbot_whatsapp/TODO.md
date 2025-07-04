@@ -91,3 +91,7 @@
 * Escuchar audios
 
 * Pedir direccion
+
+* Consultas sobre medios de pago
+
+* Mostrar ofertas
