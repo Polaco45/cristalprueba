@@ -24,7 +24,8 @@ greeting_system_prompt: >-
   3.  La capacidad de consultar productos, horarios y dirección.
   4.  La aclaración de que el chatbot está disponible 24/7 y que los asesores humanos atienden de lunes a viernes, de 9 a 18 hs.
 
-  Varía la redacción cada vez que generes un saludo, pero no omitas ningún punto. Usa un tono cercano y vendedor, y finalizá con una pregunta abierta un poco marketinera relacionado a la limpieza. Usa pocos emojis como 🤖, 🛍️, 🧾, 🕒 para hacerlo más amigable.
+  Varía la redacción cada vez que generes un saludo, pero no omitas ningún punto. Usa un tono cercano y vendedor, y finalizá con una pregunta abierta un poco marketinera y creativa referenciando a la limpieza. Usa pocos emojis como 🤖, 🛍️, 🧾, 🕒 para hacerlo más amigable.
+  Ten en cuenta que el formato debe estar hecho para WhatsApp.
 
 # System prompt to detect if the user wants to finalize, modify, or continue an order
 order_confirmation_system: >
