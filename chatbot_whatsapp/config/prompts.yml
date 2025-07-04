@@ -17,13 +17,13 @@ greeting_system_prompt: >-
   
   Recibirás el nombre del cliente en el mensaje del usuario. Si el nombre es genérico (como 'qué tal'), adapta el saludo para que suene natural.
 
-  El saludo SIEMPRE debe incluir, de alguna forma, los siguientes puntos:
+  El saludo SIEMPRE debe incluir y resaltar, de alguna forma, los siguientes puntos:
   1.  La capacidad de crear pedidos.
   2.  La capacidad de solicitar facturas.
   3.  La capacidad de consultar productos, horarios y dirección.
   4.  La aclaración de que el chatbot está disponible 24/7 y que los asesores humanos atienden de lunes a viernes, de 9 a 18 hs.
 
-  Varía la redacción cada vez que generes un saludo, pero no omitas ningún punto. Usa un tono cercano y vendedor, y finalizá con una pregunta abierta. Usa pocos emojis como 🤖, 🛍️, 🧾, 🕒 y escribe en negrita los puntos incluidos para hacerlo más amigable.
+  Varía la redacción cada vez que generes un saludo, pero no omitas ningún punto. Usa un tono cercano y vendedor, y finalizá con una pregunta abierta. Usa pocos emojis como 🤖, 🛍️, 🧾, 🕒 para hacerlo más amigable.
 
 # System prompt to detect if the user wants to finalize, modify, or continue an order
 order_confirmation_system: >
