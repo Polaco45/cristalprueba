@@ -75,7 +75,9 @@ def lookup_product_variants(env, partner, query, limit=20):
     _logger.info(f"📦 Variantes en stock con precio: {[p['name'] for p in products_with_prices]}")
     return products_with_prices
 
-def create_sale_order(env, partner_id, order_lines):
+# --- MODIFICADO: La función ahora acepta un ID de dirección de entrega ---
+def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
+    """Crea la orden de venta y el lead asociado."""
     partner = env['res.partner'].browse(partner_id)
     pricelist = partner.property_product_pricelist
 
@@ -90,12 +92,19 @@ def create_sale_order(env, partner_id, order_lines):
         }))
         description_lines.append(f"  - Producto: {product.display_name}, Cantidad: {line['quantity']}")
 
-    order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create({
+    order_vals = {
         'partner_id': partner_id,
         'pricelist_id': pricelist.id,
         'order_line': order_line_vals
-    })
-    _logger.info(f"✅ Orden creada: {order.name}")
+    }
+    
+    # --- NUEVO: Asigna la dirección de entrega si se proporciona ---
+    if partner_shipping_id:
+        order_vals['partner_shipping_id'] = partner_shipping_id
+
+    order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create(order_vals)
+    _logger.info(f"✅ Orden creada: {order.name} para la dirección ID: {order.partner_shipping_id.id}")
+
     lead_vals = {
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
@@ -117,6 +126,7 @@ def create_sale_order(env, partner_id, order_lines):
             'user_id': partner.user_id.id or env.user.id,
         })
     return order
+
 
 def handle_crear_pedido(env, partner, text, memory):
     openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')

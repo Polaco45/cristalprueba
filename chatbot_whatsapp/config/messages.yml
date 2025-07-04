@@ -1,4 +1,4 @@
-# messages.yml (COMPLETO)
+# messages.yml
 
 # --- General ---
 error_default: "Perdón, no entendí eso 😅. ¿Podés reformular tu consulta?"
@@ -32,3 +32,5 @@ invalid_quantity: "La cantidad debe ser un número positivo. ¿Cuántas unidades
 invalid_quantity_format: "No entendí la cantidad. Por favor, escribí solo el número."
 confirm_stock_cancellation: "Entendido, cancelamos ese producto. ¿Querés agregar otra cosa?"
 invalid_stock_confirmation: "No entendí tu respuesta. Por favor, respondé 'Sí' o 'No'."
+ask_for_delivery_address: "¡Ya casi terminamos! He visto que tenés varias direcciones de entrega. ¿A cuál de las siguientes querés que te enviemos el pedido?\n{addresses}"
+invalid_address_option: "Opción de dirección no válida. Por favor, elegí un número de la lista."

@@ -1,4 +1,4 @@
-# chatbot_processor.py (COMPLETO)
+# chatbot_whatsapp/models/chatbot_processor.py (COMPLETO)
 
 import json
 import logging
@@ -56,28 +56,19 @@ class ChatbotProcessor:
     # --- LÓGICA DE AGREGACIÓN Y COLA ---
 
     def _add_item_and_decide_next_step(self, pid, qty, name):
-        """
-        Agrega un ítem al carrito y decide el siguiente paso:
-        - Si la cola tiene más productos, continúa procesándolos.
-        - Si la cola está vacía, pregunta al usuario si desea agregar algo más.
-        """
+        """Agrega un ítem al carrito y decide el siguiente paso."""
         add_item_to_cart(self.memory, pid, qty)
-
         buffer_data = json.loads(self.memory.data_buffer or '{}')
         pending_products = buffer_data.get('pending_products', [])
 
         if not pending_products:
-            # Era el último ítem de la cola.
             _logger.info("🏁 Cola de productos vacía. Finalizando ciclo de agregación.")
-            
             cart_lines = json.loads(self.memory.pending_order_lines or '[]')
             summary = format_cart_for_display(self.env, cart_lines)
             response = messages_config['confirm_item_added'].format(qty=qty, name=name, summary=summary)
-            
             self.memory.write({'flow_state': 'esperando_confirmacion_pedido', 'data_buffer': ''})
             return self._send_text(response)
         else:
-            # Aún quedan ítems en la cola.
             self._send_text(messages_config['item_added_processing_next'].format(qty=qty, name=name))
             return self._process_next_product_in_queue()
 
@@ -87,8 +78,6 @@ class ChatbotProcessor:
         pending_products = buffer_data.get('pending_products', [])
 
         if not pending_products:
-            # Esto solo debería ocurrir si se llama con una cola ya vacía, lo cual es un caso borde.
-            # La lógica principal de finalización está en _add_item_and_decide_next_step.
             _logger.info("🏁 Cola de productos ya estaba vacía. Pasando a confirmación final.")
             self.memory.write({'flow_state': 'esperando_confirmacion_pedido', 'data_buffer': ''})
             return self._send_text("¿Querés agregar algo más?")
@@ -139,6 +128,7 @@ class ChatbotProcessor:
 
     # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
 
+    # --- MODIFICADO: Ahora verifica las direcciones antes de crear la orden ---
     def _handle_flow_esperando_confirmacion_pedido(self):
         system_prompt = prompts_config['order_confirmation_system']
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -151,12 +141,30 @@ class ChatbotProcessor:
                 self.memory.write({'flow_state': False, 'pending_order_lines': '[]'})
                 return self._send_text(messages_config['cart_is_empty'])
 
-            order = create_sale_order(self.env, self.partner.id, order_lines_data)
-            summary = format_cart_for_display(self.env, order.order_line.mapped(lambda l: {'product_id': l.product_id.id, 'quantity': int(l.product_uom_qty)}))
-            response = messages_config['order_finalized'].format(order_name=order.name, summary=summary)
+            # --- NUEVO: Lógica de selección de dirección ---
+            delivery_addresses = self.partner.child_ids.filtered(lambda c: c.type == 'delivery')
             
-            self.memory.write({'flow_state': False, 'data_buffer': '', 'last_variant_id': False, 'last_qty_suggested': False, 'pending_order_lines': '[]'})
-            return self._send_text(response)
+            if len(delivery_addresses) > 1:
+                _logger.info(f"🚚 Múltiples direcciones de entrega ({len(delivery_addresses)}) encontradas para {self.partner.name}.")
+                address_list_str = "\n".join([f"{i+1}) {addr.name}, {addr.contact_address.replace('\n', ', ')}" for i, addr in enumerate(delivery_addresses)])
+                
+                self.memory.write({
+                    'flow_state': 'esperando_seleccion_direccion',
+                    'data_buffer': json.dumps({'addresses': delivery_addresses.ids})
+                })
+                
+                return self._send_text(
+                    messages_config['ask_for_delivery_address'].format(addresses=address_list_str)
+                )
+            else:
+                # Si hay 1 o 0 direcciones, se usa la de por defecto (o la única que hay)
+                shipping_id = delivery_addresses.id if delivery_addresses else self.partner.id
+                order = create_sale_order(self.env, self.partner.id, order_lines_data, partner_shipping_id=shipping_id)
+                summary = format_cart_for_display(self.env, order.order_line.mapped(lambda l: {'product_id': l.product_id.id, 'quantity': int(l.product_uom_qty)}))
+                response = messages_config['order_finalized'].format(order_name=order.name, summary=summary)
+                
+                self.memory.write({'flow_state': False, 'data_buffer': '', 'pending_order_lines': '[]'})
+                return self._send_text(response)
         
         elif specialized_intent == 'modificar_pedido':
             _logger.info("✅ Intención detectada: modificar_pedido")
@@ -167,6 +175,35 @@ class ChatbotProcessor:
             _logger.info("✅ Intención detectada: continuar_pedido.")
             self.memory.write({'flow_state': False})
             return self._handle_general_intent()
+
+    # --- NUEVO: Manejador para el flujo de selección de dirección ---
+    def _handle_flow_esperando_seleccion_direccion(self):
+        """Maneja la selección de la dirección de entrega por parte del usuario."""
+        try:
+            data = json.loads(self.memory.data_buffer or '{}')
+            address_ids = data.get('addresses', [])
+            
+            if not (self.plain_text.isdigit() and 1 <= int(self.plain_text) <= len(address_ids)):
+                return self._send_text(messages_config['invalid_address_option'])
+
+            selected_address_id = address_ids[int(self.plain_text) - 1]
+            _logger.info(f"🚚 Dirección de entrega seleccionada: ID {selected_address_id}")
+
+            order_lines_data = json.loads(self.memory.pending_order_lines or '[]')
+            
+            order = create_sale_order(self.env, self.partner.id, order_lines_data, partner_shipping_id=selected_address_id)
+            
+            summary = format_cart_for_display(self.env, order.order_line.mapped(lambda l: {'product_id': l.product_id.id, 'quantity': int(l.product_uom_qty)}))
+            response = messages_config['order_finalized'].format(order_name=order.name, summary=summary)
+            
+            self.memory.write({'flow_state': False, 'data_buffer': '', 'pending_order_lines': '[]'})
+            
+            return self._send_text(response)
+            
+        except (ValueError, json.JSONDecodeError, IndexError) as e:
+            _logger.error(f"Error en el flujo de selección de dirección: {e}")
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+            return self._send_text(messages_config['error_processing'])
 
     def _handle_flow_esperando_seleccion_producto(self):
         try:
