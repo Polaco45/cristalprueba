@@ -1,3 +1,7 @@
+### Glosary
+**"-"** = DONE
+**"*"** = TO DO
+
 ### V1
 
 - Onboardear a la persona en caso de que sea nueva
@@ -47,8 +51,8 @@
    - quiero pedir escobillones
    - No encontramos ningún producto que coincida con 'escobas'.
 
-* Direcciones de entrega
-    * Cuando hay mas de una direccion, preguntar a cual.
+- Direcciones de entrega
+    - Cuando hay mas de una direccion, preguntar a cual.
 
 * Manejar saludo y prompt
 

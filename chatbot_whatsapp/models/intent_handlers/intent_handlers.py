@@ -4,8 +4,37 @@ import openai
 import base64
 from odoo import _
 from odoo.exceptions import UserError
+from ...config.config import messages_config, prompts_config, general_config
+
 
 _logger = logging.getLogger(__name__)
+
+def handle_saludo(env, partner):
+    """
+    Genera un saludo dinámico y variado utilizando la IA.
+    Si la llamada a la IA falla, utiliza un mensaje de fallback.
+    """
+    partner_name = partner.name if partner and 'WhatsApp:' not in partner.name else 'qué tal'
+
+    try:
+        openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        system_prompt = prompts_config['greeting_system_prompt']
+        
+        resp = openai.ChatCompletion.create(
+            model=general_config['openai']['model'],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"El nombre del cliente es: {partner_name}"}
+            ],
+            temperature=0.7, # Usamos una temperatura mayor a 0 para obtener variedad
+        )
+        return resp.choices[0].message.content
+
+    except Exception as e:
+        _logger.error(f"❌ Error al generar saludo con IA: {e}. Usando fallback.")
+        # En caso de error, se envía el saludo hardcodeado para no fallar.
+        fallback_template = messages_config.get('greeting_fallback', "¡Hola! ¿En qué puedo ayudarte?")
+        return fallback_template.format(partner_name=partner_name)
 
 def handle_solicitar_factura(partner, text):
     """
