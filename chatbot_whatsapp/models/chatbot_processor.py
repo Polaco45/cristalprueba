@@ -170,7 +170,7 @@ class ChatbotProcessor:
                 })
                 
                 # Se agrega una línea final para mayor claridad en la instrucción
-                final_message = messages_config['ask_for_delivery_address'].format(addresses=address_list_str) + "\nRespondé con el número de la dirección que elegís."
+                final_message = messages_config['ask_for_delivery_address'].format(addresses=address_list_str)
                 return self._send_text(final_message)
             else:
                 shipping_id = delivery_addresses.id if delivery_addresses else self.partner.id
