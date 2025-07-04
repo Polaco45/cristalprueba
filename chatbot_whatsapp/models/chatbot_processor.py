@@ -141,23 +141,38 @@ class ChatbotProcessor:
                 self.memory.write({'flow_state': False, 'pending_order_lines': '[]'})
                 return self._send_text(messages_config['cart_is_empty'])
 
-            # --- NUEVO: Lógica de selección de dirección ---
             delivery_addresses = self.partner.child_ids.filtered(lambda c: c.type == 'delivery')
             
             if len(delivery_addresses) > 1:
                 _logger.info(f"🚚 Múltiples direcciones de entrega ({len(delivery_addresses)}) encontradas para {self.partner.name}.")
-                address_list_str = "\n".join([f"{i+1}) {addr.name}, {addr.contact_address.replace('\n', ', ')}" for i, addr in enumerate(delivery_addresses)])
+                
+                # --- NUEVO: Formateo manual y limpio de la dirección ---
+                address_lines = []
+                for i, addr in enumerate(delivery_addresses):
+                    # Se crea una lista con las partes de la dirección
+                    parts = [
+                        addr.name,
+                        addr.street,
+                        addr.city,
+                        addr.state_id.name,
+                        addr.zip,
+                        addr.country_id.name
+                    ]
+                    # Se filtran las partes vacías y se unen con ", "
+                    formatted_address = ", ".join(filter(None, parts))
+                    address_lines.append(f"{i+1}) {formatted_address}")
+                
+                address_list_str = "\n".join(address_lines)
                 
                 self.memory.write({
                     'flow_state': 'esperando_seleccion_direccion',
                     'data_buffer': json.dumps({'addresses': delivery_addresses.ids})
                 })
                 
-                return self._send_text(
-                    messages_config['ask_for_delivery_address'].format(addresses=address_list_str)
-                )
+                # Se agrega una línea final para mayor claridad en la instrucción
+                final_message = messages_config['ask_for_delivery_address'].format(addresses=address_list_str) + "\nRespondé con el número de la dirección que elegís."
+                return self._send_text(final_message)
             else:
-                # Si hay 1 o 0 direcciones, se usa la de por defecto (o la única que hay)
                 shipping_id = delivery_addresses.id if delivery_addresses else self.partner.id
                 order = create_sale_order(self.env, self.partner.id, order_lines_data, partner_shipping_id=shipping_id)
                 summary = format_cart_for_display(self.env, order.order_line.mapped(lambda l: {'product_id': l.product_id.id, 'quantity': int(l.product_uom_qty)}))
