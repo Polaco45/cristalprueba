@@ -56,7 +56,7 @@
 
 - Manejar saludo
 
-* Manejar agradecimiento
+- Manejar agradecimiento
 
 * Manejar consultas de producto
 
