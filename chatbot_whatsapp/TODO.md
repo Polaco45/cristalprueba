@@ -54,7 +54,7 @@
 - Direcciones de entrega
     - Cuando hay mas de una direccion, preguntar a cual.
 
-* Manejar saludo y prompt
+- Manejar saludo y prompt
 
 * Manejar agradecimiento
 
@@ -67,6 +67,8 @@
 * Que aparezcan los mensajes de WhatsApp en Odoo
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
+
+* QA, ROMPER COSAS y DETALLES
 
 ### V2
 
