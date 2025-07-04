@@ -9,6 +9,61 @@ from ...config.config import messages_config, prompts_config, general_config
 
 _logger = logging.getLogger(__name__)
 
+
+# --- Manejador dedicado para la consulta de productos ---
+def handle_consulta_producto(env, partner, text):
+    """
+    Maneja la consulta de un producto por parte de un usuario.
+    1. Extrae el nombre del producto con IA.
+    2. Busca variantes en Odoo.
+    3. Si encuentra, presenta las 3 más relevantes con un tono vendedor usando IA.
+    """
+    try:
+        openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        
+        # 1. Extraer el nombre del producto de la consulta
+        extraction_prompt = prompts_config['product_extraction_system_prompt']
+        resp = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": extraction_prompt},
+                {"role": "user", "content": text}
+            ],
+            temperature=0,
+        )
+        query = resp.choices[0].message.content.strip()
+        _logger.info(f"🔍 Consulta de producto. Query extraído: '{query}'")
+
+        # 2. Buscar variantes en Odoo
+        try:
+            variants = lookup_product_variants(env, partner, query, limit=10)
+        except UserError:
+            # Si lookup_product_variants no encuentra nada, lanza UserError
+            return messages_config['product_query_not_found'].format(query=query)
+
+        # 3. Formatear las 3 opciones más relevantes
+        top_variants = variants[:3]
+        product_list_str = "\n".join([
+            f"{i+1}) *{v['name']}* - ${v['price']:.2f}" 
+            for i, v in enumerate(top_variants)
+        ])
+
+        # 4. Generar respuesta vendedora con IA
+        response_prompt = prompts_config['product_query_response_system_prompt']
+        final_response_resp = openai.ChatCompletion.create(
+            model=general_config['openai']['model'],
+            messages=[
+                {"role": "system", "content": response_prompt},
+                {"role": "user", "content": f"Aquí están las opciones que encontré:\n{product_list_str}"}
+            ],
+            temperature=0.7,
+        )
+        return final_response_resp.choices[0].message.content
+
+    except Exception as e:
+        _logger.error(f"❌ Error en handle_consulta_producto: {e}")
+        return messages_config['error_processing']
+
 def handle_saludo(env, partner):
     """
     Genera un saludo dinámico y variado utilizando la IA.

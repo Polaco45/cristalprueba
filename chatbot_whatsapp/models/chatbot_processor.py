@@ -13,7 +13,7 @@ from .intent_handlers.create_order import (
 )
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
-    handle_agradecimiento_cierre
+    handle_agradecimiento_cierre, handle_consulta_producto
 )
 
 _logger = logging.getLogger(__name__)
@@ -345,11 +345,12 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
-        # --- MODIFICADO: La lambda de cierre ahora pasa `self.plain_text` ---
+        # --- MODIFICADO: Se añade el nuevo manejador para consulta_producto ---
         intent_handlers = {
             "crear_pedido": self._handle_crear_pedido_intent,
             "modificar_pedido": lambda: self._send_text(handle_modificar_pedido(self.env, self.memory)),
             "saludo": lambda: self._send_text(handle_saludo(self.env, self.partner)),
+            "consulta_producto": lambda: self._send_text(handle_consulta_producto(self.env, self.partner, self.plain_text)),
             "solicitar_factura": lambda: self._send_text(handle_solicitar_factura(self.partner, self.plain_text).get('message')),
             "agradecimiento_cierre": lambda: self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text)),
         }
@@ -358,6 +359,7 @@ class ChatbotProcessor:
         if handler:
             return handler()
 
+        # El fallback a FAQ genérico se mantiene para el resto de las dudas
         faq_response = handle_respuesta_faq(intent, self.partner, self.plain_text)
         if faq_response:
             return self._send_text(faq_response)
