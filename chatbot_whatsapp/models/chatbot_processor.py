@@ -12,7 +12,8 @@ from .intent_handlers.create_order import (
     format_cart_for_display, add_item_to_cart, lookup_product_variants
 )
 from .intent_handlers.intent_handlers import (
-    handle_solicitar_factura, handle_respuesta_faq, handle_saludo
+    handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
+    handle_agradecimiento_cierre
 )
 
 _logger = logging.getLogger(__name__)
@@ -344,12 +345,13 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
-        # --- MODIFICADO: La lambda de saludo ahora pasa `self.env` ---
+        # --- MODIFICADO: Se añade el nuevo manejador de cierre ---
         intent_handlers = {
             "crear_pedido": self._handle_crear_pedido_intent,
             "modificar_pedido": lambda: self._send_text(handle_modificar_pedido(self.env, self.memory)),
             "saludo": lambda: self._send_text(handle_saludo(self.env, self.partner)),
             "solicitar_factura": lambda: self._send_text(handle_solicitar_factura(self.partner, self.plain_text).get('message')),
+            "agradecimiento_cierre": lambda: self._send_text(handle_agradecimiento_cierre(self.env, self.partner)),
         }
         
         handler = intent_handlers.get(intent)

@@ -35,6 +35,30 @@ def handle_saludo(env, partner):
         # En caso de error, se envía el saludo hardcodeado para no fallar.
         fallback_template = messages_config.get('greeting_fallback', "¡Hola! ¿En qué puedo ayudarte?")
         return fallback_template.format(partner_name=partner_name)
+    
+def handle_agradecimiento_cierre(env, partner):
+    """
+    Genera una respuesta de cierre dinámica y variada usando IA.
+    """
+    partner_name = partner.name if partner and 'WhatsApp:' not in partner.name else ''
+    try:
+        openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        system_prompt = prompts_config['closing_response_system_prompt']
+        
+        resp = openai.ChatCompletion.create(
+            model=general_config['openai']['model'],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"El nombre del cliente es: {partner_name}"}
+            ],
+            temperature=0.7,
+        )
+        return resp.choices[0].message.content
+
+    except Exception as e:
+        _logger.error(f"❌ Error al generar respuesta de cierre con IA: {e}. Usando fallback.")
+        fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
+        return fallback_template.format(partner_name=partner_name)
 
 def handle_solicitar_factura(partner, text):
     """

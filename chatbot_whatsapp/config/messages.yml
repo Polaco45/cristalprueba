@@ -17,6 +17,10 @@ greeting_fallback: >-
 
   Estoy disponible para vos 24/7. Si necesitás un asesor humano, nuestro equipo atiende de lunes a viernes, de 9 a 18 hs.
 
+# --- Mensaje de fallback para el cierre ---
+closing_fallback: "¡De nada, {partner_name}! Me alegro de haberte ayudado. Si necesitás algo más, no dudes en consultar. 😊"
+
+
 # --- Order Creation ---
 product_not_found_gpt: "No pude identificar ningún producto en tu mensaje. ¿Podés intentarlo de nuevo?"
 product_not_in_odoo: "No encontramos ningún producto que coincida con '{query}'."

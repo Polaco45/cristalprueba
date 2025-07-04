@@ -54,9 +54,11 @@
 - Direcciones de entrega
     - Cuando hay mas de una direccion, preguntar a cual.
 
-- Manejar saludo y prompt
+- Manejar saludo
 
 * Manejar agradecimiento
+
+* Manejar consultas de producto
 
 * Terminar de manejar factura
 
