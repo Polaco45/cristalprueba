@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import openai
 from odoo.exceptions import UserError
 from ..utils.nlp import detect_intention
