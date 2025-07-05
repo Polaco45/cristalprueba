@@ -214,42 +214,32 @@ class ChatbotProcessor:
         sub_intent = detect_intention([{"role": "user", "content": self.plain_text}], api_key, system_prompt)
         
         _logger.info(f"🔎 Sub-intención detectada en selección: '{sub_intent}'")
+        data = json.loads(self.memory.data_buffer or '{}')
 
         if sub_intent == 'seleccionar_producto':
             try:
-                data = json.loads(self.memory.data_buffer or '{}')
                 variants, qty = data.get('products', []), data.get('qty')
-                
                 selected_variant = None
-                # Intenta extraer un número del texto del usuario
                 match = re.search(r'\d+', self.plain_text)
                 if match:
                     index = int(match.group(0)) - 1
                     if 0 <= index < len(variants):
                         selected_variant = variants[index]
-
-                # Si no se encontró por número, intenta por nombre (esto es opcional y se puede quitar si causa problemas)
                 if not selected_variant:
                     for v in variants:
                         if v['name'].lower() in self.plain_text.lower():
                              selected_variant = v
                              break
-                
                 if not selected_variant:
                     return self._send_text(messages_config['invalid_option'])
-
-                # Si llegamos aquí, se seleccionó un producto. Continuamos el flujo.
                 self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
                 pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
-
                 if not qty:
                     self.memory.write({
-                        'flow_state': 'esperando_cantidad_producto', 
-                        'last_variant_id': pid, 
+                        'flow_state': 'esperando_cantidad_producto', 'last_variant_id': pid, 
                         'data_buffer': self.memory.data_buffer
                     })
                     return self._send_text(messages_config['ask_for_quantity'].format(name=name))
-                
                 if qty <= avail:
                     return self._add_item_and_decide_next_step(pid, qty, name)
                 else:
@@ -264,19 +254,35 @@ class ChatbotProcessor:
                 return self._send_text(messages_config['error_processing'])
 
         elif sub_intent == 'nueva_consulta':
-            # El usuario hizo otra pregunta, rompemos el flujo actual y lo tratamos como una nueva consulta.
-            _logger.info("El usuario hizo una nueva consulta, rompiendo el flujo de selección.")
-            self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._handle_general_intent()
+            _logger.info("El usuario hizo una nueva consulta sobre los productos mostrados.")
+            products_in_context = data.get('products', [])
+            
+            context_for_ai = "Productos en contexto:\n" + "\n".join([f"- {p['name']} (${p['price']:.2f})" for p in products_in_context])
+            
+            comparison_prompt = prompts_config['product_comparison_prompt']
+            
+            try:
+                resp = openai.ChatCompletion.create(
+                    model=general_config['openai']['model'],
+                    messages=[
+                        {"role": "system", "content": comparison_prompt},
+                        {"role": "user", "content": f"{context_for_ai}\n\nPregunta del cliente: '{self.plain_text}'"}
+                    ],
+                    temperature=0.7
+                )
+                response_text = resp.choices[0].message.content
+                # Mantenemos el estado, para que el usuario pueda seguir eligiendo.
+                return self._send_text(response_text)
+            except Exception as e:
+                _logger.error(f"Error en la sub-consulta de producto: {e}")
+                return self._send_text(messages_config['error_processing'])
         
         elif sub_intent == 'cancelar_seleccion':
-            # El usuario no quiere ninguna de las opciones.
             _logger.info("El usuario canceló la selección de producto.")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['selection_cancelled'])
 
         else:
-            # Fallback por si la sub-intención no es clara
             return self._send_text(messages_config['invalid_option'])
 
     def _handle_flow_esperando_cantidad_producto(self):
