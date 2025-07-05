@@ -34,17 +34,27 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    def _send_text(self, text_to_send):
-        _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
+    def _send_response(self, response_data):
+        """Wrapper para enviar respuestas que pueden incluir texto y/o PDF."""
+        message = response_data.get('message')
+        pdf_base64 = response_data.get('pdf_base64')
+        
+        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
         vals = {
             'mobile_number': self.record.mobile_number,
-            'body': text_to_send,
+            'body': message,
             'state': 'outgoing',
             'wa_account_id': self.record.wa_account_id.id if self.record.wa_account_id else False,
             'create_uid': self.env.ref('base.user_admin').id,
         }
+        if pdf_base64:
+            vals['attachment_ids'] = [(0, 0, {
+                'name': 'factura.pdf',
+                'datas': pdf_base64,
+                'mimetype': 'application/pdf',
+            })]
         outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-        outgoing_msg.sudo().write({'body': text_to_send})
+        outgoing_msg.sudo().write({'body': message})
         if hasattr(outgoing_msg, '_send_message'):
             outgoing_msg._send_message()
         _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")

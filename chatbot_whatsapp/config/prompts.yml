@@ -16,6 +16,7 @@ general_intent_system: >
   
   Devolvé únicamente la categoría (en minúsculas, sin explicaciones).
 
+# --- System prompt para desambiguar la selección de un producto ---
 product_disambiguation_prompt: >-
   Eres un sistema experto en procesamiento de lenguaje natural. Tu tarea es analizar la respuesta de un usuario y determinar cuál opción de una lista ha elegido.
   
