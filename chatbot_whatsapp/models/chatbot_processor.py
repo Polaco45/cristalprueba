@@ -345,7 +345,6 @@ class ChatbotProcessor:
             _logger.info(f"🧾 Factura seleccionada por el usuario: ID {selected_invoice_id}")
 
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
-            
             response_data = _generate_invoice_pdf_response(invoice)
             
             self.memory.write({'flow_state': False, 'data_buffer': ''})
@@ -407,18 +406,16 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
-        # --- MODIFICADO: Se separa `consulta_producto` para un manejo especial ---
+        # --- MODIFICADO: Lógica de despacho de intenciones mejorada ---
         
-        # Manejadores que devuelven solo texto
-        simple_handlers = {
-            "saludo": lambda: handle_saludo(self.env, self.partner),
-            "agradecimiento_cierre": lambda: handle_agradecimiento_cierre(self.env, self.partner, self.plain_text),
-            "solicitar_factura": lambda: handle_solicitar_factura(self.partner, self.plain_text).get('message'),
-        }
-
-        if intent in simple_handlers:
-            response_message = simple_handlers[intent]()
-            return self._send_text(response_message)
+        # Manejadores que siempre devuelven solo texto
+        if intent in ["saludo", "agradecimiento_cierre"]:
+            handler = {
+                "saludo": handle_saludo,
+                "agradecimiento_cierre": handle_agradecimiento_cierre,
+            }[intent]
+            response_text = handler(self.env, self.partner, self.plain_text)
+            return self._send_text(response_text)
 
         # Manejadores que inician un flujo de pedido
         if intent == "crear_pedido":
@@ -426,18 +423,21 @@ class ChatbotProcessor:
         if intent == "modificar_pedido":
             return self._send_text(handle_modificar_pedido(self.env, self.memory))
 
-        # --- NUEVO: Manejo especial para consulta_producto que devuelve un dict ---
-        if intent == "consulta_producto":
-            response_data = handle_consulta_producto(self.env, self.partner, self.plain_text)
+        # Manejadores que devuelven un diccionario complejo (con posible estado de flujo)
+        if intent in ["consulta_producto", "solicitar_factura"]:
+            handler = {
+                "consulta_producto": handle_consulta_producto,
+                "solicitar_factura": handle_solicitar_factura,
+            }[intent]
+            response_data = handler(self.env, self.partner, self.plain_text)
             
-            # Si el handler preparó un nuevo estado de flujo, lo guardamos
             if response_data.get('flow_state'):
                 self.memory.write({
                     'flow_state': response_data['flow_state'],
-                    'data_buffer': response_data['data_buffer']
+                    'data_buffer': response_data.get('data_buffer', '')
                 })
             
-            return self._send_text(response_data['message'])
+            return self._send_response(response_data)
 
         # Fallback para el resto de las FAQs
         faq_response = handle_respuesta_faq(intent, self.partner, self.plain_text)
@@ -445,7 +445,7 @@ class ChatbotProcessor:
             return self._send_text(faq_response)
             
         return self._send_text(messages_config['error_default'])
-
+    
     def _handle_flow_esperando_seleccion_eliminar(self):
         cart_lines = json.loads(self.memory.pending_order_lines or '[]')
         if self.plain_text.lower() == 'cancelar':
