@@ -345,21 +345,39 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
-        # --- MODIFICADO: Se añade el nuevo manejador para consulta_producto ---
-        intent_handlers = {
-            "crear_pedido": self._handle_crear_pedido_intent,
-            "modificar_pedido": lambda: self._send_text(handle_modificar_pedido(self.env, self.memory)),
-            "saludo": lambda: self._send_text(handle_saludo(self.env, self.partner)),
-            "consulta_producto": lambda: self._send_text(handle_consulta_producto(self.env, self.partner, self.plain_text)),
-            "solicitar_factura": lambda: self._send_text(handle_solicitar_factura(self.partner, self.plain_text).get('message')),
-            "agradecimiento_cierre": lambda: self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text)),
-        }
+        # --- MODIFICADO: Se separa `consulta_producto` para un manejo especial ---
         
-        handler = intent_handlers.get(intent)
-        if handler:
-            return handler()
+        # Manejadores que devuelven solo texto
+        simple_handlers = {
+            "saludo": lambda: handle_saludo(self.env, self.partner),
+            "agradecimiento_cierre": lambda: handle_agradecimiento_cierre(self.env, self.partner, self.plain_text),
+            "solicitar_factura": lambda: handle_solicitar_factura(self.partner, self.plain_text).get('message'),
+        }
 
-        # El fallback a FAQ genérico se mantiene para el resto de las dudas
+        if intent in simple_handlers:
+            response_message = simple_handlers[intent]()
+            return self._send_text(response_message)
+
+        # Manejadores que inician un flujo de pedido
+        if intent == "crear_pedido":
+            return self._handle_crear_pedido_intent()
+        if intent == "modificar_pedido":
+            return self._send_text(handle_modificar_pedido(self.env, self.memory))
+
+        # --- NUEVO: Manejo especial para consulta_producto que devuelve un dict ---
+        if intent == "consulta_producto":
+            response_data = handle_consulta_producto(self.env, self.partner, self.plain_text)
+            
+            # Si el handler preparó un nuevo estado de flujo, lo guardamos
+            if response_data.get('flow_state'):
+                self.memory.write({
+                    'flow_state': response_data['flow_state'],
+                    'data_buffer': response_data['data_buffer']
+                })
+            
+            return self._send_text(response_data['message'])
+
+        # Fallback para el resto de las FAQs
         faq_response = handle_respuesta_faq(intent, self.partner, self.plain_text)
         if faq_response:
             return self._send_text(faq_response)

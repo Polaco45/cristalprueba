@@ -1,28 +1,23 @@
-import re
 import logging
 import openai
 import base64
-from odoo import _
+import re
+import json
 from odoo.exceptions import UserError
 from ...config.config import messages_config, prompts_config, general_config
 from .create_order import lookup_product_variants
 
-
 _logger = logging.getLogger(__name__)
 
-
-# --- Manejador dedicado para la consulta de productos ---
+# --- MODIFICADO: Ahora devuelve un diccionario con estado y buffer ---
 def handle_consulta_producto(env, partner, text):
     """
-    Maneja la consulta de un producto por parte de un usuario.
-    1. Extrae el nombre del producto con IA.
-    2. Busca variantes en Odoo.
-    3. Si encuentra, presenta las 3 más relevantes con un tono vendedor usando IA.
+    Maneja la consulta de un producto, devolviendo un diccionario con el mensaje, 
+    el nuevo estado del flujo y el buffer de datos.
     """
     try:
         openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
         
-        # 1. Extraer el nombre del producto de la consulta
         extraction_prompt = prompts_config['product_extraction_system_prompt']
         resp = openai.ChatCompletion.create(
             model="gpt-4o-mini",
@@ -35,21 +30,17 @@ def handle_consulta_producto(env, partner, text):
         query = resp.choices[0].message.content.strip()
         _logger.info(f"🔍 Consulta de producto. Query extraído: '{query}'")
 
-        # 2. Buscar variantes en Odoo
         try:
             variants = lookup_product_variants(env, partner, query, limit=10)
         except UserError:
-            # Si lookup_product_variants no encuentra nada, lanza UserError
-            return messages_config['product_query_not_found'].format(query=query)
+            return {'message': messages_config['product_query_not_found'].format(query=query)}
 
-        # 3. Formatear las 3 opciones más relevantes
         top_variants = variants[:3]
         product_list_str = "\n".join([
             f"{i+1}) *{v['name']}* - ${v['price']:.2f}" 
             for i, v in enumerate(top_variants)
         ])
 
-        # 4. Generar respuesta vendedora con IA
         response_prompt = prompts_config['product_query_response_system_prompt']
         final_response_resp = openai.ChatCompletion.create(
             model=general_config['openai']['model'],
@@ -59,51 +50,47 @@ def handle_consulta_producto(env, partner, text):
             ],
             temperature=0.7,
         )
-        return final_response_resp.choices[0].message.content
+        
+        # --- NUEVO: Construye el diccionario de respuesta completo ---
+        return {
+            'message': final_response_resp.choices[0].message.content,
+            'flow_state': 'esperando_seleccion_producto',
+            'data_buffer': json.dumps({'products': top_variants, 'qty': None})
+        }
 
     except Exception as e:
         _logger.error(f"❌ Error en handle_consulta_producto: {e}")
-        return messages_config['error_processing']
+        return {'message': messages_config['error_processing']}
+
+# --- El resto de las funciones se mantienen igual ---
 
 def handle_saludo(env, partner):
-    """
-    Genera un saludo dinámico y variado utilizando la IA.
-    Si la llamada a la IA falla, utiliza un mensaje de fallback.
-    """
+    """Genera un saludo dinámico y variado utilizando la IA."""
     partner_name = partner.name if partner and 'WhatsApp:' not in partner.name else 'qué tal'
-
     try:
         openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['greeting_system_prompt']
-        
         resp = openai.ChatCompletion.create(
             model=general_config['openai']['model'],
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"El nombre del cliente es: {partner_name}"}
             ],
-            temperature=0.7, # Usamos una temperatura mayor a 0 para obtener variedad
+            temperature=0.7,
         )
         return resp.choices[0].message.content
-
     except Exception as e:
         _logger.error(f"❌ Error al generar saludo con IA: {e}. Usando fallback.")
-        # En caso de error, se envía el saludo hardcodeado para no fallar.
         fallback_template = messages_config.get('greeting_fallback', "¡Hola! ¿En qué puedo ayudarte?")
         return fallback_template.format(partner_name=partner_name)
     
 def handle_agradecimiento_cierre(env, partner, text):
-    """
-    Genera una respuesta de cierre dinámica usando IA, basada en el mensaje real del usuario.
-    """
+    """Genera una respuesta de cierre dinámica usando IA, basada en el mensaje real del usuario."""
     partner_name = partner.name if partner and 'WhatsApp:' not in partner.name else ''
     try:
         openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['closing_response_system_prompt']
-        
-        # --- MODIFICADO: Se pasa el mensaje del usuario a la IA ---
         user_message_for_gpt = f"El cliente, llamado {partner_name}, respondió: '{text}'"
-        
         resp = openai.ChatCompletion.create(
             model=general_config['openai']['model'],
             messages=[
@@ -113,7 +100,6 @@ def handle_agradecimiento_cierre(env, partner, text):
             temperature=0.7,
         )
         return resp.choices[0].message.content
-
     except Exception as e:
         _logger.error(f"❌ Error al generar respuesta de cierre con IA: {e}. Usando fallback.")
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
