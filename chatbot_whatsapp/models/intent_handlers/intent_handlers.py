@@ -5,7 +5,7 @@ import base64
 from odoo import _
 from odoo.exceptions import UserError
 from ...config.config import messages_config, prompts_config, general_config
-from create_order import lookup_product_variants
+from .create_order import lookup_product_variants
 
 
 _logger = logging.getLogger(__name__)
