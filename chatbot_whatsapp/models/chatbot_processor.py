@@ -12,7 +12,7 @@ from .intent_handlers.create_order import (
 )
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
-    handle_agradecimiento_cierre, handle_consulta_producto
+    handle_agradecimiento_cierre, handle_consulta_producto, _generate_invoice_pdf_response
 )
 
 _logger = logging.getLogger(__name__)
@@ -327,6 +327,34 @@ class ChatbotProcessor:
         
         else:
             return self._send_text(messages_config['invalid_stock_confirmation'])
+        
+    def _handle_flow_esperando_seleccion_factura(self):
+        """Maneja la selección de una factura de la lista."""
+        if self.plain_text.lower() == 'cancelar':
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+            return self._send_text(messages_config['invoice_selection_cancelled'])
+        
+        try:
+            data = json.loads(self.memory.data_buffer or '{}')
+            invoice_ids = data.get('invoice_ids', [])
+            
+            if not (self.plain_text.isdigit() and 1 <= int(self.plain_text) <= len(invoice_ids)):
+                return self._send_text(messages_config['invalid_invoice_option'])
+
+            selected_invoice_id = invoice_ids[int(self.plain_text) - 1]
+            _logger.info(f"🧾 Factura seleccionada por el usuario: ID {selected_invoice_id}")
+
+            invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
+            
+            response_data = _generate_invoice_pdf_response(invoice)
+            
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+            return self._send_response(response_data)
+            
+        except (ValueError, json.JSONDecodeError, IndexError) as e:
+            _logger.error(f"Error en el flujo de selección de factura: {e}")
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+            return self._send_text(messages_config['error_processing'])
             
     # --- MANEJADORES DE INTENCIONES ---
 
