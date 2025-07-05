@@ -105,54 +105,69 @@ def handle_agradecimiento_cierre(env, partner, text):
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
         return fallback_template.format(partner_name=partner_name)
 
-def handle_solicitar_factura(partner, text):
-    """
-    1) Busca en el texto un número de factura (al menos 4 dígitos).
-    2) Busca el registro account.move correspondiente.
-    3) Si lo encuentra, genera el PDF de esa factura y lo codifica en base64.
-    4) Devuelve un dict con:
-         - 'message': texto para enviar por WhatsApp.
-         - 'pdf_base64': el contenido en base64 del PDF (si existe).
-    """
-    # 1) Extraer número de factura
-    number_match = re.search(r'\d{4,}', text)
-    if not number_match:
-        return {
-            'message': "¿Me podrías dar el número de factura que necesitás?",
-            'pdf_base64': None,
-        }
-
-    # 2) Buscar invoice en Odoo
-    invoice = partner.env['account.move'].sudo().search([
-        ('partner_id', '=', partner.id),
-        ('name', 'ilike', number_match.group())
-    ], limit=1)
-
-    if not invoice:
-        return {
-            'message': "No encontré esa factura 🧾",
-            'pdf_base64': None,
-        }
-
+def _generate_invoice_pdf_response(invoice):
+    """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        # 3) Generar el PDF de la factura
-        report_action = partner.env.ref('account.account_invoices')
-        pdf_content, content_type = report_action.sudo()._render_qweb_pdf([invoice.id])
+        report_action = invoice.env.ref('account.account_invoices')
+        pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
-
-        # 4) Construir el mensaje
-        mensaje = _("Aquí está tu factura *%s*. Te la envío en formato PDF adjunto.") % invoice.name
+        
+        message = _("Aquí está tu factura *%s*. Te la envío en formato PDF adjunto.") % invoice.name
         return {
-            'message': mensaje,
+            'message': message,
             'pdf_base64': pdf_base64,
         }
-
     except Exception as e:
         _logger.error("Error generando PDF de factura %s: %s", invoice.name, e)
-        return {
-            'message': "Hubo un error al generar la factura. Intentá de nuevo más tarde.",
-            'pdf_base64': None,
-        }
+        return {'message': _("Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde.")}
+
+def handle_solicitar_factura(env, partner, text):
+    """
+    Busca facturas para el cliente de forma inteligente.
+    - Si el usuario provee un número, lo busca con flexibilidad.
+    - Si no hay número o no se encuentra, ofrece las últimas 5 facturas.
+    """
+    number_match = re.search(r'\d{4,}', text)
+    
+    if number_match:
+        invoice_number_query = number_match.group()
+        _logger.info(f"🧾 Buscando factura que contenga: '{invoice_number_query}' para {partner.name}")
+        
+        invoice = env['account.move'].sudo().search([
+            ('partner_id', '=', partner.id),
+            ('name', 'ilike', f'%{invoice_number_query}%'),
+            ('state', '=', 'posted'),
+            ('move_type', 'in', ['out_invoice', 'out_refund'])
+        ], limit=1)
+
+        if invoice:
+            return _generate_invoice_pdf_response(invoice)
+
+    _logger.info(f"🧾 No se proveyó número o no hubo coincidencia. Buscando las últimas 5 para {partner.name}.")
+    
+    invoices = env['account.move'].sudo().search([
+        ('partner_id', '=', partner.id),
+        ('state', '=', 'posted'),
+        ('move_type', 'in', ['out_invoice', 'out_refund'])
+    ], order='invoice_date desc, id desc', limit=5)
+
+    if not invoices:
+        return {'message': messages_config['no_recent_invoices']}
+
+    invoice_lines = []
+    for i, inv in enumerate(invoices, 1):
+        date_str = inv.invoice_date.strftime('%d/%m/%Y') if inv.invoice_date else 'Sin fecha'
+        amount_str = f"${inv.amount_total:,.2f}"
+        invoice_lines.append(f"{i}) *{inv.name}* del {date_str} - {amount_str}")
+    
+    invoice_list_str = "\n".join(invoice_lines)
+    invoice_ids = invoices.ids
+    
+    return {
+        'message': messages_config['offer_recent_invoices'].format(invoices=invoice_list_str),
+        'flow_state': 'esperando_seleccion_factura',
+        'data_buffer': json.dumps({'invoice_ids': invoice_ids})
+    }
 
 def handle_faq_con_ai(partner, user_text):
     """

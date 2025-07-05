@@ -58,7 +58,7 @@
 
 - Manejar agradecimiento
 
-* Manejar consultas de producto
+- Manejar consultas de producto
 
 * Terminar de manejar factura
 

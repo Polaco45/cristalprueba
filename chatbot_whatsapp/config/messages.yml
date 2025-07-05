@@ -43,6 +43,12 @@ selection_cancelled: "Entendido, no hay problema. ¿Hay algo más en lo que te p
 invalid_number_for_deletion: "Número no válido. Por favor, elegí un número de la lista."
 invalid_input_for_deletion: "Respuesta no válida. Por favor, enviá el número del producto a eliminar o 'cancelar'."
 
+# --- NUEVO: Mensajes para el flujo de facturas ---
+offer_recent_invoices: "No encontré una factura con ese número, pero aquí tenés las últimas 5 que emitimos para vos:\n{invoices}\n\nPor favor, respondé con el número de la que necesitás. O escribí *cancelar*."
+no_recent_invoices: "No encontré facturas recientes a tu nombre. Si necesitás una más antigua, por favor, dame su número completo."
+invalid_invoice_option: "Opción no válida. Por favor, elegí un número de la lista o escribí *cancelar*."
+invoice_selection_cancelled: "Entendido. Si necesitás otra cosa, no dudes en preguntar."
+
 # --- Sub-flows ---
 invalid_option: "Opción no válida. Por favor, respondé solo con el número del producto que querés."
 invalid_quantity: "La cantidad debe ser un número positivo. ¿Cuántas unidades querés?"
