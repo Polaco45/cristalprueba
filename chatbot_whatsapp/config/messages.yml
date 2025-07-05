@@ -39,6 +39,7 @@ cart_is_empty: "Tu carrito de compras está vacío. ¿Qué producto querés agre
 cart_summary: "Este es tu pedido actual:\n{summary}\n\nRespondé con el número del producto que querés eliminar, o escribí *cancelar* para volver."
 item_removed_confirm: "Listo, producto eliminado.\n\nTu pedido ahora es:\n{summary}\n\n¿Querés hacer algo más?"
 cancel_modification: "Ok, no se modificó nada. ¿Querés agregar algo más o finalizamos tu pedido?"
+selection_cancelled: "Entendido, no hay problema. ¿Hay algo más en lo que te pueda ayudar?"
 invalid_number_for_deletion: "Número no válido. Por favor, elegí un número de la lista."
 invalid_input_for_deletion: "Respuesta no válida. Por favor, enviá el número del producto a eliminar o 'cancelar'."
 

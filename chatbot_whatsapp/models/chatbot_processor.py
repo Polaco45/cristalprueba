@@ -1,5 +1,3 @@
-# chatbot_whatsapp/models/chatbot_processor.py (COMPLETO)
-
 import json
 import logging
 import openai
@@ -27,19 +25,15 @@ class ChatbotProcessor:
         self.plain_text = clean_html(record.body or "").strip()
 
     def process_message(self):
-        """Punto de entrada principal para procesar un mensaje."""
         flow = self.memory.flow_state
         _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'}")
-
         if flow:
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
                 return flow_handler()
-        
         return self._handle_general_intent()
 
     def _send_text(self, text_to_send):
-        """Wrapper para enviar mensajes de texto."""
         _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
         vals = {
             'mobile_number': self.record.mobile_number,
@@ -54,14 +48,10 @@ class ChatbotProcessor:
             outgoing_msg._send_message()
         _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
-    # --- LÓGICA DE AGREGACIÓN Y COLA ---
-
     def _add_item_and_decide_next_step(self, pid, qty, name):
-        """Agrega un ítem al carrito y decide el siguiente paso."""
         add_item_to_cart(self.memory, pid, qty)
         buffer_data = json.loads(self.memory.data_buffer or '{}')
         pending_products = buffer_data.get('pending_products', [])
-
         if not pending_products:
             _logger.info("🏁 Cola de productos vacía. Finalizando ciclo de agregación.")
             cart_lines = json.loads(self.memory.pending_order_lines or '[]')
@@ -74,29 +64,23 @@ class ChatbotProcessor:
             return self._process_next_product_in_queue()
 
     def _process_next_product_in_queue(self):
-        """Procesa el siguiente producto en la cola de `data_buffer`."""
         buffer_data = json.loads(self.memory.data_buffer or '{}')
         pending_products = buffer_data.get('pending_products', [])
-
         if not pending_products:
             _logger.info("🏁 Cola de productos ya estaba vacía. Pasando a confirmación final.")
             self.memory.write({'flow_state': 'esperando_confirmacion_pedido', 'data_buffer': ''})
             return self._send_text("¿Querés agregar algo más?")
-
         current_product = pending_products.pop(0)
         self.memory.write({'data_buffer': json.dumps({'pending_products': pending_products})})
-        
         query = current_product.get('query')
         qty = current_product.get('quantity')
         _logger.info(f"⚙️ Procesando siguiente en la cola: {query} (Cantidad: {qty})")
-
         try:
             variants = lookup_product_variants(self.env, self.partner, query, limit=6)
         except UserError as ue:
             _logger.warning(f"⚠️ Error buscando variantes para '{query}': {str(ue)}")
             self._send_text(messages_config['processing_next_item'].format(query=query))
             return self._process_next_product_in_queue()
-
         if len(variants) > 1:
             buttons = "\n".join([f"{i+1}) {v['name']} - ${v['price']:.2f}" for i, v in enumerate(variants)])
             self.memory.write({
@@ -104,10 +88,8 @@ class ChatbotProcessor:
                 'data_buffer': json.dumps({'products': variants, 'qty': qty, 'original_queue': pending_products}),
             })
             return self._send_text(messages_config['ask_for_clarification'].format(query=query, buttons=buttons))
-
         variant = variants[0]
         pid, name, avail = variant['id'], variant['name'], int(variant['stock'])
-
         if not qty:
             self.memory.write({
                 'flow_state': 'esperando_cantidad_producto',
@@ -115,7 +97,6 @@ class ChatbotProcessor:
                 'data_buffer': json.dumps({'original_queue': pending_products}),
             })
             return self._send_text(messages_config['ask_for_quantity'].format(name=name))
-
         if qty <= avail:
             return self._add_item_and_decide_next_step(pid, qty, name)
         else:
@@ -221,46 +202,81 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['error_processing'])
 
+    # --- MODIFICADO: Lógica completamente nueva para el flujo de selección ---
     def _handle_flow_esperando_seleccion_producto(self):
-        try:
-            data = json.loads(self.memory.data_buffer or '{}')
-            variants, qty = data.get('products', []), data.get('qty')
-            
-            selected_variant = None
-            if self.plain_text.isdigit():
-                index = int(self.plain_text) - 1
-                if 0 <= index < len(variants):
-                    selected_variant = variants[index]
-            
-            if not selected_variant:
-                return self._send_text(messages_config['invalid_option'])
+        """
+        Maneja la respuesta del usuario después de mostrarle una lista de productos.
+        Ahora puede entender si el usuario selecciona, pregunta o cancela.
+        """
+        api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        system_prompt = prompts_config['product_selection_intent_system']
+        sub_intent = detect_intention([{"role": "user", "content": self.plain_text}], api_key, system_prompt)
+        
+        _logger.info(f"🔎 Sub-intención detectada en selección: '{sub_intent}'")
 
-            self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
+        if sub_intent == 'seleccionar_producto':
+            try:
+                data = json.loads(self.memory.data_buffer or '{}')
+                variants, qty = data.get('products', []), data.get('qty')
+                
+                selected_variant = None
+                # Intenta extraer un número del texto del usuario
+                match = re.search(r'\d+', self.plain_text)
+                if match:
+                    index = int(match.group(0)) - 1
+                    if 0 <= index < len(variants):
+                        selected_variant = variants[index]
 
-            pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
+                # Si no se encontró por número, intenta por nombre (esto es opcional y se puede quitar si causa problemas)
+                if not selected_variant:
+                    for v in variants:
+                        if v['name'].lower() in self.plain_text.lower():
+                             selected_variant = v
+                             break
+                
+                if not selected_variant:
+                    return self._send_text(messages_config['invalid_option'])
 
-            if not qty:
-                self.memory.write({
-                    'flow_state': 'esperando_cantidad_producto', 
-                    'last_variant_id': pid, 
-                    'data_buffer': self.memory.data_buffer
-                })
-                return self._send_text(messages_config['ask_for_quantity'].format(name=name))
-            
-            if qty <= avail:
-                return self._add_item_and_decide_next_step(pid, qty, name)
-            else:
-                self.memory.write({
-                    'flow_state': 'esperando_confirmacion_stock', 
-                    'last_variant_id': pid, 
-                    'last_qty_suggested': avail,
-                    'data_buffer': self.memory.data_buffer
-                })
-                return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
-        except (ValueError, json.JSONDecodeError) as e:
-            _logger.error(f"Error en flujo de selección: {e}")
+                # Si llegamos aquí, se seleccionó un producto. Continuamos el flujo.
+                self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
+                pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
+
+                if not qty:
+                    self.memory.write({
+                        'flow_state': 'esperando_cantidad_producto', 
+                        'last_variant_id': pid, 
+                        'data_buffer': self.memory.data_buffer
+                    })
+                    return self._send_text(messages_config['ask_for_quantity'].format(name=name))
+                
+                if qty <= avail:
+                    return self._add_item_and_decide_next_step(pid, qty, name)
+                else:
+                    self.memory.write({
+                        'flow_state': 'esperando_confirmacion_stock', 'last_variant_id': pid, 
+                        'last_qty_suggested': avail, 'data_buffer': self.memory.data_buffer
+                    })
+                    return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
+            except (ValueError, json.JSONDecodeError) as e:
+                _logger.error(f"Error procesando selección de producto: {e}")
+                self.memory.write({'flow_state': False, 'data_buffer': ''})
+                return self._send_text(messages_config['error_processing'])
+
+        elif sub_intent == 'nueva_consulta':
+            # El usuario hizo otra pregunta, rompemos el flujo actual y lo tratamos como una nueva consulta.
+            _logger.info("El usuario hizo una nueva consulta, rompiendo el flujo de selección.")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_text(messages_config['error_processing'])
+            return self._handle_general_intent()
+        
+        elif sub_intent == 'cancelar_seleccion':
+            # El usuario no quiere ninguna de las opciones.
+            _logger.info("El usuario canceló la selección de producto.")
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+            return self._send_text(messages_config['selection_cancelled'])
+
+        else:
+            # Fallback por si la sub-intención no es clara
+            return self._send_text(messages_config['invalid_option'])
 
     def _handle_flow_esperando_cantidad_producto(self):
         try:
