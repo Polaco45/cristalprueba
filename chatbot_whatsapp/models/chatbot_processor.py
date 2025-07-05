@@ -206,8 +206,8 @@ class ChatbotProcessor:
     # --- MODIFICADO: Lógica completamente nueva para el flujo de selección ---
     def _handle_flow_esperando_seleccion_producto(self):
         """
-        Maneja la respuesta del usuario después de mostrarle una lista de productos.
-        Ahora puede entender si el usuario selecciona, pregunta o cancela.
+        Maneja la respuesta del usuario tras mostrar una lista. Puede entender selección
+        por nombre, número o contexto, y también preguntas de seguimiento o cancelaciones.
         """
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['product_selection_intent_system']
@@ -219,27 +219,41 @@ class ChatbotProcessor:
         if sub_intent == 'seleccionar_producto':
             try:
                 variants, qty = data.get('products', []), data.get('qty')
-                selected_variant = None
-                match = re.search(r'\d+', self.plain_text)
-                if match:
-                    index = int(match.group(0)) - 1
-                    if 0 <= index < len(variants):
-                        selected_variant = variants[index]
-                if not selected_variant:
-                    for v in variants:
-                        if v['name'].lower() in self.plain_text.lower():
-                             selected_variant = v
-                             break
-                if not selected_variant:
+                
+                # --- NUEVO: Usamos IA para interpretar la selección del usuario ---
+                disambiguation_prompt = prompts_config['product_disambiguation_prompt']
+                product_names = [v['name'] for v in variants]
+                
+                resp = openai.ChatCompletion.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": disambiguation_prompt},
+                        {"role": "user", "content": f"Lista: {product_names}\nRespuesta de usuario: \"{self.plain_text}\""}
+                    ],
+                    temperature=0,
+                )
+                
+                try:
+                    selected_index = int(resp.choices[0].message.content.strip())
+                except ValueError:
+                    selected_index = -1
+
+                if 0 <= selected_index < len(variants):
+                    selected_variant = variants[selected_index]
+                else:
                     return self._send_text(messages_config['invalid_option'])
+                
+                # --- El resto del flujo continúa como antes ---
                 self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
                 pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
+
                 if not qty:
                     self.memory.write({
                         'flow_state': 'esperando_cantidad_producto', 'last_variant_id': pid, 
                         'data_buffer': self.memory.data_buffer
                     })
                     return self._send_text(messages_config['ask_for_quantity'].format(name=name))
+                
                 if qty <= avail:
                     return self._add_item_and_decide_next_step(pid, qty, name)
                 else:
@@ -248,19 +262,17 @@ class ChatbotProcessor:
                         'last_qty_suggested': avail, 'data_buffer': self.memory.data_buffer
                     })
                     return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
-            except (ValueError, json.JSONDecodeError) as e:
-                _logger.error(f"Error procesando selección de producto: {e}")
+
+            except (ValueError, json.JSONDecodeError, openai.error.OpenAIError) as e:
+                _logger.error(f"Error procesando selección de producto con IA: {e}")
                 self.memory.write({'flow_state': False, 'data_buffer': ''})
                 return self._send_text(messages_config['error_processing'])
 
         elif sub_intent == 'nueva_consulta':
             _logger.info("El usuario hizo una nueva consulta sobre los productos mostrados.")
             products_in_context = data.get('products', [])
-            
             context_for_ai = "Productos en contexto:\n" + "\n".join([f"- {p['name']} (${p['price']:.2f})" for p in products_in_context])
-            
             comparison_prompt = prompts_config['product_comparison_prompt']
-            
             try:
                 resp = openai.ChatCompletion.create(
                     model=general_config['openai']['model'],
@@ -270,9 +282,7 @@ class ChatbotProcessor:
                     ],
                     temperature=0.7
                 )
-                response_text = resp.choices[0].message.content
-                # Mantenemos el estado, para que el usuario pueda seguir eligiendo.
-                return self._send_text(response_text)
+                return self._send_text(resp.choices[0].message.content)
             except Exception as e:
                 _logger.error(f"Error en la sub-consulta de producto: {e}")
                 return self._send_text(messages_config['error_processing'])
@@ -284,6 +294,7 @@ class ChatbotProcessor:
 
         else:
             return self._send_text(messages_config['invalid_option'])
+
 
     def _handle_flow_esperando_cantidad_producto(self):
         try:
