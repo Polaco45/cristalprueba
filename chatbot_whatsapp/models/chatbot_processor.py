@@ -36,26 +36,30 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     # --- CORRECCIÓN FINAL ---
-    # Se ajusta la búsqueda del canal para que sea más robusta, utilizando
-    # el número de teléfono de WhatsApp en lugar del ID del partner.
+    # Se obtiene el canal directamente desde el 'mail.message' asociado al
+    # mensaje de WhatsApp, que es el método más robusto y directo.
     def _send_response(self, response_data):
         """Envía una respuesta (texto y/o PDF) al canal de discusión correcto."""
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
         
-        _logger.info(f"🚀 Preparando para enviar respuesta al canal: '{message}'")
+        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
 
         try:
-            # Búsqueda del canal de WhatsApp usando el número de teléfono del mensaje.
-            # Este método es más fiable que buscar por 'channel_partner_ids'.
-            channel = self.env['discuss.channel'].sudo().search([
-                ('whatsapp_number', '=', self.record.mobile_number),
-                ('channel_type', '=', 'whatsapp'),
-            ], limit=1)
-            
-            if not channel:
-                _logger.error(f"No se pudo encontrar un canal de discusión para el número de WhatsApp {self.record.mobile_number}.")
+            # 1. Obtener el 'mail.message' vinculado al 'whatsapp.message'
+            mail_message = self.record.mail_message_id
+            if not mail_message:
+                _logger.error(f"El mensaje de WhatsApp {self.record.id} no tiene un 'mail.message' asociado.")
                 return
+
+            # 2. Verificar que el mensaje pertenece a un canal de discusión
+            if not (mail_message.model == 'discuss.channel' and mail_message.res_id):
+                _logger.error(f"El mail.message {mail_message.id} no está asociado a un canal de discusión válido.")
+                return
+
+            # 3. Obtener el canal usando el ID guardado en el mail.message
+            channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
+            _logger.info(f"Canal de discusión encontrado vía mail.message: '{channel.name}' (ID: {channel.id})")
 
             attachment_ids = []
             if pdf_base64:
@@ -68,6 +72,7 @@ class ChatbotProcessor:
                 }
                 attachment_ids.append((0, 0, attachment_data))
 
+            # 4. Enviar la respuesta al canal encontrado
             channel.with_user(self.env.ref('base.user_admin')).message_post(
                 body=message,
                 message_type='comment',
