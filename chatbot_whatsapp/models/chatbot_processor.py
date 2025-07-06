@@ -12,7 +12,7 @@ from .intent_handlers.create_order import (
 )
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
-    handle_agradecimiento_cierre, handle_consulta_producto,
+    handle_agradecimiento_cierre, handle_consulta_producto, 
     _generate_invoice_pdf_response, find_invoice_by_number, offer_recent_invoices
 )
 
@@ -35,68 +35,25 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    # --- CORRECCIÓN ---
-    # Se ha modificado esta función para adjuntar el PDF de la manera correcta.
     def _send_response(self, response_data):
-        """Prepara y envía una respuesta al usuario, adjuntando un PDF si existe."""
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
-        attachment_id = None
-
-        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
         
-        # 1. Crear el adjunto primero, si hay un PDF.
-        if pdf_base64:
-            try:
-                attachment = self.env['ir.attachment'].sudo().create({
-                    'name': 'factura.pdf',
-                    'datas': pdf_base64,
-                    'res_model': 'whatsapp.message', # Modelo temporal
-                    'res_id': 0, # ID temporal
-                    'mimetype': 'application/pdf'
-                })
-                attachment_id = attachment.id
-                _logger.info(f"📎 Archivo adjunto temporal creado con ID: {attachment_id}")
-            except Exception as e:
-                _logger.error(f"❌ Error creando el 'ir.attachment' para el PDF: {e}")
-                # Si falla la creación del adjunto, se envía solo el mensaje de error.
-                message = messages_config['error_attaching_pdf']
-                attachment_id = None
-
-        # 2. Preparar los valores para el mensaje de WhatsApp.
+        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
         vals = {
-            'mobile_number': self.record.mobile_number,
-            'body': message,
+            'mobile_number': self.record.mobile_number, 'body': message,
             'state': 'outgoing',
             'wa_account_id': self.record.wa_account_id.id,
             'create_uid': self.env.ref('base.user_admin').id,
         }
+        if pdf_base64:
+            vals['attachment_ids'] = [(0, 0, {'name': 'factura.pdf', 'datas': pdf_base64, 'mimetype': 'application/pdf'})]
         
-        # 3. Añadir el ID del adjunto si se creó correctamente.
-        # El modelo `whatsapp.message` espera el campo `attachment_id` (Many2one).
-        if attachment_id:
-            vals['attachment_id'] = attachment_id
-        
-        # 4. Crear y enviar el mensaje.
-        try:
-            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            
-            # 5. Si se creó un adjunto, vincularlo permanentemente al mensaje recién creado.
-            if attachment_id:
-                self.env['ir.attachment'].sudo().browse(attachment_id).write({
-                    'res_model': 'whatsapp.message',
-                    'res_id': outgoing_msg.id
-                })
-                _logger.info(f"🔗 Adjunto {attachment_id} vinculado permanentemente al mensaje {outgoing_msg.id}.")
-
-            # El método _send_message se encarga del envío real.
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-            
-            _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
-        except Exception as e:
-            _logger.error(f"❌ Error fatal al crear o enviar el mensaje de WhatsApp: {e}", exc_info=True)
-
+        outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+        outgoing_msg.sudo().write({'body': message})
+        if hasattr(outgoing_msg, '_send_message'):
+            outgoing_msg._send_message()
+        _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
     def _send_text(self, text_to_send):
         return self._send_response({'message': text_to_send})
@@ -163,6 +120,7 @@ class ChatbotProcessor:
 
     # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
 
+    # --- MODIFICADO: Ahora verifica las direcciones antes de crear la orden ---
     def _handle_flow_esperando_confirmacion_pedido(self):
         system_prompt = prompts_config['order_confirmation_system']
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -180,8 +138,10 @@ class ChatbotProcessor:
             if len(delivery_addresses) > 1:
                 _logger.info(f"🚚 Múltiples direcciones de entrega ({len(delivery_addresses)}) encontradas para {self.partner.name}.")
                 
+                # --- NUEVO: Formateo manual y limpio de la dirección ---
                 address_lines = []
                 for i, addr in enumerate(delivery_addresses):
+                    # Se crea una lista con las partes de la dirección
                     parts = [
                         addr.name,
                         addr.street,
@@ -190,6 +150,7 @@ class ChatbotProcessor:
                         addr.zip,
                         addr.country_id.name
                     ]
+                    # Se filtran las partes vacías y se unen con ", "
                     formatted_address = ", ".join(filter(None, parts))
                     address_lines.append(f"{i+1}) {formatted_address}")
                 
@@ -200,6 +161,7 @@ class ChatbotProcessor:
                     'data_buffer': json.dumps({'addresses': delivery_addresses.ids})
                 })
                 
+                # Se agrega una línea final para mayor claridad en la instrucción
                 final_message = messages_config['ask_for_delivery_address'].format(addresses=address_list_str)
                 return self._send_text(final_message)
             else:
@@ -221,6 +183,7 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False})
             return self._handle_general_intent()
 
+    # --- NUEVO: Manejador para el flujo de selección de dirección ---
     def _handle_flow_esperando_seleccion_direccion(self):
         """Maneja la selección de la dirección de entrega por parte del usuario."""
         try:
@@ -249,6 +212,7 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['error_processing'])
 
+    # --- MODIFICADO: Lógica completamente nueva para el flujo de selección ---
     def _handle_flow_esperando_seleccion_producto(self):
         """
         Maneja la respuesta del usuario tras mostrar una lista. Puede entender selección
@@ -265,6 +229,7 @@ class ChatbotProcessor:
             try:
                 variants, qty = data.get('products', []), data.get('qty')
                 
+                # --- NUEVO: Usamos IA para interpretar la selección del usuario ---
                 disambiguation_prompt = prompts_config['product_disambiguation_prompt']
                 product_names = [v['name'] for v in variants]
                 
@@ -287,6 +252,7 @@ class ChatbotProcessor:
                 else:
                     return self._send_text(messages_config['invalid_option'])
                 
+                # --- El resto del flujo continúa como antes ---
                 self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
                 pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
 
@@ -375,6 +341,7 @@ class ChatbotProcessor:
         """Maneja la respuesta del usuario cuando se le pidió un número de factura."""
         _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
         
+        # Si el usuario no quiere dar un número, le mostramos las recientes
         if "buscar" in self.plain_text.lower():
              response_data = offer_recent_invoices(self.env, self.partner)
         else:
@@ -382,7 +349,7 @@ class ChatbotProcessor:
         
         if response_data.get('flow_state'):
             self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
-        else:
+        else: # Si encontró la factura o no hay más flujos, limpia el estado
             self.memory.write({'flow_state': False, 'data_buffer': ''})
 
         return self._send_response(response_data)
@@ -408,7 +375,6 @@ class ChatbotProcessor:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['error_processing'])     
-    
     # --- MANEJADORES DE INTENCIONES ---
 
     def _handle_crear_pedido_intent(self):
@@ -462,6 +428,7 @@ class ChatbotProcessor:
         
         if intent in ["saludo", "agradecimiento_cierre"]:
             handler = {"saludo": handle_saludo, "agradecimiento_cierre": handle_agradecimiento_cierre}[intent]
+            # La llamada a handle_agradecimiento_cierre necesita el texto
             response_text = handler(self.env, self.partner, self.plain_text) if intent == "agradecimiento_cierre" else handler(self.env, self.partner)
             return self._send_text(response_text)
 
