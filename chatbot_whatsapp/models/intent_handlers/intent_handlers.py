@@ -118,7 +118,7 @@ def _generate_invoice_pdf_response(invoice):
         # 2) Si no se encontró, fallback por report_name
         if not report_action:
             report_action = invoice.env['ir.actions.report'].search([
-                ('report_name', '=', 'account.report_invoice')
+                ('report_name' in 'account.report_invoice')
             ], limit=1)
 
         if not report_action:
