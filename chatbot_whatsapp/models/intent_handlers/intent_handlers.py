@@ -105,12 +105,12 @@ def handle_agradecimiento_cierre(env, partner, text):
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
         return fallback_template.format(partner_name=partner_name)
 
+# --- MODIFICADO: Se ajusta la forma de obtener el reporte para evitar el error ---
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        # CORRECCIÓN FINAL: Se usa el XML ID de la ACCIÓN de reporte, no de la vista.
-        report_action = invoice.env.ref('account.account_invoices_without_payment')
-        
+        # CORREGIDO: Se usa el XML ID correcto para el reporte de la factura.
+        report_action = invoice.env.ref('account.report_invoice_with_payments')
         pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
         
@@ -121,6 +121,7 @@ def _generate_invoice_pdf_response(invoice):
         }
     except Exception as e:
         _logger.error("Error generando PDF de factura %s: %s", invoice.name, e)
+        # CORREGIDO: Se elimina la llamada a `_` que causaba el UnboundLocalError.
         return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde."}
 
 def find_invoice_by_number(env, partner, invoice_number):
@@ -172,7 +173,6 @@ def handle_solicitar_factura(env, partner, text):
             'flow_state': 'esperando_numero_factura',
             'data_buffer': ''
         }
-
         
 def handle_faq_con_ai(partner, user_text):
     """
