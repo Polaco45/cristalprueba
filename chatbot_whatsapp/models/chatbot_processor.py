@@ -36,9 +36,8 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     # --- CORRECCIÓN FINAL ---
-    # Se elimina el filtro 'whatsapp_account_id' de la búsqueda, ya que el campo
-    # no existe en 'discuss.channel'. La búsqueda ahora se basa solo en el
-    # cliente (partner) y el tipo de canal.
+    # Se ajusta la búsqueda del canal para que sea más robusta, utilizando
+    # el número de teléfono de WhatsApp en lugar del ID del partner.
     def _send_response(self, response_data):
         """Envía una respuesta (texto y/o PDF) al canal de discusión correcto."""
         message = response_data.get('message')
@@ -47,14 +46,15 @@ class ChatbotProcessor:
         _logger.info(f"🚀 Preparando para enviar respuesta al canal: '{message}'")
 
         try:
-            # Búsqueda del canal de WhatsApp asociado al cliente (partner).
+            # Búsqueda del canal de WhatsApp usando el número de teléfono del mensaje.
+            # Este método es más fiable que buscar por 'channel_partner_ids'.
             channel = self.env['discuss.channel'].sudo().search([
-                ('channel_partner_ids', '=', self.partner.id),
+                ('whatsapp_number', '=', self.record.mobile_number),
                 ('channel_type', '=', 'whatsapp'),
             ], limit=1)
             
             if not channel:
-                _logger.error(f"No se pudo encontrar un canal de discusión de WhatsApp para el cliente {self.partner.name} (ID: {self.partner.id}).")
+                _logger.error(f"No se pudo encontrar un canal de discusión para el número de WhatsApp {self.record.mobile_number}.")
                 return
 
             attachment_ids = []
