@@ -48,6 +48,7 @@ class ChatbotProcessor:
             'create_uid': self.env.ref('base.user_admin').id,
         }
         if pdf_base64:
+            vals.setdefault('wa_media_ids', [])
             vals['wa_media_ids'] = [(0, 0, {'name': 'factura.pdf', 'datas': pdf_base64, 'mimetype': 'application/pdf'})]
         
         outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
