@@ -108,8 +108,8 @@ def handle_agradecimiento_cierre(env, partner, text):
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        # CORREGIDO: Esta es la forma canónica en Odoo para obtener una acción de reporte por su nombre.
-        report_action = invoice.env['ir.actions.report']._get_report_from_name('account.report_invoice')
+        # CORRECCIÓN FINAL: Se usa el XML ID de la ACCIÓN de reporte, no de la vista.
+        report_action = invoice.env.ref('account.account_invoices_without_payment')
         
         pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
@@ -172,6 +172,7 @@ def handle_solicitar_factura(env, partner, text):
             'flow_state': 'esperando_numero_factura',
             'data_buffer': ''
         }
+
         
 def handle_faq_con_ai(partner, user_text):
     """
