@@ -124,7 +124,7 @@ def _generate_invoice_pdf_response(invoice):
         _logger.info("Acción de reporte encontrada: %s", report_action.name)
 
         # Usar el método público 'render_qweb_pdf' para generar el PDF
-        pdf_content, _ = report_action.sudo().render_qweb_pdf([invoice.id])
+        pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
         
         _logger.info("PDF generado y codificado en base64 exitosamente para la factura %s.", invoice.name)
