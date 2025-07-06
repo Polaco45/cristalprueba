@@ -12,7 +12,8 @@ from .intent_handlers.create_order import (
 )
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
-    handle_agradecimiento_cierre, handle_consulta_producto, _generate_invoice_pdf_response
+    handle_agradecimiento_cierre, handle_consulta_producto, 
+    _generate_invoice_pdf_response, find_invoice_by_number
 )
 
 _logger = logging.getLogger(__name__)
@@ -41,23 +42,24 @@ class ChatbotProcessor:
         
         _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
         vals = {
-            'mobile_number': self.record.mobile_number,
-            'body': message,
+            'mobile_number': self.record.mobile_number, 'body': message,
             'state': 'outgoing',
-            'wa_account_id': self.record.wa_account_id.id if self.record.wa_account_id else False,
+            'wa_account_id': self.record.wa_account_id.id,
             'create_uid': self.env.ref('base.user_admin').id,
         }
         if pdf_base64:
-            vals['attachment_ids'] = [(0, 0, {
-                'name': 'factura.pdf',
-                'datas': pdf_base64,
-                'mimetype': 'application/pdf',
-            })]
+            vals['attachment_ids'] = [(0, 0, {'name': 'factura.pdf', 'datas': pdf_base64, 'mimetype': 'application/pdf'})]
+        
         outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
         outgoing_msg.sudo().write({'body': message})
         if hasattr(outgoing_msg, '_send_message'):
             outgoing_msg._send_message()
         _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
+
+    # --- CORREGIDO: Se reintroduce _send_text ---
+    def _send_text(self, text_to_send):
+        """Wrapper simple para enviar solo texto."""
+        return self._send_response({'message': text_to_send})
 
     def _add_item_and_decide_next_step(self, pid, qty, name):
         add_item_to_cart(self.memory, pid, qty)
@@ -338,6 +340,21 @@ class ChatbotProcessor:
         else:
             return self._send_text(messages_config['invalid_stock_confirmation'])
         
+    def _handle_flow_esperando_numero_factura(self):
+        """Maneja la respuesta del usuario cuando se le pidió un número de factura."""
+        _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
+        response_data = find_invoice_by_number(self.env, self.partner, self.plain_text)
+        
+        if response_data.get('flow_state'):
+            self.memory.write({
+                'flow_state': response_data['flow_state'],
+                'data_buffer': response_data.get('data_buffer', '')
+            })
+        else: # Si encontró la factura, limpia el estado
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+
+        return self._send_response(response_data)
+
     def _handle_flow_esperando_seleccion_factura(self):
         """Maneja la selección de una factura de la lista."""
         if self.plain_text.lower() == 'cancelar':
@@ -352,19 +369,15 @@ class ChatbotProcessor:
                 return self._send_text(messages_config['invalid_invoice_option'])
 
             selected_invoice_id = invoice_ids[int(self.plain_text) - 1]
-            _logger.info(f"🧾 Factura seleccionada por el usuario: ID {selected_invoice_id}")
-
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
             response_data = _generate_invoice_pdf_response(invoice)
             
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_response(response_data)
-            
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_text(messages_config['error_processing'])
-            
+            return self._send_text(messages_config['error_processing'])            
     # --- MANEJADORES DE INTENCIONES ---
 
     def _handle_crear_pedido_intent(self):
