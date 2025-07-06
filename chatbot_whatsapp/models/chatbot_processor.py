@@ -36,55 +36,59 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     # --- CORRECCIÓN DEFINITIVA ---
-    # Se combinan ambos métodos de envío:
-    # 1. Se envía el mensaje al canal de Odoo para el registro interno.
-    # 2. Se envía una copia al usuario a través de la API de WhatsApp.
+    # Se implementa el envío dual y se corrige el manejo de adjuntos.
     def _send_response(self, response_data):
-        """Envía una respuesta al canal de Odoo y al usuario de WhatsApp."""
+        """
+        Envía una respuesta al canal de Odoo para registro interno y también
+        al usuario final a través de la API de WhatsApp.
+        """
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
         filename = response_data.get('filename', 'adjunto.pdf')
+        
+        attachment = False
+        if pdf_base64:
+            # 1. Crear el adjunto UNA SOLA VEZ
+            try:
+                attachment = self.env['ir.attachment'].sudo().create({
+                    'name': filename,
+                    'datas': pdf_base64,
+                    'res_model': 'mail.compose.message', # Modelo temporal
+                    'res_id': 0
+                })
+            except Exception as e:
+                _logger.error(f"❌ No se pudo crear el registro ir.attachment: {e}", exc_info=True)
+                # Si falla la creación del adjunto, al menos enviamos el mensaje de texto.
+                pdf_base64 = False 
+                attachment = False
 
-        # --- 1. Envío al canal de Odoo para registro ---
+        # --- Tarea A: Registrar en el canal de Odoo (Chatter) ---
         try:
             mail_message = self.record.mail_message_id
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                attachment_id = False
-                if pdf_base64:
-                    # Se crea el adjunto primero
-                    attachment = self.env['ir.attachment'].sudo().create({
-                        'name': filename,
-                        'datas': pdf_base64,
-                        'res_model': 'discuss.channel',
-                        'res_id': channel.id
-                    })
-                    attachment_id = attachment.id
-                
-                # Se envía al canal con el ID del adjunto
                 channel.with_user(self.env.ref('base.user_admin')).message_post(
                     body=message,
                     message_type='comment',
                     subtype_xmlid='mail.mt_comment',
-                    attachment_ids=[attachment_id] if attachment_id else []
+                    attachment_ids=[attachment.id] if attachment else []
                 )
-                _logger.info(f"✅ Mensaje y/o adjunto registrado en el canal '{channel.name}'.")
+                _logger.info(f"✅ Mensaje registrado en el canal de Odoo '{channel.name}'.")
         except Exception as e:
             _logger.error(f"⚠️ No se pudo registrar el mensaje en el canal de Odoo: {e}", exc_info=True)
 
-        # --- 2. Envío al usuario a través de la API de WhatsApp ---
+        # --- Tarea B: Enviar al usuario por WhatsApp ---
         try:
             _logger.info(f"🚀 Preparando para enviar a WhatsApp: '{message}'")
-            # Se reutiliza el 'whatsapp.message' original para responder
+            # Usamos el método 'message_post' de la cuenta de WhatsApp, que es el correcto.
             self.record.wa_account_id.with_user(self.env.ref('base.user_admin')).message_post(
-                body=message,
                 partner_ids=[self.partner.id],
-                attachment_ids=[(0, 0, {'name': filename, 'datas': pdf_base64, 'mimetype': 'application/pdf'})] if pdf_base64 else []
+                body=message,
+                attachment_ids=[attachment.id] if attachment else []
             )
             _logger.info(f"✅ Mensaje enviado a WhatsApp al número {self.record.mobile_number}.")
         except Exception as e:
             _logger.error(f"❌ Error crítico al enviar el mensaje a WhatsApp: {e}", exc_info=True)
-
 
     def _send_text(self, text_to_send):
         """Función de ayuda para enviar solo mensajes de texto."""

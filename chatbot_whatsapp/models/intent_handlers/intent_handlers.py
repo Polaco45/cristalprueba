@@ -101,9 +101,6 @@ def handle_agradecimiento_cierre(env, partner, text):
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
         return fallback_template.format(partner_name=partner_name)
 
-# --- CORRECCIÓN ---
-# Se agrega un nombre de archivo al diccionario de respuesta para que
-# el procesador sepa cómo llamar al PDF.
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
@@ -126,6 +123,7 @@ def _generate_invoice_pdf_response(invoice):
         
         message = f"¡Aquí está tu factura *{invoice.name}*! Te la envío adjunta."
         
+        # --- CORRECCIÓN: Se agrega un nombre de archivo al diccionario de respuesta ---
         return {
             'message': message,
             'pdf_base64': pdf_base64,
