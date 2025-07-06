@@ -37,69 +37,24 @@ class ChatbotProcessor:
 
     # --- CORRECCIÓN FINAL Y COMBINADA ---
     def _send_response(self, response_data):
-        """
-        Envía una respuesta en dos pasos:
-        1. La registra en el canal de Odoo para visibilidad interna.
-        2. La envía al usuario a través de la API de WhatsApp.
-        """
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
-        filename = response_data.get('filename', 'adjunto.pdf')
-
-        # --- Tarea 1: Registrar en el canal de Odoo (Chatter) ---
-        try:
-            mail_message = self.record.mail_message_id
-            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
-                channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-
-                attachment_id_list = []
-                if pdf_base64:
-                    chatter_attachment = self.env['ir.attachment'].sudo().create({
-                        'name': filename,
-                        'datas': pdf_base64,
-                        'res_model': 'discuss.channel',
-                        'res_id': channel.id
-                    })
-                    attachment_id_list.append(chatter_attachment.id)
-
-                channel.with_user(self.env.ref('base.user_admin')).message_post(
-                    body=message,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment',
-                    attachment_ids=attachment_id_list
-                )
-                _logger.info(f"✅ Mensaje registrado en el canal de Odoo '{channel.name}'.")
-            else:
-                _logger.warning("No se encontró un canal de Odoo para registrar el mensaje. Se procederá solo con el envío a WhatsApp.")
-        except Exception as e:
-            _logger.error(f"⚠️ No se pudo registrar el mensaje en el canal de Odoo: {e}", exc_info=True)
-
-        # --- Tarea 2: Enviar al usuario por WhatsApp (Usando el método que SÍ enviaba) ---
-        try:
-            _logger.info(f"🚀 Preparando para enviar a WhatsApp: '{message}'")
-            vals = {
-                'mobile_number': self.record.mobile_number,
-                'body': message,
-                'state': 'outgoing',
-                'wa_account_id': self.record.wa_account_id.id,
-                'create_uid': self.env.ref('base.user_admin').id,
-            }
-            if pdf_base64:
-                vals.setdefault('wa_media_ids', [])
-                vals['wa_media_ids'].append((0, 0, {
-                    'name': filename,
-                    'datas': pdf_base64,
-                    'mimetype': 'application/pdf'
-                }))
-
-            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-
-            _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío a WhatsApp.")
-        except Exception as e:
-            _logger.error(f"❌ Error crítico al enviar el mensaje a WhatsApp: {e}", exc_info=True)
+        
+        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
+        vals = {
+            'mobile_number': self.record.mobile_number, 'body': message,
+            'state': 'outgoing',
+            'wa_account_id': self.record.wa_account_id.id,
+            'create_uid': self.env.ref('base.user_admin').id,
+        }
+        if pdf_base64:
+            vals['wa_media_ids'] = [(0, 0, {'name': 'factura.pdf', 'datas': pdf_base64, 'mimetype': 'application/pdf'})]
+        
+        outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+        outgoing_msg.sudo().write({'body': message})
+        if hasattr(outgoing_msg, '_send_message'):
+            outgoing_msg._send_message()
+        _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
 
 
