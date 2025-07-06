@@ -26,8 +26,16 @@ class ChatbotProcessor:
         self.memory = memory
         self.plain_text = clean_html(record.body or "").strip()
 
-    # ... (rest of class unchanged) ...
+    def process_message(self):
+        flow = self.memory.flow_state
+        _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'}")
+        if flow:
+            flow_handler = getattr(self, f"_handle_flow_{flow}", None)
+            if flow_handler:
+                return flow_handler()
+        return self._handle_general_intent()
 
+    # --- CORRECCIÓN FINAL Y COMBINADA ---
     def _send_response(self, response_data):
         """
         Envía una respuesta en dos pasos:
