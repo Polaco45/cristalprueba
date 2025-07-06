@@ -105,17 +105,33 @@ def handle_agradecimiento_cierre(env, partner, text):
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
         return fallback_template.format(partner_name=partner_name)
 
+# --- MODIFICADO: Se ajusta la forma de obtener el reporte para evitar el error ---
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        report_action = invoice.env.ref('account.account_invoices')
+        # Se busca la acción del reporte de una manera más robusta.
+        report_action = invoice.env['ir.actions.report']._get_report_from_name('account.account_invoices')
         pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+        
         message = f"¡Aquí está tu factura *{invoice.name}*! Te la envío adjunta."
         return {'message': message, 'pdf_base64': pdf_base64}
     except Exception as e:
-        _logger.error("Error generando PDF de factura %s: %s", invoice.name, e)
+        _logger.error(f"Error generando PDF de factura {invoice.name}: {e}")
         return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde."}
+
+# --- MODIFICADO: Se ajusta la lógica para usar la nueva función de buscar facturas ---
+def handle_solicitar_factura(env, partner, text):
+    """Inicia el flujo de solicitud de factura."""
+    number_match = re.search(r'\d{4,}', text)
+    if number_match:
+        return find_invoice_by_number(env, partner, number_match.group())
+    else:
+        return {
+            'message': messages_config['ask_for_invoice_number'],
+            'flow_state': 'esperando_numero_factura',
+            'data_buffer': ''
+        }
 
 def find_invoice_by_number(env, partner, invoice_number):
     """Busca una factura por número. Si no la encuentra, ofrece las más recientes."""
@@ -130,12 +146,11 @@ def find_invoice_by_number(env, partner, invoice_number):
     if invoice:
         return _generate_invoice_pdf_response(invoice)
 
-    # Si no se encuentra, ofrece las últimas 5 como plan B.
     return offer_recent_invoices(env, partner)
 
 def offer_recent_invoices(env, partner):
     """Busca y ofrece las 5 facturas más recientes."""
-    _logger.info(f"🧾 Buscando las últimas 5 facturas para {partner.name}.")
+    _logger.info(f"🧾 No se encontró coincidencia. Buscando las últimas 5 para {partner.name}.")
     invoices = env['account.move'].sudo().search([
         ('partner_id', '=', partner.id),
         ('state', '=', 'posted'),
