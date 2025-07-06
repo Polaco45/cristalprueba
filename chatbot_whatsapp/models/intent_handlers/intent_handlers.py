@@ -109,8 +109,17 @@ def handle_agradecimiento_cierre(env, partner, text):
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        # CORRECCIÓN FINAL: Usá el ID que encontraste en tu sistema.
-        report_action = invoice.env.ref('account.account_invoices') # Reemplazá con tu ID
+        # SOLUCIÓN DEFINITIVA: Buscar la acción del reporte por el nombre técnico de la plantilla.
+        # Esto es más estable que usar el XML ID.
+        report_action = invoice.env['ir.actions.report'].search([
+            ('report_name', '=', 'account.report_invoice')
+        ], limit=1)
+
+        if not report_action:
+            _logger.error("No se encontró la acción del reporte 'account.report_invoice'. Verificá que el módulo 'account' esté instalado y el nombre del reporte sea correcto.")
+            return {'message': "No pude encontrar la plantilla de la factura para generar el PDF. Contactá a un administrador."}
+
+        # Generar el PDF usando la acción encontrada
         pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
         
@@ -121,7 +130,6 @@ def _generate_invoice_pdf_response(invoice):
         }
     except Exception as e:
         _logger.error("Error generando PDF de factura %s: %s", invoice.name, e)
-        # CORREGIDO: Se elimina la llamada a `_` que causaba el UnboundLocalError.
         return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde."}
 
 def find_invoice_by_number(env, partner, invoice_number):
