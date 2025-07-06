@@ -109,28 +109,34 @@ def handle_agradecimiento_cierre(env, partner, text):
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        # SOLUCIÓN DEFINITIVA: Buscar la acción del reporte por el nombre técnico de la plantilla.
-        # Esto es más estable que usar el XML ID.
+        _logger.info("Iniciando la generación de PDF para la factura %s", invoice.name)
+
+        # Búsqueda de la acción del reporte por el nombre técnico de la plantilla
         report_action = invoice.env['ir.actions.report'].search([
             ('report_name', '=', 'account.report_invoice')
         ], limit=1)
 
         if not report_action:
-            _logger.error("No se encontró la acción del reporte 'account.report_invoice'. Verificá que el módulo 'account' esté instalado y el nombre del reporte sea correcto.")
-            return {'message': "No pude encontrar la plantilla de la factura para generar el PDF. Contactá a un administrador."}
+            _logger.error("No se encontró la acción del reporte 'account.report_invoice'.")
+            return {'message': "No pude encontrar la plantilla de la factura para generar el PDF."}
 
-        # Generar el PDF usando la acción encontrada
+        _logger.info("Acción de reporte encontrada: %s", report_action.name)
+
+        # Generar el PDF
         pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
-        
+
+        _logger.info("PDF generado y codificado en base64 exitosamente.")
+
         message = f"¡Aquí está tu factura *{invoice.name}*! Te la envío adjunta."
         return {
             'message': message,
             'pdf_base64': pdf_base64,
         }
     except Exception as e:
-        _logger.error("Error generando PDF de factura %s: %s", invoice.name, e)
-        return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde."}
+        _logger.error("Error crítico generando PDF: %s", e, exc_info=True)
+        return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo."}
+
 
 def find_invoice_by_number(env, partner, invoice_number):
     """Busca una factura por número. Si no la encuentra, ofrece las más recientes."""
