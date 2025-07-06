@@ -112,7 +112,6 @@ def _generate_invoice_pdf_response(invoice):
         _logger.info("Iniciando la generación de PDF para la factura %s", invoice.name)
         
         # Búsqueda de la acción del reporte
-        # CORRECCIÓN: Se usa '=' en lugar de 'in' para la búsqueda correcta en el dominio de Odoo.
         report_action = invoice.env['ir.actions.report'].search([
             ('report_name', '=', 'account.report_invoice')
         ], limit=1)
@@ -123,8 +122,11 @@ def _generate_invoice_pdf_response(invoice):
         
         _logger.info("Acción de reporte encontrada: %s", report_action.name)
 
-        # Usar el método público 'render_qweb_pdf' para generar el PDF
-        pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
+        # --- CORRECCIÓN ---
+        # La llamada a _render_qweb_pdf estaba pasando el ID de la factura como
+        # el nombre del reporte, causando el error. La forma correcta es pasar
+        # el nombre del reporte y luego los IDs de los registros.
+        pdf_content, _ = report_action.sudo()._render_qweb_pdf(report_action.report_name, [invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
         
         _logger.info("PDF generado y codificado en base64 exitosamente para la factura %s.", invoice.name)
