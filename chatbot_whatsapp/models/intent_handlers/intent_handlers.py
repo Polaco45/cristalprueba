@@ -109,28 +109,25 @@ def handle_agradecimiento_cierre(env, partner, text):
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        # 1) Primer intento: cargar por XML-ID
-        try:
-            report_action = invoice.env.ref('account.action_report_invoice', raise_if_not_found=False)
-        except (ValueError, AttributeError):
-            report_action = False
-
-        # 2) Si no se encontró, fallback por report_name
-        if not report_action:
-            report_action = invoice.env['ir.actions.report'].search([
-                ('report_name' in 'account.report_invoice')
-            ], limit=1)
+        _logger.info("Iniciando la generación de PDF para la factura %s", invoice.name)
+        
+        # Búsqueda de la acción del reporte
+        # CORRECCIÓN: Se usa '=' en lugar de 'in' para la búsqueda correcta en el dominio de Odoo.
+        report_action = invoice.env['ir.actions.report'].search([
+            ('report_name', '=', 'account.report_invoice')
+        ], limit=1)
 
         if not report_action:
-            _logger.error("No se encontró el action-report de factura: ni por XML-ID ni por report_name.")
-            return {
-                'message': "No pude encontrar la plantilla de la factura para generar el PDF. "
-                           "Verificá el XML-ID en Settings > Technical > Reports > External Identifiers."
-            }
+            _logger.error("No se encontró la acción del reporte 'account.report_invoice'.")
+            return {'message': "No pude encontrar la plantilla de la factura para generar el PDF."}
+        
+        _logger.info("Acción de reporte encontrada: %s", report_action.name)
 
-        # 3) Generar PDF
-        pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
+        # Usar el método público 'render_qweb_pdf' para generar el PDF
+        pdf_content, _ = report_action.sudo().render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
+        
+        _logger.info("PDF generado y codificado en base64 exitosamente para la factura %s.", invoice.name)
         
         message = f"¡Aquí está tu factura *{invoice.name}*! Te la envío adjunta."
         return {
@@ -138,9 +135,8 @@ def _generate_invoice_pdf_response(invoice):
             'pdf_base64': pdf_base64,
         }
     except Exception as e:
-        _logger.error("Error generando PDF de factura %s: %s", invoice.name, e)
+        _logger.error("Error crítico generando PDF para %s: %s", invoice.name, e, exc_info=True)
         return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde."}
-
 
 
 def find_invoice_by_number(env, partner, invoice_number):
