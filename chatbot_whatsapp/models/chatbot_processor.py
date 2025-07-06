@@ -35,9 +35,10 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    # --- CORRECCIÓN ---
-    # Se busca el canal de forma manual usando el partner y la cuenta de WhatsApp,
-    # ya que self.record no tiene una referencia directa al canal.
+    # --- CORRECCIÓN FINAL ---
+    # Se elimina el filtro 'whatsapp_account_id' de la búsqueda, ya que el campo
+    # no existe en 'discuss.channel'. La búsqueda ahora se basa solo en el
+    # cliente (partner) y el tipo de canal.
     def _send_response(self, response_data):
         """Envía una respuesta (texto y/o PDF) al canal de discusión correcto."""
         message = response_data.get('message')
@@ -46,9 +47,8 @@ class ChatbotProcessor:
         _logger.info(f"🚀 Preparando para enviar respuesta al canal: '{message}'")
 
         try:
-            # Búsqueda manual del canal de WhatsApp asociado al cliente (partner).
+            # Búsqueda del canal de WhatsApp asociado al cliente (partner).
             channel = self.env['discuss.channel'].sudo().search([
-                ('whatsapp_account_id', '=', self.record.wa_account_id.id),
                 ('channel_partner_ids', '=', self.partner.id),
                 ('channel_type', '=', 'whatsapp'),
             ], limit=1)
@@ -59,7 +59,6 @@ class ChatbotProcessor:
 
             attachment_ids = []
             if pdf_base64:
-                # El método message_post espera una lista de comandos para crear adjuntos.
                 attachment_data = {
                     'name': 'factura.pdf',
                     'datas': pdf_base64,
@@ -67,11 +66,8 @@ class ChatbotProcessor:
                     'res_model': 'discuss.channel',
                     'res_id': channel.id
                 }
-                # Se usa (0, 0, {...}) para crear un nuevo adjunto.
                 attachment_ids.append((0, 0, attachment_data))
 
-            # Usamos message_post, que maneja correctamente los adjuntos y las notificaciones.
-            # Se envía como usuario administrador para evitar problemas de permisos.
             channel.with_user(self.env.ref('base.user_admin')).message_post(
                 body=message,
                 message_type='comment',
@@ -83,7 +79,6 @@ class ChatbotProcessor:
 
         except Exception as e:
             _logger.error(f"❌ Error crítico al enviar la respuesta a través del canal: {e}", exc_info=True)
-            # Se podría añadir un mensaje de fallback si el envío falla.
 
 
     def _send_text(self, text_to_send):
