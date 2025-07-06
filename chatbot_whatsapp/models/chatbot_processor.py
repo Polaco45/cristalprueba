@@ -12,7 +12,7 @@ from .intent_handlers.create_order import (
 )
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
-    handle_agradecimiento_cierre, handle_consulta_producto, 
+    handle_agradecimiento_cierre, handle_consulta_producto,
     _generate_invoice_pdf_response, find_invoice_by_number, offer_recent_invoices
 )
 
@@ -35,66 +35,72 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    # --- CORRECCIÓN DEFINITIVA ---
-    # Se implementa el envío dual y se corrige el manejo de adjuntos.
+    # --- CORRECCIÓN ---
+    # Se ha modificado esta función para adjuntar el PDF de la manera correcta.
     def _send_response(self, response_data):
-        """
-        Envía una respuesta al canal de Odoo para registro interno y también
-        al usuario final a través de la API de WhatsApp.
-        """
+        """Prepara y envía una respuesta al usuario, adjuntando un PDF si existe."""
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
-        filename = response_data.get('filename', 'adjunto.pdf')
+        attachment_id = None
+
+        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
         
-        attachment = False
+        # 1. Crear el adjunto primero, si hay un PDF.
         if pdf_base64:
-            # 1. Crear el adjunto UNA SOLA VEZ
             try:
                 attachment = self.env['ir.attachment'].sudo().create({
-                    'name': filename,
+                    'name': 'factura.pdf',
                     'datas': pdf_base64,
-                    'res_model': 'mail.compose.message', # Modelo temporal
-                    'res_id': 0
+                    'res_model': 'whatsapp.message', # Modelo temporal
+                    'res_id': 0, # ID temporal
+                    'mimetype': 'application/pdf'
                 })
+                attachment_id = attachment.id
+                _logger.info(f"📎 Archivo adjunto temporal creado con ID: {attachment_id}")
             except Exception as e:
-                _logger.error(f"❌ No se pudo crear el registro ir.attachment: {e}", exc_info=True)
-                # Si falla la creación del adjunto, al menos enviamos el mensaje de texto.
-                pdf_base64 = False 
-                attachment = False
+                _logger.error(f"❌ Error creando el 'ir.attachment' para el PDF: {e}")
+                # Si falla la creación del adjunto, se envía solo el mensaje de error.
+                message = messages_config['error_attaching_pdf']
+                attachment_id = None
 
-        # --- Tarea A: Registrar en el canal de Odoo (Chatter) ---
+        # 2. Preparar los valores para el mensaje de WhatsApp.
+        vals = {
+            'mobile_number': self.record.mobile_number,
+            'body': message,
+            'state': 'outgoing',
+            'wa_account_id': self.record.wa_account_id.id,
+            'create_uid': self.env.ref('base.user_admin').id,
+        }
+        
+        # 3. Añadir el ID del adjunto si se creó correctamente.
+        # El modelo `whatsapp.message` espera el campo `attachment_id` (Many2one).
+        if attachment_id:
+            vals['attachment_id'] = attachment_id
+        
+        # 4. Crear y enviar el mensaje.
         try:
-            mail_message = self.record.mail_message_id
-            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
-                channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                channel.with_user(self.env.ref('base.user_admin')).message_post(
-                    body=message,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment',
-                    attachment_ids=[attachment.id] if attachment else []
-                )
-                _logger.info(f"✅ Mensaje registrado en el canal de Odoo '{channel.name}'.")
-        except Exception as e:
-            _logger.error(f"⚠️ No se pudo registrar el mensaje en el canal de Odoo: {e}", exc_info=True)
+            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            
+            # 5. Si se creó un adjunto, vincularlo permanentemente al mensaje recién creado.
+            if attachment_id:
+                self.env['ir.attachment'].sudo().browse(attachment_id).write({
+                    'res_model': 'whatsapp.message',
+                    'res_id': outgoing_msg.id
+                })
+                _logger.info(f"🔗 Adjunto {attachment_id} vinculado permanentemente al mensaje {outgoing_msg.id}.")
 
-        # --- Tarea B: Enviar al usuario por WhatsApp ---
-        try:
-            _logger.info(f"🚀 Preparando para enviar a WhatsApp: '{message}'")
-            # Usamos el método 'message_post' de la cuenta de WhatsApp, que es el correcto.
-            self.record.wa_account_id.with_user(self.env.ref('base.user_admin')).message_post(
-                partner_ids=[self.partner.id],
-                body=message,
-                attachment_ids=[attachment.id] if attachment else []
-            )
-            _logger.info(f"✅ Mensaje enviado a WhatsApp al número {self.record.mobile_number}.")
+            # El método _send_message se encarga del envío real.
+            if hasattr(outgoing_msg, '_send_message'):
+                outgoing_msg._send_message()
+            
+            _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
         except Exception as e:
-            _logger.error(f"❌ Error crítico al enviar el mensaje a WhatsApp: {e}", exc_info=True)
+            _logger.error(f"❌ Error fatal al crear o enviar el mensaje de WhatsApp: {e}", exc_info=True)
+
 
     def _send_text(self, text_to_send):
-        """Función de ayuda para enviar solo mensajes de texto."""
         return self._send_response({'message': text_to_send})
 
-    # ... (El resto del archivo permanece sin cambios) ...
     def _add_item_and_decide_next_step(self, pid, qty, name):
         add_item_to_cart(self.memory, pid, qty)
         buffer_data = json.loads(self.memory.data_buffer or '{}')
@@ -154,6 +160,8 @@ class ChatbotProcessor:
                 'data_buffer': json.dumps({'original_queue': pending_products}),
             })
             return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
+
+    # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
 
     def _handle_flow_esperando_confirmacion_pedido(self):
         system_prompt = prompts_config['order_confirmation_system']
@@ -401,6 +409,8 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['error_processing'])     
     
+    # --- MANEJADORES DE INTENCIONES ---
+
     def _handle_crear_pedido_intent(self):
         """Inicia el proceso de creación de pedido, obteniendo y encolando productos."""
         openai.api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -468,6 +478,7 @@ class ChatbotProcessor:
             
             return self._send_response(response_data)
 
+        # Fallback
         faq_response = handle_respuesta_faq(self.partner, self.plain_text)
         if faq_response:
             return self._send_text(faq_response)
