@@ -13,7 +13,7 @@ from .intent_handlers.create_order import (
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
     handle_agradecimiento_cierre, handle_consulta_producto, 
-    _generate_invoice_pdf_response, find_invoice_by_number
+    _generate_invoice_pdf_response, find_invoice_by_number, offer_recent_invoices
 )
 
 _logger = logging.getLogger(__name__)
@@ -36,7 +36,6 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     def _send_response(self, response_data):
-        """Wrapper para enviar respuestas que pueden incluir texto y/o PDF."""
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
         
@@ -56,9 +55,7 @@ class ChatbotProcessor:
             outgoing_msg._send_message()
         _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
-    # --- CORREGIDO: Se reintroduce _send_text ---
     def _send_text(self, text_to_send):
-        """Wrapper simple para enviar solo texto."""
         return self._send_response({'message': text_to_send})
 
     def _add_item_and_decide_next_step(self, pid, qty, name):
@@ -343,14 +340,16 @@ class ChatbotProcessor:
     def _handle_flow_esperando_numero_factura(self):
         """Maneja la respuesta del usuario cuando se le pidió un número de factura."""
         _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
-        response_data = find_invoice_by_number(self.env, self.partner, self.plain_text)
+        
+        # Si el usuario no quiere dar un número, le mostramos las recientes
+        if "buscar" in self.plain_text.lower():
+             response_data = offer_recent_invoices(self.env, self.partner)
+        else:
+            response_data = find_invoice_by_number(self.env, self.partner, self.plain_text)
         
         if response_data.get('flow_state'):
-            self.memory.write({
-                'flow_state': response_data['flow_state'],
-                'data_buffer': response_data.get('data_buffer', '')
-            })
-        else: # Si encontró la factura, limpia el estado
+            self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
+        else: # Si encontró la factura o no hay más flujos, limpia el estado
             self.memory.write({'flow_state': False, 'data_buffer': ''})
 
         return self._send_response(response_data)
@@ -364,20 +363,18 @@ class ChatbotProcessor:
         try:
             data = json.loads(self.memory.data_buffer or '{}')
             invoice_ids = data.get('invoice_ids', [])
-            
             if not (self.plain_text.isdigit() and 1 <= int(self.plain_text) <= len(invoice_ids)):
                 return self._send_text(messages_config['invalid_invoice_option'])
 
             selected_invoice_id = invoice_ids[int(self.plain_text) - 1]
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
             response_data = _generate_invoice_pdf_response(invoice)
-            
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_response(response_data)
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_text(messages_config['error_processing'])            
+            return self._send_text(messages_config['error_processing'])     
     # --- MANEJADORES DE INTENCIONES ---
 
     def _handle_crear_pedido_intent(self):
@@ -429,44 +426,29 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
-        # --- MODIFICADO: Lógica de despacho de intenciones mejorada ---
-        
-        # Manejadores que siempre devuelven solo texto
         if intent in ["saludo", "agradecimiento_cierre"]:
-            handler = {
-                "saludo": handle_saludo,
-                "agradecimiento_cierre": handle_agradecimiento_cierre,
-            }[intent]
-            response_text = handler(self.env, self.partner, self.plain_text)
+            handler = {"saludo": handle_saludo, "agradecimiento_cierre": handle_agradecimiento_cierre}[intent]
+            # La llamada a handle_agradecimiento_cierre necesita el texto
+            response_text = handler(self.env, self.partner, self.plain_text) if intent == "agradecimiento_cierre" else handler(self.env, self.partner)
             return self._send_text(response_text)
 
-        # Manejadores que inician un flujo de pedido
-        if intent == "crear_pedido":
-            return self._handle_crear_pedido_intent()
-        if intent == "modificar_pedido":
-            return self._send_text(handle_modificar_pedido(self.env, self.memory))
+        if intent in ["crear_pedido", "modificar_pedido"]:
+            if intent == "crear_pedido": return self._handle_crear_pedido_intent()
+            if intent == "modificar_pedido": return self._send_text(handle_modificar_pedido(self.env, self.memory))
 
-        # Manejadores que devuelven un diccionario complejo (con posible estado de flujo)
         if intent in ["consulta_producto", "solicitar_factura"]:
-            handler = {
-                "consulta_producto": handle_consulta_producto,
-                "solicitar_factura": handle_solicitar_factura,
-            }[intent]
+            handler = {"consulta_producto": handle_consulta_producto, "solicitar_factura": handle_solicitar_factura}[intent]
             response_data = handler(self.env, self.partner, self.plain_text)
             
             if response_data.get('flow_state'):
-                self.memory.write({
-                    'flow_state': response_data['flow_state'],
-                    'data_buffer': response_data.get('data_buffer', '')
-                })
+                self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
             
             return self._send_response(response_data)
 
-        # Fallback para el resto de las FAQs
-        faq_response = handle_respuesta_faq(intent, self.partner, self.plain_text)
+        # Fallback
+        faq_response = handle_respuesta_faq(self.partner, self.plain_text)
         if faq_response:
             return self._send_text(faq_response)
-            
         return self._send_text(messages_config['error_default'])
     
     def _handle_flow_esperando_seleccion_eliminar(self):

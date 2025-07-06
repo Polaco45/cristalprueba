@@ -44,9 +44,9 @@ invalid_number_for_deletion: "Número no válido. Por favor, elegí un número d
 invalid_input_for_deletion: "Respuesta no válida. Por favor, enviá el número del producto a eliminar o 'cancelar'."
 
 # --- Mensajes para el flujo de facturas ---
-ask_for_invoice_number: "¡Por supuesto! ¿Me podrías decir el número de la factura que necesitás? Si no lo tenés a mano, no te preocupes, puedo mostrarte las últimas que emitimos."
-offer_recent_invoices: "No encontré una factura con ese número, pero aquí tenés las últimas 5 que emitimos para vos:\n{invoices}\n\nPor favor, respondé con el número de la que necesitás. O escribí *cancelar*."
-no_recent_invoices: "No encontré facturas recientes a tu nombre. Si necesitás una más antigua, por favor, dame su número completo."
+ask_for_invoice_number: "¡Por supuesto! Para encontrar tu factura, ¿me podrías decir el número? Si no lo tenés a mano, respondé *'buscar'* y te mostraré las más recientes."
+offer_recent_invoices: "No encontré una factura con ese número, pero no te preocupes. Aquí tenés las últimas 5 que emitimos para vos:\n{invoices}\n\nPor favor, respondé con el número de la que necesitás o escribí *cancelar*."
+no_recent_invoices: "No encontré facturas recientes a tu nombre. Si necesitás una más antigua, por favor, dame su número completo para buscarla."
 invalid_invoice_option: "Opción no válida. Por favor, elegí un número de la lista o escribí *cancelar*."
 invoice_selection_cancelled: "Entendido. Si necesitás otra cosa, no dudes en preguntar."
 

@@ -96,4 +96,6 @@
 
 * Consultas sobre medios de pago
 
+* Recomendar productos relacionados luego de que se haya agregado algo al carrito
+
 * Mostrar ofertas
