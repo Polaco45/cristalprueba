@@ -109,33 +109,26 @@ def handle_agradecimiento_cierre(env, partner, text):
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        _logger.info("Iniciando la generación de PDF para la factura %s", invoice.name)
-
-        # Búsqueda de la acción del reporte por el nombre técnico de la plantilla
-        report_action = invoice.env['ir.actions.report'].search([
-            ('report_name', '=', 'account.report_invoice')
-        ], limit=1)
-
+        # 1) Obtener el action-report a partir de su XML-ID
+        report_action = invoice.env.ref('account.action_report_invoice', raise_if_not_found=False)
         if not report_action:
-            _logger.error("No se encontró la acción del reporte 'account.report_invoice'.")
-            return {'message': "No pude encontrar la plantilla de la factura para generar el PDF."}
+            _logger.error("No se encontró la acción de reporte 'account.action_report_invoice'. Verificá la instalación del módulo 'account'.")
+            return {'message': "No pude encontrar la plantilla de la factura para generar el PDF. Contactá a un administrador."}
 
-        _logger.info("Acción de reporte encontrada: %s", report_action.name)
-
-        # Generar el PDF
-        pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
+        # 2) Generar el PDF usando la acción encontrada
+        pdf_content, content_type = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
 
-        _logger.info("PDF generado y codificado en base64 exitosamente.")
-
+        # 3) Responder con el PDF embebido en base64
         message = f"¡Aquí está tu factura *{invoice.name}*! Te la envío adjunta."
         return {
             'message': message,
             'pdf_base64': pdf_base64,
         }
     except Exception as e:
-        _logger.error("Error crítico generando PDF: %s", e, exc_info=True)
-        return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo."}
+        _logger.error("Error generando PDF de factura %s: %s", invoice.name, e)
+        return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde."}
+
 
 
 def find_invoice_by_number(env, partner, invoice_number):
