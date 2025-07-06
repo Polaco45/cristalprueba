@@ -36,8 +36,8 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     # --- CORRECCIÓN ---
-    # Se modifica la función para usar message_post, que es la forma
-    # estándar de Odoo para enviar mensajes y adjuntos a un canal.
+    # Se busca el canal de forma manual usando el partner y la cuenta de WhatsApp,
+    # ya que self.record no tiene una referencia directa al canal.
     def _send_response(self, response_data):
         """Envía una respuesta (texto y/o PDF) al canal de discusión correcto."""
         message = response_data.get('message')
@@ -46,16 +46,20 @@ class ChatbotProcessor:
         _logger.info(f"🚀 Preparando para enviar respuesta al canal: '{message}'")
 
         try:
-            # Obtenemos el canal de la conversación actual.
-            channel = self.record.channel_id
+            # Búsqueda manual del canal de WhatsApp asociado al cliente (partner).
+            channel = self.env['discuss.channel'].sudo().search([
+                ('whatsapp_account_id', '=', self.record.wa_account_id.id),
+                ('channel_partner_ids', '=', self.partner.id),
+                ('channel_type', '=', 'whatsapp'),
+            ], limit=1)
+            
             if not channel:
-                _logger.error(f"No se pudo encontrar el canal de discusión para el mensaje entrante {self.record.id}.")
+                _logger.error(f"No se pudo encontrar un canal de discusión de WhatsApp para el cliente {self.partner.name} (ID: {self.partner.id}).")
                 return
 
             attachment_ids = []
             if pdf_base64:
                 # El método message_post espera una lista de comandos para crear adjuntos.
-                # Usamos (0, 0, {...}) para crear un nuevo adjunto al vuelo.
                 attachment_data = {
                     'name': 'factura.pdf',
                     'datas': pdf_base64,
@@ -63,14 +67,15 @@ class ChatbotProcessor:
                     'res_model': 'discuss.channel',
                     'res_id': channel.id
                 }
+                # Se usa (0, 0, {...}) para crear un nuevo adjunto.
                 attachment_ids.append((0, 0, attachment_data))
 
-            # Usamos message_post, que maneja correctamente los adjuntos, notificaciones y el envío.
+            # Usamos message_post, que maneja correctamente los adjuntos y las notificaciones.
             # Se envía como usuario administrador para evitar problemas de permisos.
             channel.with_user(self.env.ref('base.user_admin')).message_post(
                 body=message,
                 message_type='comment',
-                subtype_xmlid='mail.mt_comment', # Mensaje estándar
+                subtype_xmlid='mail.mt_comment',
                 attachment_ids=attachment_ids
             )
             
@@ -78,7 +83,7 @@ class ChatbotProcessor:
 
         except Exception as e:
             _logger.error(f"❌ Error crítico al enviar la respuesta a través del canal: {e}", exc_info=True)
-            # Aquí se podría añadir un mensaje de fallback si falla el envío.
+            # Se podría añadir un mensaje de fallback si el envío falla.
 
 
     def _send_text(self, text_to_send):
