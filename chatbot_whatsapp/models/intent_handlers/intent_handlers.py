@@ -9,7 +9,6 @@ from .create_order import lookup_product_variants
 
 _logger = logging.getLogger(__name__)
 
-# --- MODIFICADO: Ahora devuelve un diccionario con estado y buffer ---
 def handle_consulta_producto(env, partner, text):
     """
     Maneja la consulta de un producto, devolviendo un diccionario con el mensaje, 
@@ -51,7 +50,6 @@ def handle_consulta_producto(env, partner, text):
             temperature=0.7,
         )
         
-        # --- NUEVO: Construye el diccionario de respuesta completo ---
         return {
             'message': final_response_resp.choices[0].message.content,
             'flow_state': 'esperando_seleccion_producto',
@@ -61,8 +59,6 @@ def handle_consulta_producto(env, partner, text):
     except Exception as e:
         _logger.error(f"❌ Error en handle_consulta_producto: {e}")
         return {'message': messages_config['error_processing']}
-
-# --- El resto de las funciones se mantienen igual ---
 
 def handle_saludo(env, partner):
     """Genera un saludo dinámico y variado utilizando la IA."""
@@ -105,6 +101,9 @@ def handle_agradecimiento_cierre(env, partner, text):
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
         return fallback_template.format(partner_name=partner_name)
 
+# --- CORRECCIÓN ---
+# Se agrega un nombre de archivo al diccionario de respuesta para que
+# el procesador sepa cómo llamar al PDF.
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
@@ -127,7 +126,6 @@ def _generate_invoice_pdf_response(invoice):
         
         message = f"¡Aquí está tu factura *{invoice.name}*! Te la envío adjunta."
         
-        # --- CORRECCIÓN: Devolvemos también un nombre de archivo ---
         return {
             'message': message,
             'pdf_base64': pdf_base64,
@@ -194,7 +192,6 @@ def handle_faq_con_ai(partner, user_text):
     (horarios, productos, ubicación, etc.) usando OpenAI.
     """
     try:
-        # 1) Obtener datos de res.company
         company = partner.env['res.company'].sudo().search([], limit=1)
         company_name = company.name or "nuestra empresa"
         address = company.partner_id.contact_address or "su sede principal"
@@ -202,7 +199,6 @@ def handle_faq_con_ai(partner, user_text):
         categories = partner.env['product.category'].sudo().search([], limit=5).mapped('name')
         product_list = ", ".join(categories) if categories else "diversos productos de limpieza (pisos, vidrios, cocinas, etc.)"
 
-        # 2) Construir prompt
         prompt = (
             f"Eres un asistente experto de atención al cliente para la empresa '{company_name}'.\n\n"
             f"Información relevante sobre la empresa:\n"
@@ -214,7 +210,6 @@ def handle_faq_con_ai(partner, user_text):
             f"Generá una respuesta amable, precisa y completa, basándote en la información anterior."
         )
 
-        # 3) Obtener API key directamente de Odoo
         api_key = partner.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         if not api_key:
             _logger.error("La API key de OpenAI no está configurada en ir.config_parameter.")

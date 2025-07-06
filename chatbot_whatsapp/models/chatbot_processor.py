@@ -35,61 +35,62 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    # --- CORRECCIÓN FINAL ---
-    # Se obtiene el canal directamente desde el 'mail.message' asociado al
-    # mensaje de WhatsApp, que es el método más robusto y directo.
+    # --- CORRECCIÓN DEFINITIVA ---
+    # Se combinan ambos métodos de envío:
+    # 1. Se envía el mensaje al canal de Odoo para el registro interno.
+    # 2. Se envía una copia al usuario a través de la API de WhatsApp.
     def _send_response(self, response_data):
-        """Envía una respuesta (texto y/o PDF) al canal de discusión correcto."""
+        """Envía una respuesta al canal de Odoo y al usuario de WhatsApp."""
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
-        
-        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
+        filename = response_data.get('filename', 'adjunto.pdf')
 
+        # --- 1. Envío al canal de Odoo para registro ---
         try:
-            # 1. Obtener el 'mail.message' vinculado al 'whatsapp.message'
             mail_message = self.record.mail_message_id
-            if not mail_message:
-                _logger.error(f"El mensaje de WhatsApp {self.record.id} no tiene un 'mail.message' asociado.")
-                return
-
-            # 2. Verificar que el mensaje pertenece a un canal de discusión
-            if not (mail_message.model == 'discuss.channel' and mail_message.res_id):
-                _logger.error(f"El mail.message {mail_message.id} no está asociado a un canal de discusión válido.")
-                return
-
-            # 3. Obtener el canal usando el ID guardado en el mail.message
-            channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-            _logger.info(f"Canal de discusión encontrado vía mail.message: '{channel.name}' (ID: {channel.id})")
-
-            attachment_ids = []
-            if pdf_base64:
-                attachment_data = {
-                    'name': 'factura.pdf',
-                    'datas': pdf_base64,
-                    'mimetype': 'application/pdf',
-                    'res_model': 'discuss.channel',
-                    'res_id': channel.id
-                }
-                attachment_ids.append((0, 0, attachment_data))
-
-            # 4. Enviar la respuesta al canal encontrado
-            channel.with_user(self.env.ref('base.user_admin')).message_post(
-                body=message,
-                message_type='comment',
-                subtype_xmlid='mail.mt_comment',
-                attachment_ids=attachment_ids
-            )
-            
-            _logger.info(f"✅ Mensaje y/o adjunto enviado exitosamente al canal '{channel.name}'.")
-
+            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
+                channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
+                attachment_id = False
+                if pdf_base64:
+                    # Se crea el adjunto primero
+                    attachment = self.env['ir.attachment'].sudo().create({
+                        'name': filename,
+                        'datas': pdf_base64,
+                        'res_model': 'discuss.channel',
+                        'res_id': channel.id
+                    })
+                    attachment_id = attachment.id
+                
+                # Se envía al canal con el ID del adjunto
+                channel.with_user(self.env.ref('base.user_admin')).message_post(
+                    body=message,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment',
+                    attachment_ids=[attachment_id] if attachment_id else []
+                )
+                _logger.info(f"✅ Mensaje y/o adjunto registrado en el canal '{channel.name}'.")
         except Exception as e:
-            _logger.error(f"❌ Error crítico al enviar la respuesta a través del canal: {e}", exc_info=True)
+            _logger.error(f"⚠️ No se pudo registrar el mensaje en el canal de Odoo: {e}", exc_info=True)
+
+        # --- 2. Envío al usuario a través de la API de WhatsApp ---
+        try:
+            _logger.info(f"🚀 Preparando para enviar a WhatsApp: '{message}'")
+            # Se reutiliza el 'whatsapp.message' original para responder
+            self.record.wa_account_id.with_user(self.env.ref('base.user_admin')).message_post(
+                body=message,
+                partner_ids=[self.partner.id],
+                attachment_ids=[(0, 0, {'name': filename, 'datas': pdf_base64, 'mimetype': 'application/pdf'})] if pdf_base64 else []
+            )
+            _logger.info(f"✅ Mensaje enviado a WhatsApp al número {self.record.mobile_number}.")
+        except Exception as e:
+            _logger.error(f"❌ Error crítico al enviar el mensaje a WhatsApp: {e}", exc_info=True)
 
 
     def _send_text(self, text_to_send):
         """Función de ayuda para enviar solo mensajes de texto."""
         return self._send_response({'message': text_to_send})
 
+    # ... (El resto del archivo permanece sin cambios) ...
     def _add_item_and_decide_next_step(self, pid, qty, name):
         add_item_to_cart(self.memory, pid, qty)
         buffer_data = json.loads(self.memory.data_buffer or '{}')
@@ -150,7 +151,6 @@ class ChatbotProcessor:
             })
             return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
 
-    # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
     def _handle_flow_esperando_confirmacion_pedido(self):
         system_prompt = prompts_config['order_confirmation_system']
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -397,7 +397,6 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['error_processing'])     
     
-    # --- MANEJADORES DE INTENCIONES ---
     def _handle_crear_pedido_intent(self):
         """Inicia el proceso de creación de pedido, obteniendo y encolando productos."""
         openai.api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
