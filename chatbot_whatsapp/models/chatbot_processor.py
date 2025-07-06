@@ -12,7 +12,7 @@ from .intent_handlers.create_order import (
 )
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
-    handle_agradecimiento_cierre, handle_consulta_producto,
+    handle_agradecimiento_cierre, handle_consulta_producto, 
     _generate_invoice_pdf_response, find_invoice_by_number, offer_recent_invoices
 )
 
@@ -36,69 +36,53 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     # --- CORRECCIÓN ---
-    # Se ha modificado esta función para adjuntar el PDF de la manera correcta.
+    # Se modifica la función para usar message_post, que es la forma
+    # estándar de Odoo para enviar mensajes y adjuntos a un canal.
     def _send_response(self, response_data):
-        """Prepara y envía una respuesta al usuario, adjuntando un PDF si existe."""
+        """Envía una respuesta (texto y/o PDF) al canal de discusión correcto."""
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
-        attachment_id = None
-
-        _logger.info(f"🚀 Preparando para enviar respuesta: '{message}'")
         
-        # 1. Crear el adjunto primero, si hay un PDF.
-        if pdf_base64:
-            try:
-                attachment = self.env['ir.attachment'].sudo().create({
+        _logger.info(f"🚀 Preparando para enviar respuesta al canal: '{message}'")
+
+        try:
+            # Obtenemos el canal de la conversación actual.
+            channel = self.record.channel_id
+            if not channel:
+                _logger.error(f"No se pudo encontrar el canal de discusión para el mensaje entrante {self.record.id}.")
+                return
+
+            attachment_ids = []
+            if pdf_base64:
+                # El método message_post espera una lista de comandos para crear adjuntos.
+                # Usamos (0, 0, {...}) para crear un nuevo adjunto al vuelo.
+                attachment_data = {
                     'name': 'factura.pdf',
                     'datas': pdf_base64,
-                    'res_model': 'whatsapp.message', # Modelo temporal
-                    'res_id': 0, # ID temporal
-                    'mimetype': 'application/pdf'
-                })
-                attachment_id = attachment.id
-                _logger.info(f"📎 Archivo adjunto temporal creado con ID: {attachment_id}")
-            except Exception as e:
-                _logger.error(f"❌ Error creando el 'ir.attachment' para el PDF: {e}")
-                # Si falla la creación del adjunto, se envía solo el mensaje de error.
-                message = messages_config['error_attaching_pdf']
-                attachment_id = None
+                    'mimetype': 'application/pdf',
+                    'res_model': 'discuss.channel',
+                    'res_id': channel.id
+                }
+                attachment_ids.append((0, 0, attachment_data))
 
-        # 2. Preparar los valores para el mensaje de WhatsApp.
-        vals = {
-            'mobile_number': self.record.mobile_number,
-            'body': message,
-            'state': 'outgoing',
-            'wa_account_id': self.record.wa_account_id.id,
-            'create_uid': self.env.ref('base.user_admin').id,
-        }
-        
-        # 3. Añadir el ID del adjunto si se creó correctamente.
-        # El modelo `whatsapp.message` espera el campo `attachment_id` (Many2one).
-        if attachment_id:
-            vals['attachment_id'] = attachment_id
-        
-        # 4. Crear y enviar el mensaje.
-        try:
-            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            # Usamos message_post, que maneja correctamente los adjuntos, notificaciones y el envío.
+            # Se envía como usuario administrador para evitar problemas de permisos.
+            channel.with_user(self.env.ref('base.user_admin')).message_post(
+                body=message,
+                message_type='comment',
+                subtype_xmlid='mail.mt_comment', # Mensaje estándar
+                attachment_ids=attachment_ids
+            )
             
-            # 5. Si se creó un adjunto, vincularlo permanentemente al mensaje recién creado.
-            if attachment_id:
-                self.env['ir.attachment'].sudo().browse(attachment_id).write({
-                    'res_model': 'whatsapp.message',
-                    'res_id': outgoing_msg.id
-                })
-                _logger.info(f"🔗 Adjunto {attachment_id} vinculado permanentemente al mensaje {outgoing_msg.id}.")
+            _logger.info(f"✅ Mensaje y/o adjunto enviado exitosamente al canal '{channel.name}'.")
 
-            # El método _send_message se encarga del envío real.
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-            
-            _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
         except Exception as e:
-            _logger.error(f"❌ Error fatal al crear o enviar el mensaje de WhatsApp: {e}", exc_info=True)
+            _logger.error(f"❌ Error crítico al enviar la respuesta a través del canal: {e}", exc_info=True)
+            # Aquí se podría añadir un mensaje de fallback si falla el envío.
 
 
     def _send_text(self, text_to_send):
+        """Función de ayuda para enviar solo mensajes de texto."""
         return self._send_response({'message': text_to_send})
 
     def _add_item_and_decide_next_step(self, pid, qty, name):
@@ -162,7 +146,6 @@ class ChatbotProcessor:
             return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
 
     # --- MANEJADORES DE FLUJOS ESPECÍFICOS ---
-
     def _handle_flow_esperando_confirmacion_pedido(self):
         system_prompt = prompts_config['order_confirmation_system']
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -410,7 +393,6 @@ class ChatbotProcessor:
             return self._send_text(messages_config['error_processing'])     
     
     # --- MANEJADORES DE INTENCIONES ---
-
     def _handle_crear_pedido_intent(self):
         """Inicia el proceso de creación de pedido, obteniendo y encolando productos."""
         openai.api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -478,7 +460,6 @@ class ChatbotProcessor:
             
             return self._send_response(response_data)
 
-        # Fallback
         faq_response = handle_respuesta_faq(self.partner, self.plain_text)
         if faq_response:
             return self._send_text(faq_response)
