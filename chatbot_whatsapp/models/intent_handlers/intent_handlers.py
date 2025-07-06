@@ -113,9 +113,9 @@ def _generate_invoice_pdf_response(invoice):
         
         # Búsqueda de la acción del reporte
         # CORRECCIÓN: Se usa '=' en lugar de 'in' para la búsqueda correcta en el dominio de Odoo.
-        report_action = invoice.env['ir.actions.report'].search(
+        report_action = invoice.env['ir.actions.report'].search([
             ('report_name', '=', 'account.report_invoice')
-        , limit=1)
+        ], limit=1)
 
         if not report_action:
             _logger.error("No se encontró la acción del reporte 'account.report_invoice'.")
