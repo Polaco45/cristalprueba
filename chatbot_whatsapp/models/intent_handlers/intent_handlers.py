@@ -109,8 +109,8 @@ def handle_agradecimiento_cierre(env, partner, text):
 def _generate_invoice_pdf_response(invoice):
     """Función helper para generar la respuesta con el PDF de la factura."""
     try:
-        # CORREGIDO: Se usa el XML ID correcto para el reporte de la factura.
-        report_action = invoice.env.ref('account.report_invoice_with_payments')
+        # CORRECCIÓN: Usá el XML ID correcto para la ACCIÓN del reporte.
+        report_action = invoice.env.ref('account.action_report_invoice') # Reemplazá con tu ID
         pdf_content, _ = report_action.sudo()._render_qweb_pdf([invoice.id])
         pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
         
