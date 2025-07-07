@@ -100,21 +100,6 @@ def handle_agradecimiento_cierre(env, partner, text):
         _logger.error(f"❌ Error al generar respuesta de cierre con IA: {e}. Usando fallback.")
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
         return fallback_template.format(partner_name=partner_name)
-    
-def send_invoice_template(env, partner, invoice):
-    """
-    Función helper para encapsular la lógica de envío de la plantilla.
-    Devuelve un diccionario para ser procesado por el ChatbotProcessor.
-    """
-    _logger.info(f"Preparando para disparar plantilla de factura para {invoice.name}.")
-    return {
-        'action': 'send_template',
-        'template_name': 'envio_factura_copy_copy_copy', # Nombre de la plantilla
-        'invoice_number': invoice.name,
-        'message': f"Te estoy enviando la factura {invoice.name}." # Mensaje para el chatter
-    }
-
-# LA FUNCIÓN _generate_invoice_pdf_response HA SIDO ELIMINADA COMPLETAMENTE
 
 def find_invoice_by_number(env, partner, invoice_number):
     """
@@ -123,7 +108,6 @@ def find_invoice_by_number(env, partner, invoice_number):
     """
     _logger.info(f"🧾 Buscando factura que contenga: '{invoice_number}' para {partner.name}")
     
-    # La búsqueda ahora es más flexible para encontrar el número en cualquier parte del nombre
     clean_number = re.sub(r'[^0-9]', '', invoice_number)
     if not clean_number:
         return None
@@ -140,7 +124,6 @@ def find_invoice_by_number(env, partner, invoice_number):
 def offer_recent_invoices(env, partner):
     """
     Busca y ofrece las 5 facturas más recientes.
-    Esta función no cambia, sigue devolviendo un diccionario para mostrar opciones.
     """
     _logger.info(f"🧾 No se encontró la factura. Buscando las últimas 5 para {partner.name}.")
     
@@ -164,10 +147,8 @@ def offer_recent_invoices(env, partner):
 
 def handle_solicitar_factura(env, partner, text):
     """
-    Inicia el flujo de solicitud de factura si no se provee un número válido.
-    Si se encuentra un número, la lógica ahora está en el ChatbotProcessor.
+    Inicia el flujo de solicitud de factura.
     """
-    # Esta función ahora solo se encarga de iniciar el flujo de preguntas
     return {
         'message': messages_config['ask_for_invoice_number'],
         'flow_state': 'esperando_numero_factura',
@@ -176,8 +157,7 @@ def handle_solicitar_factura(env, partner, text):
         
 def handle_faq_con_ai(partner, user_text):
     """
-    Genera dinámicamente la respuesta a preguntas frecuentes
-    (horarios, productos, ubicación, etc.) usando OpenAI.
+    Genera dinámicamente la respuesta a preguntas frecuentes.
     """
     try:
         company = partner.env['res.company'].sudo().search([], limit=1)
@@ -185,23 +165,19 @@ def handle_faq_con_ai(partner, user_text):
         address = company.partner_id.contact_address or "su sede principal"
         schedule = getattr(company, 'hour_schedule', None) or "Nuestro horario es de lunes a viernes de 9 a 18 hs."
         categories = partner.env['product.category'].sudo().search([], limit=5).mapped('name')
-        product_list = ", ".join(categories) if categories else "diversos productos de limpieza (pisos, vidrios, cocinas, etc.)"
+        product_list = ", ".join(categories) if categories else "diversos productos de limpieza"
 
         prompt = (
-            f"Eres un asistente experto de atención al cliente para la empresa '{company_name}'.\n\n"
-            f"Información relevante sobre la empresa:\n"
-            f"- Dirección: {address}\n"
-            f"- Horario de atención: {schedule}\n"
-            f"- Tipos de productos: {product_list}\n\n"
-            f"El cliente hace la siguiente consulta:\n"
-            f"\"{user_text}\"\n\n"
-            f"Generá una respuesta amable, precisa y completa, basándote en la información anterior."
+            f"Eres un asistente experto de '{company_name}'.\n"
+            f"Info: Dirección: {address}. Horario: {schedule}. Productos: {product_list}.\n"
+            f"Cliente: \"{user_text}\"\n"
+            f"Generá una respuesta amable y completa."
         )
 
         api_key = partner.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         if not api_key:
-            _logger.error("La API key de OpenAI no está configurada en ir.config_parameter.")
-            return _("Lo siento, no pude procesar tu mensaje en este momento. 😔")
+            _logger.error("La API key de OpenAI no está configurada.")
+            return "Lo siento, no pude procesar tu mensaje en este momento."
 
         openai.api_key = api_key
         result = openai.ChatCompletion.create(
@@ -217,7 +193,7 @@ def handle_faq_con_ai(partner, user_text):
 
     except Exception as e:
         _logger.error("Error al generar respuesta con AI: %s", e)
-        return _("Perdón, hubo un problema generando la respuesta. Intentá de nuevo más tarde.")
+        return "Perdón, hubo un problema generando la respuesta."
 
 def handle_respuesta_faq(intent, partner, text):
     """
