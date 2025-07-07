@@ -100,58 +100,48 @@ def handle_agradecimiento_cierre(env, partner, text):
         _logger.error(f"❌ Error al generar respuesta de cierre con IA: {e}. Usando fallback.")
         fallback_template = messages_config.get('closing_fallback', "¡De nada! 😊")
         return fallback_template.format(partner_name=partner_name)
+    
+def send_invoice_template(env, partner, invoice):
+    """
+    Función helper para encapsular la lógica de envío de la plantilla.
+    Devuelve un diccionario para ser procesado por el ChatbotProcessor.
+    """
+    _logger.info(f"Preparando para disparar plantilla de factura para {invoice.name}.")
+    return {
+        'action': 'send_template',
+        'template_name': 'envio_factura_copy_copy_copy', # Nombre de la plantilla
+        'invoice_number': invoice.name,
+        'message': f"Te estoy enviando la factura {invoice.name}." # Mensaje para el chatter
+    }
 
-def _generate_invoice_pdf_response(invoice):
-    """Función helper para generar la respuesta con el PDF de la factura."""
-    try:
-        _logger.info("Iniciando la generación de PDF para la factura %s", invoice.name)
-        
-        report_action = invoice.env['ir.actions.report'].search([
-            ('report_name', '=', 'account.report_invoice')
-        ], limit=1)
-
-        if not report_action:
-            _logger.error("No se encontró la acción del reporte 'account.report_invoice'.")
-            return {'message': "No pude encontrar la plantilla de la factura para generar el PDF."}
-        
-        _logger.info("Acción de reporte encontrada: %s", report_action.name)
-
-        pdf_content, _ = report_action.sudo()._render_qweb_pdf(report_action.report_name, [invoice.id])
-        pdf_base64 = base64.b64encode(pdf_content).decode('utf-8')
-        
-        _logger.info("PDF generado y codificado en base64 exitosamente para la factura %s.", invoice.name)
-        
-        message = f"¡Aquí está tu factura *{invoice.name}*! Te la envío adjunta."
-        
-        # --- CORRECCIÓN: Se agrega un nombre de archivo al diccionario de respuesta ---
-        return {
-            'message': message,
-            'pdf_base64': pdf_base64,
-            'filename': f"Factura_{invoice.name.replace('/', '_')}.pdf"
-        }
-    except Exception as e:
-        _logger.error("Error crítico generando PDF para %s: %s", invoice.name, e, exc_info=True)
-        return {'message': "Hubo un error al generar el PDF de tu factura. Por favor, intentá de nuevo más tarde."}
-
+# LA FUNCIÓN _generate_invoice_pdf_response HA SIDO ELIMINADA COMPLETAMENTE
 
 def find_invoice_by_number(env, partner, invoice_number):
-    """Busca una factura por número. Si no la encuentra, ofrece las más recientes."""
+    """
+    Busca una factura por número.
+    Devuelve el objeto de la factura si la encuentra, sino devuelve None.
+    """
     _logger.info(f"🧾 Buscando factura que contenga: '{invoice_number}' para {partner.name}")
     
+    # La búsqueda ahora es más flexible para encontrar el número en cualquier parte del nombre
+    clean_number = re.sub(r'[^0-9]', '', invoice_number)
+    if not clean_number:
+        return None
+
     invoice = env['account.move'].sudo().search([
         ('partner_id', '=', partner.id),
-        ('name', 'ilike', f'%{invoice_number}%'),
+        ('name', 'ilike', f'%{clean_number}%'),
         ('state', '=', 'posted'),
         ('move_type', 'in', ['out_invoice', 'out_refund'])
     ], limit=1)
 
-    if invoice:
-        return _generate_invoice_pdf_response(invoice)
-
-    return offer_recent_invoices(env, partner)
+    return invoice if invoice else None
 
 def offer_recent_invoices(env, partner):
-    """Busca y ofrece las 5 facturas más recientes."""
+    """
+    Busca y ofrece las 5 facturas más recientes.
+    Esta función no cambia, sigue devolviendo un diccionario para mostrar opciones.
+    """
     _logger.info(f"🧾 No se encontró la factura. Buscando las últimas 5 para {partner.name}.")
     
     invoices = env['account.move'].sudo().search([
@@ -173,16 +163,16 @@ def offer_recent_invoices(env, partner):
     }
 
 def handle_solicitar_factura(env, partner, text):
-    """Inicia el flujo de solicitud de factura."""
-    number_match = re.search(r'\d{4,}', text)
-    if number_match:
-        return find_invoice_by_number(env, partner, number_match.group())
-    else:
-        return {
-            'message': messages_config['ask_for_invoice_number'],
-            'flow_state': 'esperando_numero_factura',
-            'data_buffer': ''
-        }
+    """
+    Inicia el flujo de solicitud de factura si no se provee un número válido.
+    Si se encuentra un número, la lógica ahora está en el ChatbotProcessor.
+    """
+    # Esta función ahora solo se encarga de iniciar el flujo de preguntas
+    return {
+        'message': messages_config['ask_for_invoice_number'],
+        'flow_state': 'esperando_numero_factura',
+        'data_buffer': ''
+    }
         
 def handle_faq_con_ai(partner, user_text):
     """

@@ -13,7 +13,7 @@ from .intent_handlers.create_order import (
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
     handle_agradecimiento_cierre, handle_consulta_producto, 
-    _generate_invoice_pdf_response, find_invoice_by_number, offer_recent_invoices
+    find_invoice_by_number, offer_recent_invoices, send_invoice_template # <--- NUEVA FUNCIÓN IMPORTADA
 )
 
 _logger = logging.getLogger(__name__)
@@ -35,114 +35,105 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    # --- CORRECCIÓN FINAL Y COMBINADA ---
+    def _send_template(self, template_name, partner, invoice_number):
+        """
+        Envía una plantilla de WhatsApp específica.
+        """
+        wa_account = self.record.wa_account_id
+        if not wa_account:
+            _logger.error("No se encontró una cuenta de WhatsApp activa para enviar la plantilla.")
+            return self._send_text(messages_config['error_processing'])
+        
+        try:
+            # Lógica para registrar el mensaje en el chatter de Odoo
+            mail_message = self.record.mail_message_id
+            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
+                channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
+                chatter_message = f"Se ha disparado la plantilla de factura '{template_name}' para la factura {invoice_number}."
+                channel.with_context(from_wa_bot=True).message_post(
+                    body=chatter_message,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment'
+                )
+                _logger.info(f"✅ Mensaje registrado en el canal de Odoo '{channel.name}'.")
+
+            # Lógica para enviar la plantilla por WhatsApp
+            wa_template = self.env['whatsapp.template'].sudo().search([
+                ('name', '=', template_name),
+                ('wa_account_id', '=', wa_account.id)
+            ], limit=1)
+
+            if not wa_template:
+                _logger.error(f"No se encontró la plantilla de WhatsApp con nombre: {template_name}")
+                return self._send_text("Hubo un problema al intentar enviar tu factura. Por favor, contacta a soporte.")
+
+            # El componente de cuerpo es usualmente el primero.
+            # Se asume que la plantilla solo tiene un parámetro en el cuerpo.
+            template_body_components = wa_template.template_components.filtered(lambda c: c.type == 'body')
+            if template_body_components:
+                # El parámetro se pasa como una lista de strings.
+                wa_template.sudo().with_context(
+                    active_ids=[partner.id] 
+                ).send_template(components_val=[(0, 0, {'type': 'body', 'param_val': [invoice_number]})])
+            else:
+                 _logger.warning(f"La plantilla '{template_name}' no tiene componentes de tipo 'body' para los parámetros.")
+                 # Si no hay parámetros de cuerpo, se envía tal cual
+                 wa_template.sudo().with_context(active_ids=[partner.id]).send_template()
+
+            _logger.info(f"✅ Plantilla '{template_name}' enviada a {partner.name} ({partner.phone}) con el número de factura {invoice_number}.")
+
+        except Exception as e:
+            _logger.error(f"❌ Error al enviar la plantilla de WhatsApp: {e}", exc_info=True)
+            return self._send_text(messages_config['error_processing'])
+
     def _send_response(self, response_data):
         """
-        Envía una respuesta, manteniendo la estructura original.
-        Dispara la plantilla de factura si se detecta un PDF, o envía
-        un mensaje de texto simple en caso contrario.
+        Envía una respuesta de texto simple a través de WhatsApp y la registra en el chatter.
+        Se ha simplificado para no manejar PDFs.
         """
-        # --- DATOS DE ENTRADA ---
         message = response_data.get('message')
-        pdf_base64 = response_data.get('pdf_base64') # Se usa como "señal" para saber que es una factura
-        filename = response_data.get('filename', 'factura.pdf')
-        # Asumimos que la factura encontrada se pasa en los datos de respuesta
-        invoice = response_data.get('invoice') 
+        if not message:
+            return
 
-        # --- Tarea 1: Registrar en el chatter de Odoo (CÓDIGO RESTAURADO) ---
+        # Registrar en el chatter de Odoo
         try:
             mail_message = self.record.mail_message_id
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                attachment_ids_chatter = []
-                # El adjunto se sigue creando solo para el registro interno del chatter
-                if pdf_base64:
-                    chatter_attachment = self.env['ir.attachment'].sudo().create({
-                        'name': filename,
-                        'datas': pdf_base64,
-                        'res_model': 'discuss.channel',
-                        'res_id': channel.id
-                    })
-                    attachment_ids_chatter.append(chatter_attachment.id)
-
                 channel.with_context(from_wa_bot=True).message_post(
                     body=message,
                     message_type='comment',
-                    subtype_xmlid='mail.mt_comment',
-                    attachment_ids=attachment_ids_chatter
+                    subtype_xmlid='mail.mt_comment'
                 )
-                _logger.info(f"✅ Mensaje registrado en el canal de Odoo '{channel.name}'.")
+                _logger.info(f"✅ Mensaje de texto registrado en el canal de Odoo '{channel.name}'.")
         except Exception as e:
-            _logger.error(f"⚠️ No se pudo registrar el mensaje en el canal de Odoo: {e}", exc_info=True)
+            _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
 
-        # --- Tarea 2: Enviar el Mensaje de WhatsApp (LÓGICA CORREGIDA) ---
+        # Enviar mensaje por WhatsApp
         try:
-            # Si 'pdf_base64' e 'invoice' existen, sabemos que debemos enviar la plantilla de factura.
-            if pdf_base64 and invoice:
-                _logger.info("🚀 Detectada solicitud de factura. Disparando plantilla de WhatsApp...")
-                
-                # 1. Buscar la plantilla por su nombre técnico.
-                template_name = 'envio_factura_copy_copy_copy'
-                template = self.env['whatsapp.template'].search([('name', '=', template_name)], limit=1)
-                
-                if not template:
-                    _logger.error(f"❌ No se encontró la plantilla de WhatsApp con el nombre '{template_name}'.")
-                    return
-
-                # 2. Preparar el envío con el 'whatsapp.composer'.
-                # NO creamos el PDF, solo le decimos al composer sobre qué factura (invoice)
-                # debe actuar. El composer y la plantilla se encargarán de generar el PDF.
-                composer = self.env['whatsapp.composer'].with_context(
-                    active_model='account.move', # El modelo de la factura
-                    active_id=invoice.id
-                ).create({
-                    'template_id': template.id,
-                    'res_id': invoice.id,
-                    'res_model': 'account.move',
-                })
-
-                # 3. Asignar el valor a la variable {{1}} (Número de factura).
-                for variable in composer.variable_ids:
-                    if variable.variable == '{{1}}':
-                        # El campo 'name' en 'account.move' es el número de la factura.
-                        variable.value = invoice.name 
-                        break
-
-                # 4. Enviar el mensaje.
-                composer.action_send_message()
-                _logger.info(f"✅ Plantilla de factura para '{invoice.name}' enviada a {self.partner.mobile}.")
-
+            _logger.info(f"🚀 Preparando mensaje de texto para {self.record.mobile_number}...")
+            vals = {
+                'mobile_number': self.record.mobile_number,
+                'body': message,
+                'state': 'outgoing',
+                'wa_account_id': self.record.wa_account_id.id,
+                'create_uid': self.env.ref('base.user_admin').id,
+            }
+            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            outgoing_msg.sudo().write({'body': message}) # Re-escritura clave
+            if hasattr(outgoing_msg, '_send_message'):
+                outgoing_msg._send_message()
+                _logger.info(f"✅ Mensaje de texto ({outgoing_msg.id}) enviado a la cola.")
             else:
-                # --- Si no es una factura, es un mensaje de texto simple (flujo normal) ---
-                if not message:
-                    return
-
-                _logger.info(f"🚀 Preparando mensaje de texto para {self.record.mobile_number}...")
-                outgoing_msg = self.env['whatsapp.message'].sudo().create({
-                    'mobile_number': self.record.mobile_number,
-                    'body': message,
-                    'state': 'outgoing',
-                    'wa_account_id': self.record.wa_account_id.id,
-                    'create_uid': self.env.ref('base.user_admin').id,
-                })
-                outgoing_msg.sudo().write({'body': message})
-
-                
-                if hasattr(outgoing_msg, '_send_message'):
-                    outgoing_msg._send_message()
-                    _logger.info(f"✅ Mensaje de texto simple enviado con ID: {outgoing_msg.id}.")
-                else:
-                    _logger.warning("⚠️ El modelo 'whatsapp.message' no tiene el método '_send_message'.")
-
+                _logger.warning("⚠️ El método '_send_message' no existe en 'whatsapp.message'.")
         except Exception as e:
-            _logger.error(f"❌ Error al crear o enviar el mensaje de WhatsApp: {e}", exc_info=True)
-
+            _logger.error(f"❌ Error al enviar el mensaje de texto por WhatsApp: {e}", exc_info=True)
 
     def _send_text(self, text_to_send):
-        """Función de ayuda para enviar solo mensajes de texto. Usa la lógica principal."""
+        """Función de ayuda para enviar solo mensajes de texto."""
         return self._send_response({'message': text_to_send})
+    
 
-    # ... (El resto del archivo no necesita cambios y se mantiene igual) ...
     def _add_item_and_decide_next_step(self, pid, qty, name):
         add_item_to_cart(self.memory, pid, qty)
         buffer_data = json.loads(self.memory.data_buffer or '{}')
@@ -411,24 +402,31 @@ class ChatbotProcessor:
         else:
             return self._send_text(messages_config['invalid_stock_confirmation'])
         
+
     def _handle_flow_esperando_numero_factura(self):
         """Maneja la respuesta del usuario cuando se le pidió un número de factura."""
         _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
         
+        # Lógica para permitir al usuario buscar facturas recientes
         if "buscar" in self.plain_text.lower():
-             response_data = offer_recent_invoices(self.env, self.partner)
-        else:
-            response_data = find_invoice_by_number(self.env, self.partner, self.plain_text)
+            response_data = offer_recent_invoices(self.env, self.partner)
+            self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
+            return self._send_response(response_data)
         
-        if response_data.get('flow_state'):
-            self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
-        else:
+        # Intenta encontrar la factura y enviar la plantilla directamente
+        invoice = find_invoice_by_number(self.env, self.partner, self.plain_text)
+        
+        if invoice:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-
-        return self._send_response(response_data)
+            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+        else:
+            # Si no la encuentra, ofrece las recientes
+            response_data = offer_recent_invoices(self.env, self.partner)
+            self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
+            return self._send_response(response_data)
 
     def _handle_flow_esperando_seleccion_factura(self):
-        """Maneja la selección de una factura de la lista."""
+        """Maneja la selección de una factura de la lista y dispara la plantilla."""
         if self.plain_text.lower() == 'cancelar':
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['invoice_selection_cancelled'])
@@ -441,13 +439,15 @@ class ChatbotProcessor:
 
             selected_invoice_id = invoice_ids[int(self.plain_text) - 1]
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
-            response_data = _generate_invoice_pdf_response(invoice)
+            
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_response(response_data)
+            # Enviar la plantilla en lugar de generar un PDF
+            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_text(messages_config['error_processing'])     
+            return self._send_text(messages_config['error_processing'])
     
     def _handle_crear_pedido_intent(self):
         """Inicia el proceso de creación de pedido, obteniendo y encolando productos."""
@@ -498,6 +498,21 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
+        if intent == "solicitar_factura":
+            # La lógica para solicitar factura ahora es más compleja y se maneja aquí.
+            number_match = re.search(r'\d{4,}', self.plain_text)
+            if number_match:
+                invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
+                if invoice:
+                    self.memory.write({'flow_state': False, 'data_buffer': ''})
+                    return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+            
+            # Si no hay número o la factura no se encontró, inicia el flujo de preguntas
+            response_data = handle_solicitar_factura(self.env, self.partner, self.plain_text)
+            self.memory.write({'flow_state': response_data.get('flow_state'), 'data_buffer': response_data.get('data_buffer', '')})
+            return self._send_response(response_data)
+
+        # El resto de las intenciones se manejan como antes
         if intent in ["saludo", "agradecimiento_cierre"]:
             handler = {"saludo": handle_saludo, "agradecimiento_cierre": handle_agradecimiento_cierre}[intent]
             response_text = handler(self.env, self.partner, self.plain_text) if intent == "agradecimiento_cierre" else handler(self.env, self.partner)
@@ -507,13 +522,10 @@ class ChatbotProcessor:
             if intent == "crear_pedido": return self._handle_crear_pedido_intent()
             if intent == "modificar_pedido": return self._send_text(handle_modificar_pedido(self.env, self.memory))
 
-        if intent in ["consulta_producto", "solicitar_factura"]:
-            handler = {"consulta_producto": handle_consulta_producto, "solicitar_factura": handle_solicitar_factura}[intent]
-            response_data = handler(self.env, self.partner, self.plain_text)
-            
+        if intent == "consulta_producto":
+            response_data = handle_consulta_producto(self.env, self.partner, self.plain_text)
             if response_data.get('flow_state'):
                 self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
-            
             return self._send_response(response_data)
 
         faq_response = handle_respuesta_faq(self.partner, self.plain_text)
