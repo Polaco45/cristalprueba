@@ -62,11 +62,11 @@
 
 * Terminar de manejar factura
 
+- Que aparezcan los mensajes de WhatsApp en Odoo
+
 * Manejar todos los demas casos de negocio (b2c, mayoristas)
     * B2C: Trato mas seco, derivar a website
     * mayorista: como en B2B
-
-* Que aparezcan los mensajes de WhatsApp en Odoo
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 
