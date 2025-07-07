@@ -37,8 +37,8 @@ class ChatbotProcessor:
 
     def _send_template(self, template_name_to_send, partner, invoice):
         """
-        Envía una plantilla de WhatsApp, asegurando que el parámetro se asigne
-        correctamente al body.
+        Envía una plantilla de WhatsApp pasando únicamente el número de factura
+        como parámetro para la variable {{1}}.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
@@ -57,8 +57,10 @@ class ChatbotProcessor:
                 return self._send_text("No pude encontrar la plantilla de factura para enviarla.")
 
             invoice_number = invoice.name
-            _logger.info(f"Preparando envío de plantilla '{template_name_to_send}' con parámetro: '{invoice_number}'.")
-
+            _logger.info(f"Preparando envío de plantilla '{template_name_to_send}'. Parámetro: '{invoice_number}'")
+            
+            # --- CORRECCIÓN FINAL: Pasar solo el número de factura como 'body' ---
+            # El módulo de WhatsApp usará este valor para reemplazar {{1}} en la plantilla.
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
@@ -68,9 +70,6 @@ class ChatbotProcessor:
             }
 
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            
-            # --- CORRECCIÓN DEFINITIVA: Escribir el body DE NUEVO después de crear ---
-            # Este paso es crucial para que el módulo procese el parámetro antes de enviar.
             outgoing_msg.sudo().write({'body': invoice_number})
 
             if hasattr(outgoing_msg, '_send_message'):
@@ -104,7 +103,9 @@ class ChatbotProcessor:
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
                 channel.with_context(from_wa_bot=True).message_post(
-                    body=message, message_type='comment', subtype_xmlid='mail.mt_comment'
+                    body=message,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment'
                 )
         except Exception as e:
             _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
@@ -430,18 +431,12 @@ class ChatbotProcessor:
         return self._process_next_product_in_queue()
     
     def _handle_flow_esperando_numero_factura(self):
-        _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
-        
-        # --- MEJORA: Usar un nombre de plantilla limpio y consistente ---
-        template_name = "envio_factura_copy_copy_copy"
-
+        template_name = "envio_factura_chatbot"
         if "buscar" in self.plain_text.lower():
             response_data = offer_recent_invoices(self.env, self.partner)
             self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
             return self._send_response(response_data)
-        
         invoice = find_invoice_by_number(self.env, self.partner, self.plain_text)
-        
         if invoice:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_template(template_name, self.partner, invoice)
@@ -455,20 +450,16 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['invoice_selection_cancelled'])
         
-        template_name = "envio_factura_copy_copy_copy"
-
+        template_name = "envio_factura_chatbot"
         try:
             data = json.loads(self.memory.data_buffer or '{}')
             invoice_ids = data.get('invoice_ids', [])
             if not (self.plain_text.isdigit() and 1 <= int(self.plain_text) <= len(invoice_ids)):
                 return self._send_text(messages_config['invalid_invoice_option'])
-
             selected_invoice_id = invoice_ids[int(self.plain_text) - 1]
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
-            
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_template(template_name, self.partner, invoice)
-
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
@@ -477,25 +468,21 @@ class ChatbotProcessor:
     def _handle_general_intent(self):
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
-        
         history = self.env['whatsapp.message'].sudo().search([
             ('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id),
             ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
         ], order='id desc', limit=10)
-        
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
-        
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
         
         if intent == "solicitar_factura":
-            template_name = "envio_factura_copy_copy_copy"
-            number_match = re.search(r'\d{4,}', self.plain_text)
+            template_name = "envio_factura_chatbot"
+            number_match = re.search(r'[\d\-\s]+', self.plain_text)
             if number_match:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
                 if invoice:
                     self.memory.write({'flow_state': False, 'data_buffer': ''})
-                    # --- MEJORA: Pasar el objeto 'invoice' completo ---
                     return self._send_template(template_name, self.partner, invoice)
             
             response_data = handle_solicitar_factura(self.env, self.partner, self.plain_text)
