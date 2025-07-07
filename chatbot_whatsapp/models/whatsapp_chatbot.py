@@ -10,6 +10,49 @@ _logger = logging.getLogger(__name__)
 class WhatsAppMessage(models.Model):
     _inherit = 'whatsapp.message'
 
+    def send_custom_message(self, partner, text, pdf_base64=None, filename=None):
+        """
+        Función centralizada y mejorada para enviar mensajes desde el chatbot.
+        Decide si enviar solo texto o un archivo con pie de foto.
+        """
+        _logger.info(f"🚀 Iniciando envío para {partner.name}. PDF presente: {bool(pdf_base64)}")
+
+        # Preparar los valores base para el mensaje
+        vals = {
+            'mobile_number': partner.phone or partner.mobile,
+            'body': text,
+            'state': 'outgoing',
+            'wa_account_id': self.env.context.get('active_wa_account_id') or self.env['whatsapp.account'].search([], limit=1).id,
+            'create_uid': self.env.ref('base.user_admin').id,
+        }
+
+        # Crear el registro del mensaje de WhatsApp
+        try:
+            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            _logger.info(f"✅ Registro de mensaje creado: ID {outgoing_msg.id}")
+
+            # Si hay un PDF, creamos el adjunto y lo VINCULAMOS al mensaje
+            if pdf_base64 and filename:
+                self.env['ir.attachment'].sudo().create({
+                    'name': filename,
+                    'datas': pdf_base64,
+                    'res_model': 'whatsapp.message',
+                    'res_id': outgoing_msg.id,
+                    'mimetype': 'application/pdf',
+                })
+                _logger.info(f"📎 Adjunto PDF creado y vinculado al mensaje {outgoing_msg.id}")
+
+            # Llamamos al método de envío UNA SOLA VEZ
+            if hasattr(outgoing_msg, '_send_message'):
+                outgoing_msg._send_message()
+            
+            _logger.info(f"✅ Mensaje {outgoing_msg.id} procesado para envío a WhatsApp.")
+            return True
+
+        except Exception as e:
+            _logger.error(f"❌ Error fatal durante el envío a WhatsApp: {e}", exc_info=True)
+            return False
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)

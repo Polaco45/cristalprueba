@@ -38,13 +38,19 @@ class ChatbotProcessor:
     # --- CORRECCIÓN FINAL Y COMBINADA ---
     def _send_response(self, response_data):
         """
-        Envía una respuesta en dos pasos:
-        1. La registra en el canal de Odoo para visibilidad interna.
-        2. La envía al usuario a través de la API de WhatsApp.
+        Delega el envío de la respuesta al método centralizado en whatsapp.message.
         """
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
-        filename = response_data.get('filename', 'adjunto.pdf')
+        filename = response_data.get('filename')
+
+        # Simplemente llamamos a nuestro nuevo y potente método
+        self.env['whatsapp.message'].send_custom_message(
+            partner=self.partner,
+            text=message,
+            pdf_base64=pdf_base64,
+            filename=filename
+        )
 
         # --- Tarea 1: Registrar en el canal de Odoo (Chatter) ---
         try:
@@ -106,7 +112,7 @@ class ChatbotProcessor:
                     'wa_account_id': self.record.wa_account_id.id,
                     'create_uid': self.env.ref('base.user_admin').id,
                 })
-                attachment_msg.sudo().write({'body': filename})
+                
                 attachment = self.env['ir.attachment'].sudo().create({
                     'name': filename,
                     'datas': pdf_base64,
