@@ -86,7 +86,7 @@ class ChatbotProcessor:
             }
 
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-
+            outgoing_msg.sudo().write({'body': message})
             if pdf_base64:
                 attachment = self.env['ir.attachment'].sudo().create({
                     'name': filename,
