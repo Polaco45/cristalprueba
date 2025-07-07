@@ -85,8 +85,8 @@ class ChatbotProcessor:
                 'create_uid': self.env.ref('base.user_admin').id,
             }
             if pdf_base64:
-                vals.setdefault('wa_media_ids', [])
-                vals['wa_media_ids'].append((0, 0, {
+                vals.setdefault('media_ids', [])
+                vals['media_ids'].append((0, 0, {
                     'name': filename,
                     'datas': pdf_base64,
                     'mimetype': 'application/pdf'
