@@ -13,7 +13,7 @@ from .intent_handlers.create_order import (
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
     handle_agradecimiento_cierre, handle_consulta_producto, 
-    find_invoice_by_number, offer_recent_invoices, send_invoice_template
+    find_invoice_by_number, offer_recent_invoices
 )
 
 _logger = logging.getLogger(__name__)
@@ -37,26 +37,16 @@ class ChatbotProcessor:
 
     def _send_template(self, template_name_to_send, partner, invoice_number):
         """
-        Envía una plantilla de WhatsApp específica utilizando un asistente (wizard).
-        Este es el método estándar y más compatible para módulos que no tienen 'send_template' en el modelo de plantilla.
+        Envía una plantilla de WhatsApp creando un registro 'whatsapp.message'.
+        Este método se alinea con la forma en que se envían los mensajes de texto, que es un patrón de funcionamiento confirmado.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
             _logger.error("No se encontró una cuenta de WhatsApp activa para enviar la plantilla.")
             return self._send_text(messages_config['error_processing'])
-        
-        try:
-            _logger.info(f"Intentando enviar plantilla '{template_name_to_send}' a {partner.name} para la factura {invoice_number}.")
-            
-            # --- CORRECCIÓN CLAVE: Usar un asistente (wizard) para enviar la plantilla ---
-            composer_model_name = 'whatsapp.composer'
-            composer_model = self.env.get(composer_model_name)
-            
-            if not composer_model:
-                _logger.error(f"El asistente '{composer_model_name}' no se encuentra. El módulo de WhatsApp puede tener un nombre diferente para el asistente de envío.")
-                return self._send_text("Error de configuración: No se pudo encontrar el asistente de envío de WhatsApp.")
 
-            # Buscar la plantilla por su nombre técnico
+        try:
+            # Buscar la plantilla por su nombre técnico para obtener su ID
             wa_template = self.env['whatsapp.template'].sudo().search([
                 ('template_name', '=', template_name_to_send),
                 ('wa_account_id', '=', wa_account.id)
@@ -66,26 +56,34 @@ class ChatbotProcessor:
                 _logger.error(f"No se encontró la plantilla de WhatsApp con nombre técnico: {template_name_to_send}")
                 return self._send_text("No pude encontrar la plantilla de factura para enviarla.")
 
-            # Crear una instancia del asistente con el contexto adecuado
-            # El onchange del asistente debería encargarse de los parámetros si la plantilla está bien configurada.
-            composer = composer_model.with_context(
-                default_res_model='res.partner',
-                default_res_id=partner.id,
-                default_template_id=wa_template.id,
-                # Pasamos el número de factura en el contexto, el template podría usarlo
-                default_invoice_name=invoice_number 
-            ).create({})
+            _logger.info(f"Preparando envío de plantilla '{template_name_to_send}' para la factura {invoice_number}.")
 
-            # Ejecutar la acción de envío del asistente
-            if hasattr(composer, 'action_send_message'):
-                composer.action_send_message()
-            elif hasattr(composer, 'action_send'): # Fallback a un nombre más genérico
-                 composer.action_send()
+            # --- CORRECCIÓN DEFINITIVA: Crear un registro 'whatsapp.message' ---
+            # Se asume que el módulo de WhatsApp procesará el envío de la plantilla
+            # cuando se crea un mensaje con un `template_id`.
+            
+            # El parámetro (número de factura) se pasa en el campo 'body'. Muchos módulos
+            # usan este campo para poblar las variables de la plantilla.
+            vals = {
+                'partner_id': partner.id,
+                'mobile_number': partner.phone or partner.mobile,
+                'wa_account_id': wa_account.id,
+                'template_id': wa_template.id,
+                'body': invoice_number, # Pasamos el parámetro aquí
+                'state': 'outgoing',
+            }
+
+            # 1. Crear el mensaje de WhatsApp
+            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            _logger.info(f"Registro de mensaje de plantilla creado con ID: {outgoing_msg.id}")
+
+            # 2. Llamar al método de envío, igual que con los mensajes de texto
+            if hasattr(outgoing_msg, '_send_message'):
+                outgoing_msg._send_message()
+                _logger.info(f"✅ Método de envío para la plantilla {outgoing_msg.id} invocado.")
             else:
-                _logger.error("No se encontró un método de envío ('action_send_message' o 'action_send') en el asistente de WhatsApp.")
-                return self._send_text("Error de configuración: La acción de envío del asistente no fue encontrada.")
-
-            _logger.info(f"✅ Plantilla '{template_name_to_send}' enviada exitosamente a {partner.name} a través del asistente.")
+                _logger.error("Error crítico: El modelo 'whatsapp.message' no tiene el método '_send_message'.")
+                return self._send_text("Error de configuración: No se pudo procesar el envío.")
 
             # Registrar en el chatter de Odoo
             mail_message = self.record.mail_message_id
@@ -95,10 +93,9 @@ class ChatbotProcessor:
                 channel.with_context(from_wa_bot=True).message_post(
                     body=chatter_message, message_type='comment', subtype_xmlid='mail.mt_comment'
                 )
-                _logger.info(f"✅ Mensaje de envío de plantilla registrado en el canal de Odoo '{channel.name}'.")
 
         except Exception as e:
-            _logger.error(f"❌ Error al enviar la plantilla de WhatsApp con el asistente: {e}", exc_info=True)
+            _logger.error(f"❌ Error al crear y enviar el mensaje de plantilla: {e}", exc_info=True)
             return self._send_text(messages_config.get('error_processing', "Hubo un problema al procesar tu solicitud."))
 
     def _send_response(self, response_data):
@@ -110,21 +107,28 @@ class ChatbotProcessor:
             return
 
         try:
+            # Registrar en el chatter de Odoo
             mail_message = self.record.mail_message_id
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
                 channel.with_context(from_wa_bot=True).message_post(
-                    body=message, message_type='comment', subtype_xmlid='mail.mt_comment'
+                    body=message,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment'
                 )
                 _logger.info(f"✅ Mensaje de texto registrado en el canal de Odoo '{channel.name}'.")
         except Exception as e:
             _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
-
+        
+        # Enviar mensaje por WhatsApp
         try:
             _logger.info(f"🚀 Preparando mensaje de texto para {self.record.mobile_number}...")
             vals = {
-                'mobile_number': self.record.mobile_number, 'body': message, 'state': 'outgoing',
-                'wa_account_id': self.record.wa_account_id.id, 'create_uid': self.env.ref('base.user_admin').id,
+                'mobile_number': self.record.mobile_number,
+                'body': message,
+                'state': 'outgoing',
+                'wa_account_id': self.record.wa_account_id.id,
+                'create_uid': self.env.ref('base.user_admin').id,
             }
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
             outgoing_msg.sudo().write({'body': message})
@@ -455,7 +459,7 @@ class ChatbotProcessor:
         
         if invoice:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
+            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
         else:
             response_data = offer_recent_invoices(self.env, self.partner)
             self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
@@ -477,16 +481,14 @@ class ChatbotProcessor:
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
             
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
+            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
 
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['error_processing'])
-
+            
     def _handle_general_intent(self):
-        """Detecta y despacha la intención general del usuario."""
-        # ... (esta función no cambia, su lógica interna de llamadas a _send_template ya está actualizada)
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
         
@@ -506,7 +508,7 @@ class ChatbotProcessor:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
                 if invoice:
                     self.memory.write({'flow_state': False, 'data_buffer': ''})
-                    return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
+                    return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
             
             response_data = handle_solicitar_factura(self.env, self.partner, self.plain_text)
             if response_data.get('flow_state'):
