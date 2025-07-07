@@ -37,8 +37,8 @@ class ChatbotProcessor:
 
     def _send_template(self, template_name_to_send, partner, invoice):
         """
-        Envía una plantilla de WhatsApp, pasando las variables de forma explícita
-        para que coincida con la estructura de la plantilla.
+        Envía la plantilla de WhatsApp adjuntando el PDF de la factura
+        al vincular el mensaje con el registro de la factura.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
@@ -55,28 +55,32 @@ class ChatbotProcessor:
                 _logger.error(f"No se encontró la plantilla: {template_name_to_send}")
                 return
 
-            invoice_number = invoice.name
-            _logger.info(f"Enviando plantilla '{template_name_to_send}' para factura {invoice_number}.")
+            _logger.info(f"Preparando envío de plantilla con documento para factura {invoice.name}.")
+            
+            # Reemplazamos la variable {{1}} en el cuerpo de la plantilla.
+            final_body = (wa_template.body or "").replace('{{1}}', invoice.name)
             
             # --- CORRECCIÓN DEFINITIVA ---
-            # Reemplazamos la variable {{1}} en el cuerpo de la plantilla.
-            # Esto asegura que el mensaje se envíe exactamente como se define en la plantilla.
-            final_body = (wa_template.body or "").replace('{{1}}', invoice_number)
-            
+            # Se añaden res_id y res_model para que Odoo genere y adjunte el PDF.
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'body': final_body, # Enviamos el cuerpo completo con la variable reemplazada
+                'body': final_body,
                 'state': 'outgoing',
+                'res_id': invoice.id,
+                'res_model': 'account.move',
             }
 
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            
+            # El método _send_message ahora usará res_id y res_model para adjuntar el PDF
             outgoing_msg._send_message()
-            _logger.info(f"✅ Plantilla {outgoing_msg.id} enviada para la factura {invoice.name}.")
+
+            _logger.info(f"✅ Plantilla {outgoing_msg.id} con PDF enviada para la factura {invoice.name}.")
 
         except Exception as e:
-            _logger.error(f"❌ Error al enviar plantilla: {e}", exc_info=True)
+            _logger.error(f"❌ Error al enviar plantilla con documento: {e}", exc_info=True)
 
     def _send_response(self, response_data):
         message = response_data.get('message')
