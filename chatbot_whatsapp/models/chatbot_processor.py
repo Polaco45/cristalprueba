@@ -37,8 +37,8 @@ class ChatbotProcessor:
 
     def _send_template(self, template_name_to_send, partner, invoice):
         """
-        Envía una plantilla de WhatsApp, reemplazando el cuerpo manualmente
-        ya que el campo template_parameters_json no está disponible.
+        Envía una plantilla de WhatsApp, pasando las variables de forma explícita
+        para que coincida con la estructura de la plantilla.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
@@ -57,16 +57,12 @@ class ChatbotProcessor:
 
             invoice_number = invoice.name
             _logger.info(f"Enviando plantilla '{template_name_to_send}' para factura {invoice_number}.")
-
-            # 🔁 Reemplazamos todos los {{1}}, {{2}}, etc. si los hubiera
-            body_template = wa_template.body or ""
-            final_body = body_template.replace("{{1}}", invoice_number)
-
+            
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'body': final_body,
+                'template_body': json.dumps([invoice_number]),
                 'state': 'outgoing',
             }
 
@@ -76,7 +72,6 @@ class ChatbotProcessor:
 
         except Exception as e:
             _logger.error(f"❌ Error al enviar plantilla: {e}", exc_info=True)
-
 
     def _send_response(self, response_data):
         message = response_data.get('message')
