@@ -36,12 +36,17 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     def _send_template(self, template_name_to_send, partner, invoice):
+        """
+        Envía una plantilla de WhatsApp para una factura con el número dinámico,
+        armando el body manualmente según cómo lo envía el UI.
+        """
         wa_account = self.record.wa_account_id
         if not wa_account:
             _logger.error("No se encontró una cuenta de WhatsApp activa.")
             return
 
         try:
+            # Buscar plantilla
             wa_template = self.env['whatsapp.template'].sudo().search([
                 ('template_name', '=', template_name_to_send),
                 ('wa_account_id', '=', wa_account.id)
@@ -52,13 +57,18 @@ class ChatbotProcessor:
                 return
 
             invoice_number = invoice.name
-            _logger.info(f"Enviando plantilla '{template_name_to_send}' para factura {invoice_number}.")
+
+            # ⚠️ Armá el texto exactamente como lo tenés en el UI (con el {{1}} reemplazado)
+            # Si tu plantilla en WhatsApp Business tiene algo como:
+            # "¡Aquí está tu factura {{1}}! Te la envío adjunta."
+            # Entonces reemplazamos eso directamente:
+            final_body = (wa_template.body or "").replace("{{1}}", invoice_number)
 
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'free_text_json': json.dumps([invoice_number]),  # ✅ Compatible y funcional
+                'body': final_body,
                 'state': 'outgoing',
             }
 
@@ -68,7 +78,6 @@ class ChatbotProcessor:
 
         except Exception as e:
             _logger.error(f"❌ Error al enviar plantilla: {e}", exc_info=True)
-
 
     def _send_response(self, response_data):
         message = response_data.get('message')
