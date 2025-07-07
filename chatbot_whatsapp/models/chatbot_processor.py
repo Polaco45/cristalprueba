@@ -530,3 +530,4 @@ class ChatbotProcessor:
             return self._send_text(response)
         except ValueError:
             return self._send_text(messages_config['invalid_input_for_deletion'])
+        
