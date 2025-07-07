@@ -98,7 +98,7 @@ class ChatbotProcessor:
                 })
                 # Actualizamos el mensaje para que sepa que tiene un adjunto.
                 # La mayoría de módulos usan un campo Many2many 'attachment_ids'.
-                outgoing_msg.sudo().write({'attachment_ids': [(4, attachment.id)]})
+                outgoing_msg.sudo().write({'adjunto_id': attachment.id})
                 _logger.info(f"📎 Adjunto PDF ({attachment.id}) creado y vinculado al mensaje {outgoing_msg.id}.")
 
             # Paso 3: Llamar al método de envío UNA SOLA VEZ.
