@@ -84,23 +84,26 @@ class ChatbotProcessor:
                 'wa_account_id': self.record.wa_account_id.id,
                 'create_uid': self.env.ref('base.user_admin').id,
             }
-            if pdf_base64:
-                vals.setdefault('media_ids', [])
-                vals['media_ids'].append((0, 0, {
-                    'name': filename,
-                    'datas': pdf_base64,
-                    'mimetype': 'application/pdf'
-                }))
 
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            outgoing_msg.sudo().write({'body': message})
+
+            if pdf_base64:
+                attachment = self.env['ir.attachment'].sudo().create({
+                    'name': filename,
+                    'datas': pdf_base64,
+                    'res_model': 'whatsapp.message',
+                    'res_id': outgoing_msg.id,
+                    'mimetype': 'application/pdf',
+                })
+                _logger.info(f"📎 Adjunto creado con ID {attachment.id} y vinculado al mensaje.")
+
             if hasattr(outgoing_msg, '_send_message'):
                 outgoing_msg._send_message()
+
             _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío a WhatsApp.")
 
         except Exception as e:
             _logger.error(f"❌ Error crítico al enviar el mensaje a WhatsApp: {e}", exc_info=True)
-
 
 
     def _send_text(self, text_to_send):
