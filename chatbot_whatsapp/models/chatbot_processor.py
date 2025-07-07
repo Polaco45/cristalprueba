@@ -2,7 +2,12 @@ import json
 import logging
 import re
 import openai
+import requests  # <-- 1. ASEGURATE DE TENER ESTA LIBRERÍA
+import base64
+
 from odoo.exceptions import UserError
+from odoo import http
+
 from ..utils.nlp import detect_intention
 from ..utils.utils import clean_html
 from ..config.config import prompts_config, messages_config, general_config
@@ -35,86 +40,92 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    # --- CORRECCIÓN FINAL Y COMBINADA ---
+    # --- CORRECCIÓN FINAL CON API DIRECTA ---
     def _send_response(self, response_data):
         """
-        Envía una respuesta unificada (texto y/o archivo) a través de WhatsApp
-        y la registra internamente en el canal de Odoo.
-        Esta es la versión corregida que crea un solo mensaje con el adjunto.
+        Envía una respuesta directamente a la API de WhatsApp.
         """
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
         filename = response_data.get('filename', 'factura.pdf')
+        
+        # --- OBTENER CREDENCIALES DE LA API DESDE ODOO ---
+        get_param = self.env['ir.config_parameter'].sudo().get_param
+        # DEBES CONFIGURAR ESTOS VALORES EN ODOO (ver instrucciones abajo)
+        api_url = get_param('whatsapp.api.url')
+        api_token = get_param('whatsapp.api.token')
 
-        # --- Tarea 1: Registrar en el chatter de Odoo (Opcional, pero buena práctica) ---
-        # Esta parte la mantenemos para tu registro interno.
+        if not api_url or not api_token:
+            _logger.error("❌ Faltan las credenciales de la API de WhatsApp en los parámetros del sistema (whatsapp.api.url, whatsapp.api.token).")
+            return
+
+        headers = {
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json",
+        }
+        
+        # Limpia el número de teléfono para asegurar que esté en formato internacional
+        recipient_number = re.sub(r'[^0-9]', '', self.record.mobile_number)
+
+        # --- LÓGICA DE ENVÍO ---
         try:
-            mail_message = self.record.mail_message_id
-            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
-                channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                attachment_ids_chatter = []
-                if pdf_base64:
-                    chatter_attachment = self.env['ir.attachment'].sudo().create({
-                        'name': filename,
-                        'datas': pdf_base64,
-                        'res_model': 'discuss.channel', # Adjunto para el chatter
-                        'res_id': channel.id
-                    })
-                    attachment_ids_chatter.append(chatter_attachment.id)
+            if not pdf_base64:
+                # --- Enviar solo texto ---
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": recipient_number,
+                    "type": "text",
+                    "text": {"body": message}
+                }
+                _logger.info(f"🚀 Enviando mensaje de texto a {recipient_number}")
+                response = requests.post(api_url, headers=headers, json=payload, timeout=20)
+                response.raise_for_status()
 
-                channel.with_context(from_wa_bot=True).message_post(
-                    body=message,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment',
-                    attachment_ids=attachment_ids_chatter
-                )
-                _logger.info(f"✅ Mensaje registrado en el canal de Odoo '{channel.name}'.")
-        except Exception as e:
-            _logger.error(f"⚠️ No se pudo registrar el mensaje en el canal de Odoo: {e}", exc_info=True)
-
-        # --- Tarea 2: Crear y Enviar el Mensaje de WhatsApp ---
-        try:
-            # Paso 1: Crear el registro del mensaje de WhatsApp. 
-            # El campo 'body' se usará como el texto del mensaje o como el caption del archivo.
-            _logger.info(f"🚀 Preparando mensaje de WhatsApp para {self.record.mobile_number}...")
-            outgoing_msg = self.env['whatsapp.message'].sudo().create({
-                'mobile_number': self.record.mobile_number,
-                'body': message, # Asignamos el texto aquí.
-                'state': 'outgoing',
-                'wa_account_id': self.record.wa_account_id.id,
-                'create_uid': self.env.ref('base.user_admin').id,
-            })
-            _logger.info(f"✉️ Mensaje de WhatsApp base creado con ID: {outgoing_msg.id}.")
-
-            # Paso 2: Si hay un PDF, crearlo como un 'ir.attachment' y VINCULARLO al mensaje.
-            # Este es el paso crucial que estaba fallando.
-            if pdf_base64:
+            else:
+                # --- Enviar PDF con descripción ---
+                # Esta lógica crea un enlace público temporal para el archivo, que es
+                # la forma más compatible de enviarlo a través de la API de WhatsApp.
+                
+                # 1. Crear un adjunto en Odoo para generar la URL
                 attachment = self.env['ir.attachment'].sudo().create({
                     'name': filename,
                     'datas': pdf_base64,
-                    'res_model': 'whatsapp.message', # ¡IMPORTANTE: Vincular al modelo de mensaje de WA!
-                    'res_id': outgoing_msg.id,       # ¡IMPORTANTE: Vincular al ID del mensaje que creamos!
-                    'mimetype': 'application/pdf',
+                    'public': True, # ¡Muy importante para que la URL sea accesible!
+                    'res_model': 'ir.ui.view', # Modelo genérico para no ensuciar otros modelos
                 })
-                # Actualizamos el mensaje para que sepa que tiene un adjunto.
-                # La mayoría de módulos usan un campo Many2many 'attachment_ids'.
-                outgoing_msg.sudo().write({'adjunto_id': attachment.id})
-                _logger.info(f"📎 Adjunto PDF ({attachment.id}) creado y vinculado al mensaje {outgoing_msg.id}.")
+                
+                # 2. Construir la URL pública del adjunto
+                base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+                attachment_url = f"{base_url}/web/content/{attachment.id}/{filename}"
+                _logger.info(f"📎 URL pública temporal del adjunto: {attachment_url}")
+                
+                # 3. Construir el payload para un documento con caption
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "to": recipient_number,
+                    "type": "document",
+                    "document": {
+                        "link": attachment_url,
+                        "caption": message,
+                        "filename": filename
+                    }
+                }
+                _logger.info(f"🚀 Enviando documento a {recipient_number}")
+                response = requests.post(api_url, headers=headers, json=payload, timeout=20)
+                response.raise_for_status()
+                
+                # 4. (Opcional pero recomendado) Despublicar el adjunto después de un tiempo
+                # attachment.sudo().write({'public': False}) 
 
-            # Paso 3: Llamar al método de envío UNA SOLA VEZ.
-            # No es necesario hacer un write() del body otra vez, pero lo mantenemos como pediste.
-            # Esta línea es redundante si el 'body' ya se puso en el create, pero no causa daño.
-            outgoing_msg.sudo().write({'body': message})
-            
-            # Este método ahora enviará un texto solo, o un PDF con su caption.
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-                _logger.info(f"✅ Mensaje de WhatsApp ({outgoing_msg.id}) enviado a la cola de procesamiento.")
-            else:
-                _logger.warning(f"⚠️ El modelo 'whatsapp.message' no tiene el método '_send_message'. El envío podría no funcionar.")
+            _logger.info(f"✅ Mensaje enviado exitosamente a WhatsApp. Respuesta de la API: {response.text}")
 
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"❌ Error al llamar a la API de WhatsApp: {e}", exc_info=True)
+            if e.response is not None:
+                _logger.error(f"Detalles del error de la API: {e.response.text}")
         except Exception as e:
-            _logger.error(f"❌ Error al crear o enviar el mensaje de WhatsApp: {e}", exc_info=True)
+            _logger.error(f"❌ Error inesperado durante el envío por API: {e}", exc_info=True)
+
 
     def _send_text(self, text_to_send):
         """Función de ayuda para enviar solo mensajes de texto. Usa la lógica principal."""
