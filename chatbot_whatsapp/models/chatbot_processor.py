@@ -35,10 +35,11 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    def _send_template(self, template_name_to_send, partner, invoice_number):
+    # --- MÉTODO MODIFICADO ---
+    def _send_template(self, template_name_to_send, partner, invoice):
         """
-        Envía una plantilla de WhatsApp de forma robusta, asegurando el envío
-        incluso si las operaciones secundarias (como postear en el chatter) fallan.
+        Envía una plantilla de WhatsApp de forma robusta, construyendo un cuerpo
+        de mensaje más completo y asegurando el envío.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
@@ -54,24 +55,25 @@ class ChatbotProcessor:
 
             if not wa_template:
                 _logger.error(f"No se encontró la plantilla de WhatsApp con nombre técnico: {template_name_to_send}")
-                return self._send_text("No pude encontrar la plantilla de factura para enviarla. Por favor, revisá que el nombre sea correcto.")
+                return self._send_text("No pude encontrar la plantilla de factura para enviarla.")
 
+            invoice_number = invoice.name
             _logger.info(f"Preparando envío de plantilla '{template_name_to_send}' para la factura {invoice_number}.")
+            
+            # --- MEJORA: Construir un cuerpo de mensaje más informativo ---
+            # Esto asume que tu plantilla tiene una variable {{1}} para el cuerpo.
+            final_body = f"Te enviamos la factura solicitada: {invoice_number}."
 
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'body': invoice_number,
+                'body': final_body, # Se envía el mensaje completo
                 'state': 'outgoing',
             }
 
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            
-            # --- CORRECCIÓN CLAVE 1: Escribir el body después de crear ---
-            # Esto asegura que el contenido de la variable se asigne correctamente
-            # antes de enviarlo, un patrón visto en otras partes de tu código.
-            outgoing_msg.sudo().write({'body': invoice_number})
+            outgoing_msg.sudo().write({'body': final_body})
 
             if hasattr(outgoing_msg, '_send_message'):
                 outgoing_msg._send_message()
@@ -84,14 +86,12 @@ class ChatbotProcessor:
             _logger.error(f"❌ Error al crear y enviar el mensaje de plantilla: {e}", exc_info=True)
             return self._send_text(messages_config.get('error_processing', "Hubo un problema al procesar tu solicitud."))
 
-        # --- CORRECCIÓN CLAVE 2: Aislar el posteo en el chatter ---
-        # Esto evita que un error de concurrencia en Odoo revierta el envío del mensaje de WhatsApp.
         if outgoing_msg:
             try:
                 mail_message = self.record.mail_message_id
                 if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                     channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                    chatter_message = f"Plantilla de factura '{template_name_to_send}' enviada para la factura {invoice_number}."
+                    chatter_message = f"Plantilla de factura '{template_name_to_send}' enviada para la factura {invoice.name}."
                     channel.with_context(from_wa_bot=True).message_post(
                         body=chatter_message, message_type='comment', subtype_xmlid='mail.mt_comment'
                     )
@@ -112,12 +112,10 @@ class ChatbotProcessor:
                     message_type='comment',
                     subtype_xmlid='mail.mt_comment'
                 )
-                _logger.info(f"✅ Mensaje de texto registrado en el canal de Odoo '{channel.name}'.")
         except Exception as e:
             _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
         
         try:
-            _logger.info(f"🚀 Preparando mensaje de texto para {self.record.mobile_number}...")
             vals = {
                 'mobile_number': self.record.mobile_number,
                 'body': message,
@@ -129,8 +127,6 @@ class ChatbotProcessor:
             outgoing_msg.sudo().write({'body': message})
             if hasattr(outgoing_msg, '_send_message'):
                 outgoing_msg._send_message()
-            else:
-                _logger.warning("⚠️ El método '_send_message' no existe en 'whatsapp.message'.")
         except Exception as e:
             _logger.error(f"❌ Error al enviar el mensaje de texto por WhatsApp: {e}", exc_info=True)
 
@@ -443,8 +439,8 @@ class ChatbotProcessor:
     def _handle_flow_esperando_numero_factura(self):
         _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
         
-        # --- CORRECCIÓN CLAVE 3: Usar el nombre de plantilla correcto ---
-        template_name = "envio_factura_copy_copy_copy"
+        # --- MEJORA: Usar un nombre de plantilla limpio y consistente ---
+        template_name = "envio_factura_chatbot"
 
         if "buscar" in self.plain_text.lower():
             response_data = offer_recent_invoices(self.env, self.partner)
@@ -455,7 +451,7 @@ class ChatbotProcessor:
         
         if invoice:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template(template_name, self.partner, invoice.name)
+            return self._send_template(template_name, self.partner, invoice)
         else:
             response_data = offer_recent_invoices(self.env, self.partner)
             self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
@@ -466,8 +462,7 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['invoice_selection_cancelled'])
         
-        # --- CORRECCIÓN CLAVE 3: Usar el nombre de plantilla correcto ---
-        template_name = "envio_factura_copy_copy_copy"
+        template_name = "envio_factura_chatbot"
 
         try:
             data = json.loads(self.memory.data_buffer or '{}')
@@ -479,7 +474,7 @@ class ChatbotProcessor:
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
             
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template(template_name, self.partner, invoice.name)
+            return self._send_template(template_name, self.partner, invoice)
 
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
@@ -501,14 +496,14 @@ class ChatbotProcessor:
         self.memory.write({'last_intent_detected': intent})
         
         if intent == "solicitar_factura":
-            # --- CORRECCIÓN CLAVE 3: Usar el nombre de plantilla correcto ---
-            template_name = "envio_factura_copy_copy_copy"
+            template_name = "envio_factura_chatbot"
             number_match = re.search(r'\d{4,}', self.plain_text)
             if number_match:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
                 if invoice:
                     self.memory.write({'flow_state': False, 'data_buffer': ''})
-                    return self._send_template(template_name, self.partner, invoice.name)
+                    # --- MEJORA: Pasar el objeto 'invoice' completo ---
+                    return self._send_template(template_name, self.partner, invoice)
             
             response_data = handle_solicitar_factura(self.env, self.partner, self.plain_text)
             if response_data.get('flow_state'):
