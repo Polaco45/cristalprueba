@@ -86,6 +86,8 @@ class ChatbotProcessor:
             }
 
             outgoing_text_msg = self.env['whatsapp.message'].sudo().create(text_msg_vals)
+            outgoing_text_msg.sudo().write({'body': message})
+
             if hasattr(outgoing_text_msg, '_send_message'):
                 outgoing_text_msg._send_message()
 
