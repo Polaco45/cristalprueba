@@ -35,11 +35,10 @@ class ChatbotProcessor:
                 return flow_handler()
         return self._handle_general_intent()
 
-    # --- MÉTODO MODIFICADO ---
     def _send_template(self, template_name_to_send, partner, invoice):
         """
-        Envía una plantilla de WhatsApp de forma robusta, construyendo un cuerpo
-        de mensaje más completo y asegurando el envío.
+        Envía una plantilla de WhatsApp, asegurando que el parámetro se asigne
+        correctamente al body.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
@@ -58,29 +57,27 @@ class ChatbotProcessor:
                 return self._send_text("No pude encontrar la plantilla de factura para enviarla.")
 
             invoice_number = invoice.name
-            _logger.info(f"Preparando envío de plantilla '{template_name_to_send}' para la factura {invoice_number}.")
-            
-            # --- MEJORA: Construir un cuerpo de mensaje más informativo ---
-            # Esto asume que tu plantilla tiene una variable {{1}} para el cuerpo.
-            final_body = f"Te enviamos la factura solicitada: {invoice_number}."
+            _logger.info(f"Preparando envío de plantilla '{template_name_to_send}' con parámetro: '{invoice_number}'.")
 
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'body': final_body, # Se envía el mensaje completo
+                'body': invoice_number,
                 'state': 'outgoing',
             }
 
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            outgoing_msg.sudo().write({'body': final_body})
+            
+            # --- CORRECCIÓN DEFINITIVA: Escribir el body DE NUEVO después de crear ---
+            # Este paso es crucial para que el módulo procese el parámetro antes de enviar.
+            outgoing_msg.sudo().write({'body': invoice_number})
 
             if hasattr(outgoing_msg, '_send_message'):
                 outgoing_msg._send_message()
                 _logger.info(f"✅ Método de envío para la plantilla {outgoing_msg.id} invocado.")
             else:
                 _logger.error("Error crítico: El modelo 'whatsapp.message' no tiene el método '_send_message'.")
-                return self._send_text("Error de configuración: No se pudo procesar el envío.")
 
         except Exception as e:
             _logger.error(f"❌ Error al crear y enviar el mensaje de plantilla: {e}", exc_info=True)
@@ -96,25 +93,21 @@ class ChatbotProcessor:
                         body=chatter_message, message_type='comment', subtype_xmlid='mail.mt_comment'
                     )
             except Exception as e:
-                _logger.warning(f"⚠️ No se pudo registrar el mensaje en el chatter, pero el envío de WhatsApp continuó. Error: {e}", exc_info=True)
+                _logger.warning(f"⚠️ No se pudo registrar el mensaje en el chatter, pero el envío de WhatsApp continuó. Error: {e}")
 
     def _send_response(self, response_data):
         message = response_data.get('message')
         if not message:
             return
-
         try:
             mail_message = self.record.mail_message_id
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
                 channel.with_context(from_wa_bot=True).message_post(
-                    body=message,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment'
+                    body=message, message_type='comment', subtype_xmlid='mail.mt_comment'
                 )
         except Exception as e:
             _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
-        
         try:
             vals = {
                 'mobile_number': self.record.mobile_number,
