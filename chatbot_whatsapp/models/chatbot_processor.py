@@ -442,7 +442,7 @@ class ChatbotProcessor:
             
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             # Enviar la plantilla en lugar de generar un PDF
-            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+            return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
 
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
@@ -505,7 +505,7 @@ class ChatbotProcessor:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
                 if invoice:
                     self.memory.write({'flow_state': False, 'data_buffer': ''})
-                    return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+                    return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
             
             # Si no hay número o la factura no se encontró, inicia el flujo de preguntas
             response_data = handle_solicitar_factura(self.env, self.partner, self.plain_text)
