@@ -62,7 +62,7 @@ class ChatbotProcessor:
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'template_body': json.dumps([invoice_number]),
+                'template_parameters': json.dumps([invoice_number]),
                 'state': 'outgoing',
             }
 
