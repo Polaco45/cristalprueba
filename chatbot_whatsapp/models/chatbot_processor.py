@@ -418,7 +418,7 @@ class ChatbotProcessor:
         
         if invoice:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+            return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
         else:
             # Si no la encuentra, ofrece las recientes
             response_data = offer_recent_invoices(self.env, self.partner)
