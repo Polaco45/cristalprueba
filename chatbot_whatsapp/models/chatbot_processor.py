@@ -56,11 +56,10 @@ class ChatbotProcessor:
 
             _logger.info(f"Preparando envío de plantilla '{template_name_to_send}' para la factura {invoice_number}.")
 
-            # --- CORRECCIÓN FINAL: Eliminar 'partner_id' que no es un campo válido ---
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
-                'template_id': wa_template.id,
+                'wa_template_uid': wa_template.id,
                 'body': invoice_number,
                 'state': 'outgoing',
             }
