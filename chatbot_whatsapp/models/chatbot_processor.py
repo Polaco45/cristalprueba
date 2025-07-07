@@ -101,6 +101,7 @@ class ChatbotProcessor:
             try:
                 attachment_msg = self.env['whatsapp.message'].sudo().create({
                     'mobile_number': self.record.mobile_number,
+                    'body': message,
                     'state': 'outgoing',
                     'wa_account_id': self.record.wa_account_id.id,
                     'create_uid': self.env.ref('base.user_admin').id,
