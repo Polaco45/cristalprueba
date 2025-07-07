@@ -87,6 +87,8 @@ class ChatbotProcessor:
             
             # Se crea el registro del mensaje de WhatsApp.
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            outgoing_msg.sudo().write({'body': message})
+
             _logger.info(f"✅ Registro de mensaje creado: ID {outgoing_msg.id}")
 
             # Si existe un PDF, se crea el adjunto y se VINCULA al mensaje recién creado.
