@@ -59,7 +59,7 @@ class ChatbotProcessor:
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
-                'wa_template_uid': wa_template.id,
+                'wa_template_id': wa_template.id,
                 'body': invoice_number,
                 'state': 'outgoing',
             }
