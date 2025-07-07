@@ -12,7 +12,7 @@ from .intent_handlers.create_order import (
 )
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
-    handle_agradecimiento_cierre, handle_consulta_producto, 
+    handle_agradecimiento_cierre, handle_consulta_producto,
     find_invoice_by_number, offer_recent_invoices
 )
 
@@ -38,7 +38,6 @@ class ChatbotProcessor:
     def _send_template(self, template_name_to_send, partner, invoice_number):
         """
         Envía una plantilla de WhatsApp creando un registro 'whatsapp.message'.
-        Este método se alinea con la forma en que se envían los mensajes de texto, que es un patrón de funcionamiento confirmado.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
@@ -46,7 +45,6 @@ class ChatbotProcessor:
             return self._send_text(messages_config['error_processing'])
 
         try:
-            # Buscar la plantilla por su nombre técnico para obtener su ID
             wa_template = self.env['whatsapp.template'].sudo().search([
                 ('template_name', '=', template_name_to_send),
                 ('wa_account_id', '=', wa_account.id)
@@ -58,26 +56,18 @@ class ChatbotProcessor:
 
             _logger.info(f"Preparando envío de plantilla '{template_name_to_send}' para la factura {invoice_number}.")
 
-            # --- CORRECCIÓN DEFINITIVA: Crear un registro 'whatsapp.message' ---
-            # Se asume que el módulo de WhatsApp procesará el envío de la plantilla
-            # cuando se crea un mensaje con un `template_id`.
-            
-            # El parámetro (número de factura) se pasa en el campo 'body'. Muchos módulos
-            # usan este campo para poblar las variables de la plantilla.
+            # --- CORRECCIÓN FINAL: Eliminar 'partner_id' que no es un campo válido ---
             vals = {
-                'partner_id': partner.id,
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'template_id': wa_template.id,
-                'body': invoice_number, # Pasamos el parámetro aquí
+                'body': invoice_number,
                 'state': 'outgoing',
             }
 
-            # 1. Crear el mensaje de WhatsApp
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
             _logger.info(f"Registro de mensaje de plantilla creado con ID: {outgoing_msg.id}")
 
-            # 2. Llamar al método de envío, igual que con los mensajes de texto
             if hasattr(outgoing_msg, '_send_message'):
                 outgoing_msg._send_message()
                 _logger.info(f"✅ Método de envío para la plantilla {outgoing_msg.id} invocado.")
@@ -85,7 +75,6 @@ class ChatbotProcessor:
                 _logger.error("Error crítico: El modelo 'whatsapp.message' no tiene el método '_send_message'.")
                 return self._send_text("Error de configuración: No se pudo procesar el envío.")
 
-            # Registrar en el chatter de Odoo
             mail_message = self.record.mail_message_id
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
@@ -99,15 +88,11 @@ class ChatbotProcessor:
             return self._send_text(messages_config.get('error_processing', "Hubo un problema al procesar tu solicitud."))
 
     def _send_response(self, response_data):
-        """
-        Envía una respuesta de texto simple a través de WhatsApp y la registra en el chatter.
-        """
         message = response_data.get('message')
         if not message:
             return
 
         try:
-            # Registrar en el chatter de Odoo
             mail_message = self.record.mail_message_id
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
@@ -120,7 +105,6 @@ class ChatbotProcessor:
         except Exception as e:
             _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
         
-        # Enviar mensaje por WhatsApp
         try:
             _logger.info(f"🚀 Preparando mensaje de texto para {self.record.mobile_number}...")
             vals = {
@@ -140,7 +124,6 @@ class ChatbotProcessor:
             _logger.error(f"❌ Error al enviar el mensaje de texto por WhatsApp: {e}", exc_info=True)
 
     def _send_text(self, text_to_send):
-        """Función de ayuda para enviar solo mensajes de texto."""
         return self._send_response({'message': text_to_send})
     
 
@@ -447,7 +430,6 @@ class ChatbotProcessor:
         return self._process_next_product_in_queue()
     
     def _handle_flow_esperando_numero_factura(self):
-        """Maneja la respuesta del usuario cuando se le pidió un número de factura."""
         _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
         
         if "buscar" in self.plain_text.lower():
@@ -466,7 +448,6 @@ class ChatbotProcessor:
             return self._send_response(response_data)
 
     def _handle_flow_esperando_seleccion_factura(self):
-        """Maneja la selección de una factura de la lista y dispara la plantilla."""
         if self.plain_text.lower() == 'cancelar':
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['invoice_selection_cancelled'])
