@@ -444,7 +444,7 @@ class ChatbotProcessor:
         _logger.info(f"🧾 El usuario proveyó el texto: '{self.plain_text}' como número de factura.")
         
         # --- CORRECCIÓN CLAVE 3: Usar el nombre de plantilla correcto ---
-        template_name = "envio_factura_chatbot"
+        template_name = "envio_factura_copy_copy_copy"
 
         if "buscar" in self.plain_text.lower():
             response_data = offer_recent_invoices(self.env, self.partner)
@@ -467,7 +467,7 @@ class ChatbotProcessor:
             return self._send_text(messages_config['invoice_selection_cancelled'])
         
         # --- CORRECCIÓN CLAVE 3: Usar el nombre de plantilla correcto ---
-        template_name = "envio_factura_chatbot"
+        template_name = "envio_factura_copy_copy_copy"
 
         try:
             data = json.loads(self.memory.data_buffer or '{}')
@@ -502,7 +502,7 @@ class ChatbotProcessor:
         
         if intent == "solicitar_factura":
             # --- CORRECCIÓN CLAVE 3: Usar el nombre de plantilla correcto ---
-            template_name = "envio_factura_chatbot"
+            template_name = "envio_factura_copy_copy_copy"
             number_match = re.search(r'\d{4,}', self.plain_text)
             if number_match:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())

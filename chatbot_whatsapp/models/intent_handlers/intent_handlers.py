@@ -109,7 +109,7 @@ def send_invoice_template(env, partner, invoice):
     _logger.info(f"Preparando para disparar plantilla de factura para {invoice.name}.")
     return {
         'action': 'send_template',
-        'template_name': 'Envio Factura chatbot', # Nombre de la plantilla
+        'template_name': 'envio_factura_copy_copy_copy', # Nombre de la plantilla
         'invoice_number': invoice.name,
         'message': f"Te estoy enviando la factura {invoice.name}." # Mensaje para el chatter
     }
