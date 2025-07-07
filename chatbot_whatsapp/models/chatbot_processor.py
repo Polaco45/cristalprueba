@@ -431,7 +431,7 @@ class ChatbotProcessor:
         return self._process_next_product_in_queue()
     
     def _handle_flow_esperando_numero_factura(self):
-        template_name = "envio_factura_chatbot"
+        template_name = "envio_factura_copy_copy_copy"
         if "buscar" in self.plain_text.lower():
             response_data = offer_recent_invoices(self.env, self.partner)
             self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
@@ -450,7 +450,7 @@ class ChatbotProcessor:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['invoice_selection_cancelled'])
         
-        template_name = "envio_factura_chatbot"
+        template_name = "envio_factura_copy_copy_copy"
         try:
             data = json.loads(self.memory.data_buffer or '{}')
             invoice_ids = data.get('invoice_ids', [])
@@ -477,7 +477,7 @@ class ChatbotProcessor:
         self.memory.write({'last_intent_detected': intent})
         
         if intent == "solicitar_factura":
-            template_name = "envio_factura_chatbot"
+            template_name = "envio_factura_copy_copy_copy"
             number_match = re.search(r'[\d\-\s]+', self.plain_text)
             if number_match:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
