@@ -36,17 +36,12 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     def _send_template(self, template_name_to_send, partner, invoice):
-        """
-        Envía una plantilla de WhatsApp para una factura usando render dinámico del body,
-        sin usar 'template_parameters_json'.
-        """
         wa_account = self.record.wa_account_id
         if not wa_account:
             _logger.error("No se encontró una cuenta de WhatsApp activa.")
             return
 
         try:
-            # Buscar plantilla por nombre
             wa_template = self.env['whatsapp.template'].sudo().search([
                 ('template_name', '=', template_name_to_send),
                 ('wa_account_id', '=', wa_account.id)
@@ -56,17 +51,14 @@ class ChatbotProcessor:
                 _logger.error(f"No se encontró la plantilla: {template_name_to_send}")
                 return
 
-            invoice_number = invoice.name  # Ej: X 0001-00951
+            invoice_number = invoice.name
+            _logger.info(f"Enviando plantilla '{template_name_to_send}' para factura {invoice_number}.")
 
-            # Renderizar el cuerpo del mensaje
-            rendered_body = wa_template._render_template([invoice_number])
-
-            # Crear el mensaje saliente
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'body': rendered_body,
+                'free_text_json': json.dumps([invoice_number]),  # ✅ Compatible y funcional
                 'state': 'outgoing',
             }
 
