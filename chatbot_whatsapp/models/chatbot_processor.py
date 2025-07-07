@@ -38,79 +38,93 @@ class ChatbotProcessor:
     # --- CORRECCIÓN FINAL Y COMBINADA ---
     def _send_response(self, response_data):
         """
-        Envía una respuesta unificada.
-        1. Registra el mensaje y el adjunto en el chatter de Odoo.
-        2. Crea UN SOLO mensaje de WhatsApp.
-        3. Si hay un PDF, lo adjunta a ese único mensaje.
-        4. Llama al método de envío una sola vez.
+        Envía una respuesta en dos pasos:
+        1. La registra en el canal de Odoo para visibilidad interna.
+        2. La envía al usuario a través de la API de WhatsApp.
         """
         message = response_data.get('message')
         pdf_base64 = response_data.get('pdf_base64')
         filename = response_data.get('filename', 'adjunto.pdf')
 
-        # --- 1) Registrar en el canal de Odoo (Chatter) ---
-        # Esta parte se mantiene igual, ya que es correcta para el registro interno.
+        # --- Tarea 1: Registrar en el canal de Odoo (Chatter) ---
         try:
             mail_message = self.record.mail_message_id
             if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
                 channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                attachment_ids = []
+
+                attachment_id_list = []
                 if pdf_base64:
-                    attach = self.env['ir.attachment'].sudo().create({
+                    chatter_attachment = self.env['ir.attachment'].sudo().create({
                         'name': filename,
                         'datas': pdf_base64,
                         'res_model': 'discuss.channel',
-                        'res_id': channel.id,
+                        'res_id': channel.id
                     })
-                    attachment_ids.append(attach.id)
+                    attachment_id_list.append(chatter_attachment.id)
+
                 channel.with_user(self.env.ref('base.user_admin')).message_post(
                     body=message,
                     message_type='comment',
                     subtype_xmlid='mail.mt_comment',
-                    attachment_ids=attachment_ids
+                    attachment_ids=attachment_id_list
                 )
                 _logger.info(f"✅ Mensaje registrado en el canal de Odoo '{channel.name}'.")
+            else:
+                _logger.warning("No se encontró un canal de Odoo para registrar el mensaje. Se procederá solo con el envío a WhatsApp.")
         except Exception as e:
-            _logger.error(f"⚠️ Error posteando en Chatter: {e}", exc_info=True)
+            _logger.error(f"⚠️ No se pudo registrar el mensaje en el canal de Odoo: {e}", exc_info=True)
 
-        # --- 2) Preparar y Enviar a WhatsApp (Lógica Unificada) ---
+        # --- Tarea 2: Enviar el mensaje de texto por WhatsApp ---
         try:
-            # Se preparan los valores para UN ÚNICO mensaje.
-            # El campo 'body' actuará como el pie de foto del PDF.
-            vals = {
+            _logger.info(f"🚀 Preparando para enviar a WhatsApp: '{message}'")
+            text_msg_vals = {
                 'mobile_number': self.record.mobile_number,
                 'body': message,
                 'state': 'outgoing',
                 'wa_account_id': self.record.wa_account_id.id,
                 'create_uid': self.env.ref('base.user_admin').id,
             }
-            
-            # Se crea el registro del mensaje de WhatsApp.
-            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            outgoing_msg.sudo().write({'body': message})
 
-            _logger.info(f"✅ Registro de mensaje creado: ID {outgoing_msg.id}")
+            outgoing_text_msg = self.env['whatsapp.message'].sudo().create(text_msg_vals)
+            outgoing_text_msg.sudo().write({'body': message})
 
-            # Si existe un PDF, se crea el adjunto y se VINCULA al mensaje recién creado.
-            if pdf_base64:
-                self.env['ir.attachment'].sudo().create({
-                    'name': filename,
-                    'datas': pdf_base64,
-                    'res_model': 'whatsapp.message', # Modelo correcto
-                    'res_id': outgoing_msg.id,       # ID del mensaje que acabamos de crear
-                    'mimetype': 'application/pdf',
-                })
-                _logger.info(f"📎 Adjunto PDF creado y vinculado al mensaje {outgoing_msg.id}")
+            if hasattr(outgoing_text_msg, '_send_message'):
+                outgoing_text_msg._send_message()
 
-            # Se llama al método de envío UNA SOLA VEZ.
-            # El módulo base de WhatsApp debería detectar el adjunto y enviarlo como multimedia.
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-            
-            _logger.info(f"🚀 Mensaje {outgoing_msg.id} procesado para envío a WhatsApp.")
+            _logger.info(f"✅ Mensaje de texto '{outgoing_text_msg.id}' enviado correctamente.")
 
         except Exception as e:
-            _logger.error(f"❌ Error fatal durante el envío a WhatsApp: {e}", exc_info=True)
+            _logger.error(f"❌ Error al enviar el mensaje de texto por WhatsApp: {e}", exc_info=True)
+
+        # --- Tarea 3: Enviar el PDF como archivo separado por WhatsApp ---
+        if pdf_base64:
+            try:
+                attachment_msg = self.env['whatsapp.message'].sudo().create({
+                    'mobile_number': self.record.mobile_number,
+                    'body': message,
+                    'state': 'outgoing',
+                    'wa_account_id': self.record.wa_account_id.id,
+                    'create_uid': self.env.ref('base.user_admin').id,
+                })
+                attachment_msg.sudo().write({'body': filename})
+                attachment = self.env['ir.attachment'].sudo().create({
+                    'name': filename,
+                    'datas': pdf_base64,
+                    'res_model': 'whatsapp.message',
+                    'res_id': attachment_msg.id,
+                    'mimetype': 'application/pdf',
+                })
+                _logger.info(f"📎 Adjunto PDF creado con ID {attachment.id} y vinculado al mensaje '{attachment_msg.id}'.")
+
+                if hasattr(attachment_msg, '_send_message'):
+                    attachment_msg._send_message()
+
+                _logger.info(f"✅ Adjunto PDF enviado correctamente por WhatsApp.")
+
+            except Exception as e:
+                _logger.error(f"❌ Error al enviar el archivo PDF por WhatsApp: {e}", exc_info=True)
+
+
 
     def _send_text(self, text_to_send):
         """Función de ayuda para enviar solo mensajes de texto."""
