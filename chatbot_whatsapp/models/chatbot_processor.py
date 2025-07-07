@@ -37,15 +37,14 @@ class ChatbotProcessor:
 
     def _send_template(self, template_name_to_send, partner, invoice):
         """
-        Envía una plantilla de WhatsApp pasando únicamente el número de factura
-        como parámetro para la variable {{1}}.
+        Envía una plantilla de WhatsApp, pasando las variables de forma explícita
+        para que coincida con la estructura de la plantilla.
         """
         wa_account = self.record.wa_account_id
         if not wa_account:
-            _logger.error("No se encontró una cuenta de WhatsApp activa para enviar la plantilla.")
-            return self._send_text(messages_config['error_processing'])
+            _logger.error("No se encontró una cuenta de WhatsApp activa.")
+            return
 
-        outgoing_msg = None
         try:
             wa_template = self.env['whatsapp.template'].sudo().search([
                 ('template_name', '=', template_name_to_send),
@@ -53,46 +52,31 @@ class ChatbotProcessor:
             ], limit=1)
 
             if not wa_template:
-                _logger.error(f"No se encontró la plantilla de WhatsApp con nombre técnico: {template_name_to_send}")
-                return self._send_text("No pude encontrar la plantilla de factura para enviarla.")
+                _logger.error(f"No se encontró la plantilla: {template_name_to_send}")
+                return
 
             invoice_number = invoice.name
-            _logger.info(f"Preparando envío de plantilla '{template_name_to_send}'. Parámetro: '{invoice_number}'")
+            _logger.info(f"Enviando plantilla '{template_name_to_send}' para factura {invoice_number}.")
             
-            # --- CORRECCIÓN FINAL: Pasar solo el número de factura como 'body' ---
-            # El módulo de WhatsApp usará este valor para reemplazar {{1}} en la plantilla.
+            # --- CORRECCIÓN DEFINITIVA ---
+            # Reemplazamos la variable {{1}} en el cuerpo de la plantilla.
+            # Esto asegura que el mensaje se envíe exactamente como se define en la plantilla.
+            final_body = (wa_template.body or "").replace('{{1}}', invoice_number)
+            
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'body': invoice_number,
+                'body': final_body, # Enviamos el cuerpo completo con la variable reemplazada
                 'state': 'outgoing',
             }
 
             outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            outgoing_msg.sudo().write({'body': invoice_number})
-
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-                _logger.info(f"✅ Método de envío para la plantilla {outgoing_msg.id} invocado.")
-            else:
-                _logger.error("Error crítico: El modelo 'whatsapp.message' no tiene el método '_send_message'.")
+            outgoing_msg._send_message()
+            _logger.info(f"✅ Plantilla {outgoing_msg.id} enviada para la factura {invoice.name}.")
 
         except Exception as e:
-            _logger.error(f"❌ Error al crear y enviar el mensaje de plantilla: {e}", exc_info=True)
-            return self._send_text(messages_config.get('error_processing', "Hubo un problema al procesar tu solicitud."))
-
-        if outgoing_msg:
-            try:
-                mail_message = self.record.mail_message_id
-                if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
-                    channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                    chatter_message = f"Plantilla de factura '{template_name_to_send}' enviada para la factura {invoice.name}."
-                    channel.with_context(from_wa_bot=True).message_post(
-                        body=chatter_message, message_type='comment', subtype_xmlid='mail.mt_comment'
-                    )
-            except Exception as e:
-                _logger.warning(f"⚠️ No se pudo registrar el mensaje en el chatter, pero el envío de WhatsApp continuó. Error: {e}")
+            _logger.error(f"❌ Error al enviar plantilla: {e}", exc_info=True)
 
     def _send_response(self, response_data):
         message = response_data.get('message')
