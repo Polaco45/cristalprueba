@@ -455,7 +455,7 @@ class ChatbotProcessor:
         
         if invoice:
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+            return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
         else:
             response_data = offer_recent_invoices(self.env, self.partner)
             self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
@@ -477,7 +477,7 @@ class ChatbotProcessor:
             invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
             
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+            return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
 
         except (ValueError, json.JSONDecodeError, IndexError) as e:
             _logger.error(f"Error en el flujo de selección de factura: {e}")
@@ -506,7 +506,7 @@ class ChatbotProcessor:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
                 if invoice:
                     self.memory.write({'flow_state': False, 'data_buffer': ''})
-                    return self._send_template("envio_factura_copy_copy_copy", self.partner, invoice.name)
+                    return self._send_template("Envio Factura chatbot", self.partner, invoice.name)
             
             response_data = handle_solicitar_factura(self.env, self.partner, self.plain_text)
             if response_data.get('flow_state'):
