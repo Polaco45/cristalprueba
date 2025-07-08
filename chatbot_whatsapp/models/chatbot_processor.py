@@ -62,21 +62,19 @@ class ChatbotProcessor:
             # Si tu plantilla en WhatsApp Business tiene algo como:
             # "¡Aquí está tu factura {{1}}! Te la envío adjunta."
             # Entonces reemplazamos eso directamente:
-            final_body = (wa_template.body or "").replace("{{1}}", invoice_number)
+            #final_body = (wa_template.body or "").replace("{{1}}", invoice_number)
             
+            mail_message = self.env['mail.message'].sudo().create({
+            'model': 'account.move',  # Especifica el TIPO de documento
+            'res_id': invoice.id,     # Especifica QUÉ documento es
+            'body': wa_template.body,
+            })
 
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'free_text_json': {
-                    "parameters": [
-                        {
-                            "type": "text",
-                            "text": invoice_number
-                        }
-                    ]
-                },
+                'mail_message_id': mail_message.id,
                 'state': 'outgoing',
             }
 
