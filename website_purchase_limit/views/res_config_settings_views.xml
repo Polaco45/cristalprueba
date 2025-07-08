@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Heredamos la vista de ajustes del sitio web -->
+    <record id="view_res_config_settings_purchase_limit" model="ir.ui.view">
+        <field name="name">res.config.settings.website.purchase.limit</field>
+        <field name="model">res.config.settings</field>
+        <!--   ⚠️  Odoo 18 usa este ID para la vista principal de Website Settings -->
+        <field name="inherit_id" ref="website.view_website_config_settings"/>
+        <field name="arch" type="xml">
+
+            <!-- Añadimos nuestro grupo de campos dentro del grupo Website -->
+            <xpath expr="//group[@name='website_settings']" position="inside">
+                <div class="col-6 o_setting_box" id="purchase_limit_box">
+                    <div class="o_setting_left_pane">
+                        <field name="enabled_limit"/>
+                    </div>
+                    <div class="o_setting_right_pane">
+                        <label for="purchase_limit"/>
+                        <field name="purchase_limit"
+                               attrs="{'invisible': [('enabled_limit','=',False)]}"/>
+                        <div class="text-muted">
+                            Monto mínimo de compra para este sitio web
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>
