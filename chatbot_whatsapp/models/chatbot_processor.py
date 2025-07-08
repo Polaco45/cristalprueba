@@ -63,12 +63,20 @@ class ChatbotProcessor:
             # "¡Aquí está tu factura {{1}}! Te la envío adjunta."
             # Entonces reemplazamos eso directamente:
             final_body = (wa_template.body or "").replace("{{1}}", invoice_number)
+            
 
             vals = {
                 'mobile_number': partner.phone or partner.mobile,
                 'wa_account_id': wa_account.id,
                 'wa_template_id': wa_template.id,
-                'body': final_body,
+                'free_text_json': {
+                    "parameters": [
+                        {
+                            "type": "text",
+                            "text": invoice_number
+                        }
+                    ]
+                },
                 'state': 'outgoing',
             }
 
