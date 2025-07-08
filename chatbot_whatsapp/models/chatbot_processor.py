@@ -57,12 +57,6 @@ class ChatbotProcessor:
                 return
 
             invoice_number = invoice.name
-
-            # ⚠️ Armá el texto exactamente como lo tenés en el UI (con el {{1}} reemplazado)
-            # Si tu plantilla en WhatsApp Business tiene algo como:
-            # "¡Aquí está tu factura {{1}}! Te la envío adjunta."
-            # Entonces reemplazamos eso directamente:
-            #final_body = (wa_template.body or "").replace("{{1}}", invoice_number)
             
             mail_message = self.env['mail.message'].sudo().create({
             'model': 'account.move',  # Especifica el TIPO de documento
