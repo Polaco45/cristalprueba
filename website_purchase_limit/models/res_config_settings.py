@@ -23,13 +23,15 @@ from odoo import fields, models
 
 
 class ResConfigSettings(models.TransientModel):
-    """Adding a new field to res_config_settings model for apply limit"""
     _inherit = "res.config.settings"
 
-    purchase_limit = fields.Float(string="Purchase Limit",
-                                  help='Adding a website purchase limit',
-                                  config_parameter='website_purchase_limit.purchase_limit')
-    enabled_limit = fields.Boolean(string='Enabling the limit',
-                                   help='Enabling and disabling the '
-                                        'purchase limit',
-                                   config_parameter='website_purchase_limit.enabled_limit')
+    purchase_limit = fields.Float(
+        string="Purchase Limit",
+        related='website_id.purchase_limit',
+        readonly=False
+    )
+    enabled_limit = fields.Boolean(
+        string='Enable Purchase Limit',
+        related='website_id.enabled_limit',
+        readonly=False
+    )
