@@ -1,30 +1,30 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <!--Inherit the res_config_settings_view_form and add a field purchase limit-->
-    <record id="res_config_settings_view_form" model="ir.ui.view">
-        <field name="name">
-            res.config.settings.view.form.inherit.website.purchase.limit
-        </field>
+    <!-- Heredamos la vista de ajustes del sitio web -->
+    <record id="view_res_config_settings_purchase_limit" model="ir.ui.view">
+        <field name="name">res.config.settings.website.purchase.limit</field>
         <field name="model">res.config.settings</field>
-        <field name="inherit_id" ref="website.res_config_settings_view_form"/>
+        <!--   ⚠️  Odoo 18 usa este ID para la vista principal de Website Settings -->
+        <field name="inherit_id" ref="website.view_website_config_settings"/>
         <field name="arch" type="xml">
-            <xpath expr="//block[@id='website_info_settings']"
-                   position="inside">
-                <div class="col-6 o_setting_box" id="purchase_limit">
+
+            <!-- Añadimos nuestro grupo de campos dentro del grupo Website -->
+            <xpath expr="//group[@name='website_settings']" position="inside">
+                <div class="col-6 o_setting_box" id="purchase_limit_box">
                     <div class="o_setting_left_pane">
                         <field name="enabled_limit"/>
                     </div>
                     <div class="o_setting_right_pane">
-                        <label class="col-lg-3" for="purchase_limit"
-                               string="Purchase Limit"/>
+                        <label for="purchase_limit"/>
                         <field name="purchase_limit"
-                               invisible="enabled_limit == False"/>
-                        <div class="text-muted mb16">
-                            Set a purchase limit
+                               attrs="{'invisible': [('enabled_limit','=',False)]}"/>
+                        <div class="text-muted">
+                            Monto mínimo de compra para este sitio web
                         </div>
                     </div>
                 </div>
             </xpath>
+
         </field>
     </record>
 </odoo>
