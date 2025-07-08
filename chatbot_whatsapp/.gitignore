@@ -2,3 +2,5 @@
 venv/
 pycache/
 __pycache__/
+
+a.py
