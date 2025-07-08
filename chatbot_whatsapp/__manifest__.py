@@ -19,7 +19,7 @@
         'whatsapp'  # Asegurate que es el nombre técnico correcto del módulo de WhatsApp
     ],
     'data': [
-        # XMLs si agregás vistas, acciones, parámetros de sistema, etc.
+        'security/ir.model.access.csv'# XMLs si agregás vistas, acciones, parámetros de sistema, etc.
         # Por ahora lo dejás vacío si todo es backend puro
     ],
     'assets': {
