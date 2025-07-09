@@ -10,9 +10,6 @@ _logger = logging.getLogger(__name__)
 class WhatsAppMessage(models.Model):
     _inherit = 'whatsapp.message'
 
-    # send_custom_message HA SIDO ELIMINADO PORQUE LA LÓGICA
-    # AHORA ESTÁ CENTRALIZADA EN EL CHATBOT PROCESSOR
-
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
@@ -26,7 +23,6 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
             
-            # --- FUNCIÓN DE ENVÍO RESTAURADA A LA VERSIÓN FUNCIONAL ---
             def _send_text(to_record, text_to_send):
                 _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
                 vals = {
@@ -36,13 +32,8 @@ class WhatsAppMessage(models.Model):
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
                     'create_uid': self.env.ref('base.user_admin').id,
                 }
-                # 1. Se crea el mensaje
                 outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-                
-                # 2. Se vuelve a escribir el body (paso clave de la versión anterior)
                 outgoing_msg.sudo().write({'body': text_to_send})
-                
-                # 3. Se intenta enviar inmediatamente
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
                 _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
@@ -75,9 +66,13 @@ class WhatsAppMessage(models.Model):
                 _logger.info("🔄 Flujo de onboarding interceptado")
                 _send_text(record, response_msg)
                 continue
+            
+            # --- NUEVA LÓGICA: PERMITIR ACCESO A B2C SIN COTIZACIÓN ---
+            b2c_tag_name = "Tipo de Cliente / Consumidor Final"
+            is_b2c = partner.category_id and any(tag.name == b2c_tag_name for tag in partner.category_id)
 
-            if not is_cotizado(partner):
-                _logger.info("🚫 Usuario sin cotización")
+            if not is_b2c and not is_cotizado(partner):
+                _logger.info("🚫 Usuario B2B/Mayorista sin cotización")
                 _send_text(record, messages_config['onboarding_unquoted'])
                 continue
 

@@ -27,22 +27,18 @@ class ChatbotProcessor:
         self.plain_text = clean_html(record.body or "").strip()
 
     def _is_b2c(self):
-        """Verifica si el cliente es B2C."""
-        return any(
-            "Consumidor Final" in tag.name
-            for tag in self.partner.category_id
-        )
+        """Verifica si el partner es un cliente B2C (Consumidor Final)."""
+        b2c_tag_name = "Tipo de Cliente / Consumidor Final"
+        return self.partner.category_id and any(tag.name == b2c_tag_name for tag in self.partner.category_id)
 
     def process_message(self):
-        """
-        Procesa el mensaje entrante, diferenciando entre flujos B2B y B2C.
-        """
-        if self._is_b2c():
-            return self._handle_b2c_intent()
-
-        # Flujo B2B/Mayorista existente
         flow = self.memory.flow_state
         _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'}")
+
+        # Si el cliente es B2C y no está en un flujo activo, se usa el manejador de B2C.
+        if self._is_b2c() and not flow:
+            return self._handle_b2c_intent()
+
         if flow:
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
@@ -59,28 +55,50 @@ class ChatbotProcessor:
         ], order='id desc', limit=10)
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         intent = detect_intention(conv, api_key, system_prompt)
-        
-        if intent in ("crear_pedido", "consulta_producto"):
-            return self._send_text("Podés ver todo nuestro catálogo y hacer tu pedido directamente en nuestra tienda online: https://www.quimicacristal.com.ar ¡Es rápido y fácil! 🛒")
-        elif intent == "solicitar_factura":
-            return self._send_text("Por el momento, no puedo gestionar facturas por esta vía. 😅 Para cualquier consulta sobre facturación, por favor contactá a nuestro equipo de administración.")
-        elif intent == "consulta_horario":
-            return self._send_text("¡Claro! Nuestros horarios son:\n- Lunes a Viernes: 8:30 a 12:30hs y 15:30 a 19:30hs.\n- Sábados: 09:00 a 13:00hs.")
-        elif intent == "consulta_direccion":
-            return self._send_text("Nos encontrás en San Martín 2350. ¡Te esperamos! 😊 Aquí tenés el mapa para que no te pierdas: https://maps.app.goo.gl/kKGs7dsFTPFovz3o9")
-        else:
-            # Para cualquier otra intención, usamos el manejador de FAQ general
-            return self._send_text(handle_respuesta_faq(self.partner, self.plain_text))
+        self.memory.write({'last_intent_detected': intent})
 
+        _logger.info(f"👤 Intent B2C detectado: {intent}")
 
-    def process_message(self):
-        flow = self.memory.flow_state
-        _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'}")
-        if flow:
-            flow_handler = getattr(self, f"_handle_flow_{flow}", None)
-            if flow_handler:
-                return flow_handler()
-        return self._handle_general_intent()
+        web_url = "https://www.quimicacristal.com.ar"
+
+        if intent == "consulta_horario_direccion":
+             return self._send_text(messages_config['contact_info'])
+
+        if intent == "consulta_producto":
+            try:
+                # Se reutiliza la lógica de búsqueda, pero se construye una respuesta B2C.
+                openai.api_key = api_key
+                extraction_prompt = prompts_config['product_extraction_system_prompt']
+                resp = openai.ChatCompletion.create(model="gpt-4o-mini", messages=[{"role": "system", "content": extraction_prompt}, {"role": "user", "content": self.plain_text}], temperature=0)
+                query = resp.choices[0].message.content.strip()
+                variants = lookup_product_variants(self.env, self.partner, query, limit=3)
+                product_list_str = "\n".join([f"• *{v['name']}* - ${v['price']:.2f}" for v in variants])
+                return self._send_text(messages_config['b2c_product_query_response'].format(products=product_list_str, web_url=web_url))
+            except UserError as e:
+                return self._send_text(str(e))
+            except Exception as e:
+                _logger.error(f"❌ Error en consulta B2C: {e}")
+                return self._send_text(messages_config['error_processing'])
+
+        if intent == "crear_pedido":
+            return self._send_text(messages_config['b2c_create_order_response'].format(web_url=web_url))
+
+        if intent == "solicitar_factura":
+            return self._send_text(messages_config['b2c_invoice_response'])
+
+        # Mantener manejadores genéricos para interacciones simples
+        if intent == "saludo":
+            return self._send_text(handle_saludo(self.env, self.partner))
+
+        if intent == "agradecimiento_cierre":
+            return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
+
+        # Fallback a FAQ y respuesta por defecto
+        faq_response = handle_respuesta_faq(self.partner, self.plain_text)
+        if faq_response:
+            return self._send_text(faq_response)
+
+        return self._send_text(messages_config['error_default'])
 
     def _send_template(self, template_name_to_send, partner, invoice):
         """

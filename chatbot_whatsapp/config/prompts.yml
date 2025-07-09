@@ -7,7 +7,7 @@ general_intent_system: >
   
   Categorías posibles: 
   - saludo
-  - consulta_horario
+  - consulta_horario_direccion: (IMPORTANTE: Usa esta intención cuando el usuario pregunte por horarios de atención, la dirección, ubicación o cómo llegar a la tienda).
   - crear_pedido: (IMPORTANTE: Usa esta intención cuando el usuario expresa un deseo claro de comprar o añadir algo al carrito. Ej: "quiero 2 lavandinas", "agregame un trapo de piso", "necesito comprar desengrasante").
   - consulta_producto: (IMPORTANTE: Usa esta intención cuando el usuario solo pregunta si tenés un producto, por su precio o características, sin expresar una intención de compra inmediata. Ej: "¿tenés lavandina?", "¿cuánto cuesta el desodorante de piso?", "qué tipos de escobas manejás?").
   - solicitar_factura
