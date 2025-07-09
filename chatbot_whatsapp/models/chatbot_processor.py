@@ -94,7 +94,8 @@ class ChatbotProcessor:
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
         # Fallback a FAQ y respuesta por defecto
-        faq_response = handle_respuesta_faq(self.partner, self.plain_text)
+        # --- CORRECCIÓN AQUÍ ---
+        faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
         if faq_response:
             return self._send_text(faq_response)
 
@@ -595,7 +596,8 @@ class ChatbotProcessor:
                 self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
             return self._send_response(response_data)
 
-        faq_response = handle_respuesta_faq(self.partner, self.plain_text)
+        # --- CORRECCIÓN AQUÍ ---
+        faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
         if faq_response:
             return self._send_text(faq_response)
         return self._send_text(messages_config['error_default'])
