@@ -66,7 +66,6 @@ class ChatbotProcessor:
 
         if intent == "consulta_producto":
             try:
-                # Se reutiliza la lógica de búsqueda, pero se construye una respuesta B2C.
                 openai.api_key = api_key
                 extraction_prompt = prompts_config['product_extraction_system_prompt']
                 resp = openai.ChatCompletion.create(model="gpt-4o-mini", messages=[{"role": "system", "content": extraction_prompt}, {"role": "user", "content": self.plain_text}], temperature=0)
@@ -86,17 +85,15 @@ class ChatbotProcessor:
         if intent == "solicitar_factura":
             return self._send_text(messages_config['b2c_invoice_response'])
 
-        # Mantener manejadores genéricos para interacciones simples
         if intent == "saludo":
             return self._send_text(handle_saludo(self.env, self.partner))
 
         if intent == "agradecimiento_cierre":
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
-        # Fallback a FAQ y respuesta por defecto
-        # --- CORRECCIÓN AQUÍ ---
-        faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
-        if faq_response:
+        # --- NUEVO FALLBACK INTELIGENTE ---
+        if intent in ["consulta_informativa", "otro"]:
+            faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
             return self._send_text(faq_response)
 
         return self._send_text(messages_config['error_default'])
@@ -559,26 +556,21 @@ class ChatbotProcessor:
     def _handle_general_intent(self):
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
-        history = self.env['whatsapp.message'].sudo().search([
-            ('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id),
-            ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
-        ], order='id desc', limit=10)
+        history = self.env['whatsapp.message'].sudo().search([('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id), ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])], order='id desc', limit=10)
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
-        
+
         if intent == "solicitar_factura":
-            template_name = "envio_factura_chatbot_copy_copy"
             number_match = re.search(r'[\d\-\s]+', self.plain_text)
             if number_match:
                 invoice = find_invoice_by_number(self.env, self.partner, number_match.group())
                 if invoice:
                     self.memory.write({'flow_state': False, 'data_buffer': ''})
-                    return self._send_template(template_name, self.partner, invoice)
-            
+                    return self._send_template("envio_factura_chatbot_copy_copy", self.partner, invoice)
             response_data = handle_solicitar_factura(self.env, self.partner, self.plain_text)
             if response_data.get('flow_state'):
-                 self.memory.write({'flow_state': response_data.get('flow_state'), 'data_buffer': response_data.get('data_buffer', '')})
+                self.memory.write({'flow_state': response_data.get('flow_state'), 'data_buffer': json.dumps(response_data.get('data_buffer', {}))})
             return self._send_response(response_data)
 
         if intent in ["saludo", "agradecimiento_cierre"]:
@@ -596,10 +588,11 @@ class ChatbotProcessor:
                 self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
             return self._send_response(response_data)
 
-        # --- CORRECCIÓN AQUÍ ---
-        faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
-        if faq_response:
+        # --- NUEVO FALLBACK INTELIGENTE ---
+        if intent in ["consulta_informativa", "otro"]:
+            faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
             return self._send_text(faq_response)
+
         return self._send_text(messages_config['error_default'])
     
     def _handle_flow_esperando_seleccion_eliminar(self):

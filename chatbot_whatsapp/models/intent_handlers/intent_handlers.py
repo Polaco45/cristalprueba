@@ -151,45 +151,56 @@ def handle_solicitar_factura(env, partner, text):
         'data_buffer': json.dumps({'invoice_ids': invoices.ids})
     }
         
-def handle_faq_con_ai(partner, user_text):
+def handle_faq_con_ai(env, partner, user_text):
     """
-    Genera dinámicamente la respuesta a preguntas frecuentes.
+    Genera dinámicamente la respuesta a preguntas frecuentes usando IA.
     """
     try:
-        company = partner.env['res.company'].sudo().search([], limit=1)
-        company_name = company.name or "nuestra empresa"
-        address = company.partner_id.contact_address or "su sede principal"
-        schedule = getattr(company, 'hour_schedule', None) or "Nuestro horario es de lunes a viernes de 9 a 18 hs."
-        categories = partner.env['product.category'].sudo().search([], limit=5).mapped('name')
-        product_list = ", ".join(categories) if categories else "diversos productos de limpieza"
+        company = env['res.company'].sudo().search([], limit=1)
+        company_name = company.name or "Química Cristal"
+        
+        # Usar valores hardcodeados como fallback si no están en Odoo
+        address = "San Martín 2350"
+        schedule = "Lunes a Viernes de 8:30 a 12:30 y 15:30 a 19:30, Sábados de 9:00 a 13:00"
+
+        # Obtener ejemplos de categorías de productos
+        categories = env['product.category'].sudo().search([('name', 'not in', ['Todos', 'POS'])], limit=5).mapped('name')
+        product_examples = ", ".join(categories) if categories else "lavandina, detergente, desengrasante, y mucho más"
+
+        # Capacidades del chatbot
+        chatbot_capabilities = "puedo ayudarte a crear pedidos, consultar productos, solicitar facturas, y darte información sobre nuestros horarios y dirección."
 
         prompt = (
-            f"Eres un asistente experto de '{company_name}'.\n"
-            f"Info: Dirección: {address}. Horario: {schedule}. Productos: {product_list}.\n"
-            f"Cliente: \"{user_text}\"\n"
-            f"Generá una respuesta amable y completa."
+            f"Eres un asistente de ventas virtual de '{company_name}'. Eres muy amable, servicial y vas directo al grano.\n"
+            f"Tu base de conocimiento es:\n"
+            f"- **Dirección**: {address}.\n"
+            f"- **Horarios de atención**: {schedule}.\n"
+            f"- **Ejemplos de productos que vendemos**: {product_examples}.\n"
+            f"- **Lo que puedes hacer (tus capacidades)**: {chatbot_capabilities}.\n\n"
+            f"Usa esta información para responder la siguiente pregunta del cliente de manera concisa y amigable. No inventes información que no esté aquí.\n\n"
+            f"**Pregunta del cliente**: \"{user_text}\""
         )
 
-        api_key = partner.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
         if not api_key:
             _logger.error("La API key de OpenAI no está configurada.")
-            return "Lo siento, no pude procesar tu mensaje en este momento."
+            return messages_config['error_processing']
 
         openai.api_key = api_key
         result = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Eres un asistente muy respetuoso y útil."},
+                {"role": "system", "content": "Eres un asistente de ventas virtual, amable y eficiente."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
-            max_tokens=250
+            temperature=0.5,
+            max_tokens=200
         )
         return result.choices[0].message.content.strip()
 
     except Exception as e:
-        _logger.error("Error al generar respuesta con AI: %s", e)
-        return "Perdón, hubo un problema generando la respuesta."
+        _logger.error("Error al generar respuesta de FAQ con AI: %s", e)
+        return messages_config['error_processing']
 
 def handle_respuesta_faq(intent, partner, text):
     """
