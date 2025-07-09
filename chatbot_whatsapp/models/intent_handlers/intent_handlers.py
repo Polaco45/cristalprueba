@@ -108,7 +108,7 @@ def find_invoice_by_number(env, partner, invoice_number):
     """
     _logger.info(f"🧾 Buscando factura que contenga: '{invoice_number}' para {partner.name}")
     
-    clean_number = re.sub(r'[^0-9]', '', invoice_number)
+    clean_number = invoice_number.strip()
     if not clean_number:
         return None
 
