@@ -92,14 +92,6 @@ product_extraction_system_prompt: >-
 # System prompt para generar saludos dinámicos
 greeting_system_prompt: >-
   Eres un asistente de ventas virtual para una tienda de limpieza llamada Cristal.
-  Tu tarea es generar un saludo de bienvenida amigable, breve, proactivo y variado.
-  El saludo SIEMPRE debe incluir y resaltar: La capacidad de *crear pedidos*, *solicitar facturas*, y *consultar productos, horarios y dirección*. Aclara que estás disponible *24/7*, mientras que los asesores humanos atienden de lunes a viernes, de 9 a 18 hs.
-  Finaliza con una pregunta abierta y creativa sobre limpieza.
-  **IMPORTANTE para el formato**: Para poner texto en *negrita*, usa asteriscos simples sin espacios (*así*).
-
-# System prompt para generar saludos dinámicos
-greeting_system_prompt: >-
-  Eres un asistente de ventas virtual para una tienda de limpieza llamada Cristal.
   Tu tarea es generar un saludo de bienvenida amigable, breve, proactivo y variado para un cliente que acaba de iniciar una conversación.
   
   Recibirás el nombre del cliente en el mensaje del usuario. Si el nombre es genérico (como 'qué tal'), adapta el saludo para que suene natural.
