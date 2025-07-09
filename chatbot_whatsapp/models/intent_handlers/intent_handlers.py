@@ -121,11 +121,12 @@ def find_invoice_by_number(env, partner, invoice_number):
 
     return invoice if invoice else None
 
-def offer_recent_invoices(env, partner):
+def handle_solicitar_factura(env, partner, text):
     """
-    Busca y ofrece las 5 facturas más recientes.
+    Busca y ofrece directamente las 5 facturas más recientes,
+    e inicia el flujo de selección o búsqueda.
     """
-    _logger.info(f"🧾 No se encontró la factura. Buscando las últimas 5 para {partner.name}.")
+    _logger.info(f"🧾 Iniciando flujo de factura para {partner.name}. Ofreciendo recientes.")
     
     invoices = env['account.move'].sudo().search([
         ('partner_id', '=', partner.id),
@@ -134,25 +135,20 @@ def offer_recent_invoices(env, partner):
     ], order='invoice_date desc, id desc', limit=5)
 
     if not invoices:
-        return {'message': messages_config['no_recent_invoices']}
+        # Si no hay facturas, pide el número directamente
+        return {
+            'message': messages_config['no_recent_invoices'],
+            'flow_state': 'esperando_numero_factura', # Usamos un flujo separado para este caso
+            'data_buffer': ''
+        }
 
     invoice_lines = [f"{i+1}) *{inv.name}* del {inv.invoice_date.strftime('%d/%m/%Y')} - ${inv.amount_total:,.2f}" for i, inv in enumerate(invoices)]
     invoice_list_str = "\n".join(invoice_lines)
     
     return {
-        'message': messages_config['offer_recent_invoices'].format(invoices=invoice_list_str),
-        'flow_state': 'esperando_seleccion_factura',
+        'message': messages_config['invoice_direct_offer_or_search'].format(invoices=invoice_list_str),
+        'flow_state': 'esperando_seleccion_o_numero_factura', # Nuevo estado de flujo
         'data_buffer': json.dumps({'invoice_ids': invoices.ids})
-    }
-
-def handle_solicitar_factura(env, partner, text):
-    """
-    Inicia el flujo de solicitud de factura.
-    """
-    return {
-        'message': messages_config['ask_for_invoice_number'],
-        'flow_state': 'esperando_numero_factura',
-        'data_buffer': ''
     }
         
 def handle_faq_con_ai(partner, user_text):

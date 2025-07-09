@@ -13,7 +13,7 @@ from .intent_handlers.create_order import (
 from .intent_handlers.intent_handlers import (
     handle_solicitar_factura, handle_respuesta_faq, handle_saludo,
     handle_agradecimiento_cierre, handle_consulta_producto,
-    find_invoice_by_number, offer_recent_invoices
+    find_invoice_by_number
 )
 
 _logger = logging.getLogger(__name__)
@@ -415,40 +415,80 @@ class ChatbotProcessor:
         
         return self._process_next_product_in_queue()
     
-    def _handle_flow_esperando_numero_factura(self):
-        template_name = "envio_factura_chatbot_copy_copy"
-        if "buscar" in self.plain_text.lower():
-            response_data = offer_recent_invoices(self.env, self.partner)
-            self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
-            return self._send_response(response_data)
-        invoice = find_invoice_by_number(self.env, self.partner, self.plain_text)
-        if invoice:
-            self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_template(template_name, self.partner, invoice)
-        else:
-            response_data = offer_recent_invoices(self.env, self.partner)
-            self.memory.write({'flow_state': response_data.get('flow_state', False), 'data_buffer': response_data.get('data_buffer', '')})
-            return self._send_response(response_data)
-
-    def _handle_flow_esperando_seleccion_factura(self):
+    def _handle_flow_esperando_seleccion_o_numero_factura(self):
+        """
+        Maneja la respuesta del usuario, que puede ser la selección de una factura
+        de la lista (ej: '1') o un número de factura completo para buscar.
+        """
         if self.plain_text.lower() == 'cancelar':
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_text(messages_config['invoice_selection_cancelled'])
-        
+
         template_name = "envio_factura_chatbot_copy_copy"
-        try:
-            data = json.loads(self.memory.data_buffer or '{}')
-            invoice_ids = data.get('invoice_ids', [])
-            if not (self.plain_text.isdigit() and 1 <= int(self.plain_text) <= len(invoice_ids)):
-                return self._send_text(messages_config['invalid_invoice_option'])
-            selected_invoice_id = invoice_ids[int(self.plain_text) - 1]
-            invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
+        
+        # Intenta interpretar la entrada como una selección de la lista (ej: "1", "2", etc.)
+        if self.plain_text.isdigit():
+            try:
+                data = json.loads(self.memory.data_buffer or '{}')
+                invoice_ids = data.get('invoice_ids', [])
+                choice = int(self.plain_text)
+                
+                if 1 <= choice <= len(invoice_ids):
+                    selected_invoice_id = invoice_ids[choice - 1]
+                    invoice = self.env['account.move'].sudo().browse(selected_invoice_id)
+                    _logger.info(f"🧾 Usuario seleccionó factura de la lista: {invoice.name}")
+                    self.memory.write({'flow_state': False, 'data_buffer': ''})
+                    return self._send_template(template_name, self.partner, invoice)
+            except (ValueError, json.JSONDecodeError, IndexError):
+                # Si falla, no es una selección válida. Lo tratará como un número de factura.
+                _logger.warning(f"⚠️ No se pudo procesar '{self.plain_text}' como selección. Intentando como búsqueda.")
+                pass
+
+        # Si no fue una selección de la lista, lo trata como un número de factura para buscar
+        _logger.info(f"🧾 Buscando factura por número ingresado: '{self.plain_text}'")
+        invoice = find_invoice_by_number(self.env, self.partner, self.plain_text)
+        
+        if invoice:
+            _logger.info(f"🧾 Factura encontrada por número: {invoice.name}")
             self.memory.write({'flow_state': False, 'data_buffer': ''})
             return self._send_template(template_name, self.partner, invoice)
-        except (ValueError, json.JSONDecodeError, IndexError) as e:
-            _logger.error(f"Error en el flujo de selección de factura: {e}")
+        else:
+            # Si no se encuentra, se le vuelve a ofrecer la lista.
+            _logger.warning(f"🧾 No se encontró factura con '{self.plain_text}'. Re-ofreciendo lista.")
+            data = json.loads(self.memory.data_buffer or '{}')
+            invoices_in_memory = self.env['account.move'].sudo().browse(data.get('invoice_ids', []))
+            
+            invoice_lines = [f"{i+1}) *{inv.name}* del {inv.invoice_date.strftime('%d/%m/%Y')} - ${inv.amount_total:,.2f}" for i, inv in enumerate(invoices_in_memory)]
+            invoice_list_str = "\n".join(invoice_lines)
+
+            message = messages_config['invoice_search_failed_reoffer'].format(
+                number=self.plain_text,
+                invoices=invoice_list_str
+            )
+            return self._send_text(message)
+        
+    def _handle_flow_esperando_numero_factura(self):
+        """
+        Maneja el caso donde no había facturas recientes y el usuario
+        ingresa un número de factura para una búsqueda directa.
+        """
+        if self.plain_text.lower() == 'cancelar':
             self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_text(messages_config['error_processing'])
+            return self._send_text(messages_config['invoice_selection_cancelled'])
+
+        template_name = "envio_factura_chatbot_copy_copy"
+        invoice = find_invoice_by_number(self.env, self.partner, self.plain_text)
+
+        if invoice:
+            _logger.info(f"🧾 Factura encontrada por número: {invoice.name}")
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+            return self._send_template(template_name, self.partner, invoice)
+        else:
+            # Si no se encuentra, se informa al usuario y se resetea el flujo.
+            _logger.warning(f"🧾 No se encontró factura con el número '{self.plain_text}'.")
+            self.memory.write({'flow_state': False, 'data_buffer': ''})
+            message = messages_config['invoice_not_found_and_reset'].format(number=self.plain_text)
+            return self._send_text(message)
             
     def _handle_general_intent(self):
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
