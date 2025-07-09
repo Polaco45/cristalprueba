@@ -52,7 +52,7 @@ class ChatbotProcessor:
         history = self.env['whatsapp.message'].sudo().search([
             ('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id),
             ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
-        ], order='id desc', limit=10)
+        ], order='id desc', limit=3)
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
@@ -556,7 +556,7 @@ class ChatbotProcessor:
     def _handle_general_intent(self):
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
-        history = self.env['whatsapp.message'].sudo().search([('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id), ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])], order='id desc', limit=10)
+        history = self.env['whatsapp.message'].sudo().search([('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id), ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])], order='id desc', limit=3)
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
