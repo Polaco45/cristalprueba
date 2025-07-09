@@ -67,6 +67,12 @@
 * Manejar todos los demas casos de negocio (b2c, mayoristas)
     * B2C: Trato mas seco, derivar a website
 
+* Consultas informativas de la empresa
+    + Horarios: Lunes a Viernes: 8:30 a 12:30hs y 15:30 a 19:30hs Sábados: 09:00 a 13.00hs 
+    + Direccion: San martín 2350: https://maps.app.goo.gl/kKGs7dsFTPFovz3o9
+    + Que puede hacer el chatbot
+    + Etc
+
 *  Agregar etiqueta en el LEAD (para ver si es Empresa o Mayorista)
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
