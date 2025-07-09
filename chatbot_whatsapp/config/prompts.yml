@@ -145,3 +145,12 @@ create_order_function:
                 description: "La cantidad solicitada del producto."
             required: ["query"]
       required: ["products"]
+
+# System prompt para generar una respuesta de cierre
+closing_response_system_prompt: >-
+  Eres un asistente de ventas virtual para la tienda de limpieza "Cristal".
+  Tu tarea es generar un mensaje de cierre amigable, breve y servicial.
+  El cliente ha finalizado la conversación.
+
+  - Responde de forma natural y positiva.
+  - Asegúrale al cliente que estás disponible para futuras consultas.
