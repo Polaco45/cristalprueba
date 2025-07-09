@@ -26,6 +26,53 @@ class ChatbotProcessor:
         self.memory = memory
         self.plain_text = clean_html(record.body or "").strip()
 
+    def _is_b2c(self):
+        """Verifica si el cliente es B2C."""
+        return any(
+            "Consumidor Final" in tag.name
+            for tag in self.partner.category_id
+        )
+
+    def process_message(self):
+        """
+        Procesa el mensaje entrante, diferenciando entre flujos B2B y B2C.
+        """
+        if self._is_b2c():
+            return self._handle_b2c_intent()
+
+        # Flujo B2B/Mayorista existente
+        flow = self.memory.flow_state
+        _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'}")
+        if flow:
+            flow_handler = getattr(self, f"_handle_flow_{flow}", None)
+            if flow_handler:
+                return flow_handler()
+        return self._handle_general_intent()
+
+    def _handle_b2c_intent(self):
+        """Maneja las intenciones específicas para clientes B2C."""
+        api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        system_prompt = prompts_config['general_intent_system']
+        history = self.env['whatsapp.message'].sudo().search([
+            ('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id),
+            ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
+        ], order='id desc', limit=10)
+        conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
+        intent = detect_intention(conv, api_key, system_prompt)
+        
+        if intent in ("crear_pedido", "consulta_producto"):
+            return self._send_text("Podés ver todo nuestro catálogo y hacer tu pedido directamente en nuestra tienda online: https://www.quimicacristal.com.ar ¡Es rápido y fácil! 🛒")
+        elif intent == "solicitar_factura":
+            return self._send_text("Por el momento, no puedo gestionar facturas por esta vía. 😅 Para cualquier consulta sobre facturación, por favor contactá a nuestro equipo de administración.")
+        elif intent == "consulta_horario":
+            return self._send_text("¡Claro! Nuestros horarios son:\n- Lunes a Viernes: 8:30 a 12:30hs y 15:30 a 19:30hs.\n- Sábados: 09:00 a 13:00hs.")
+        elif intent == "consulta_direccion":
+            return self._send_text("Nos encontrás en San Martín 2350. ¡Te esperamos! 😊 Aquí tenés el mapa para que no te pierdas: https://maps.app.goo.gl/kKGs7dsFTPFovz3o9")
+        else:
+            # Para cualquier otra intención, usamos el manejador de FAQ general
+            return self._send_text(handle_respuesta_faq(self.partner, self.plain_text))
+
+
     def process_message(self):
         flow = self.memory.flow_state
         _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'}")
@@ -555,4 +602,3 @@ class ChatbotProcessor:
             return self._send_text(response)
         except ValueError:
             return self._send_text(messages_config['invalid_input_for_deletion'])
-        
