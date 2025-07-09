@@ -62,7 +62,7 @@
 
 - Que aparezcan los mensajes de WhatsApp en Odoo
 
-* Terminar de manejar factura (USAR API DE WHATSAPP PARA ESTA TAREA)
+- Terminar de manejar factura (USAR API DE WHATSAPP PARA ESTA TAREA)
 
 * Manejar todos los demas casos de negocio (b2c, mayoristas)
     * B2C: Trato mas seco, derivar a website
