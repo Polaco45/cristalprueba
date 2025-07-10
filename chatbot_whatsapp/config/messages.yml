@@ -9,7 +9,6 @@ error_processing: "Hubo un problema al procesar tu solicitud. Por favor, intent�
 b2c_product_query_response: "¡Hola! Sí, tenemos estos productos:\n{products}\n\nPodes comprarlos directamente en nuestra tienda online y recibirlos en tu casa. ¡Es muy fácil! 👉 {web_url}"
 b2c_create_order_response: "¡Genial! Podés hacer tu pedido directamente desde nuestra página web y te lo enviamos a tu casa. ¡Hacé clic acá y comprá ahora! 👉 {web_url}"
 b2c_invoice_response: "Por el momento, no puedo gestionar facturas para compras minoristas a través de WhatsApp. Podés solicitarla al momento de hacer tu compra en nuestra tienda online o en el local."
-contact_info: "¡Claro! Estamos en *San Martín 2350* (podés ver el mapa acá: https://maps.app.goo.gl/kKGs7dsFTPFovz3o9). Nuestros horarios son:\n- Lunes a Viernes: 8:30 a 12:30 y 15:30 a 19:30\n- Sábados: 9:00 a 13:00"
 
 
 # --- El saludo ahora es un fallback ---

@@ -61,9 +61,6 @@ class ChatbotProcessor:
 
         web_url = "https://www.quimicacristal.com.ar"
 
-        if intent == "consulta_horario_direccion":
-                return self._send_text(messages_config['contact_info'])
-
         if intent == "consulta_producto":
             try:
                 openai.api_key = api_key
@@ -91,8 +88,9 @@ class ChatbotProcessor:
         if intent == "agradecimiento_cierre":
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
-        if intent in ["consulta_informativa", "otro", ""]:
-            _logger.info(f"B2C Fallback: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
+        # --- MANEJADOR UNIFICADO CON IA ---
+        if intent in ["consulta_horario_direccion", "consulta_informativa", "otro", ""]:
+            _logger.info(f"B2C Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
             return self._send_text(faq_response)
 
@@ -589,11 +587,9 @@ class ChatbotProcessor:
                 self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
             return self._send_response(response_data)
         
-        if intent == "consulta_horario_direccion":
-            return self._send_text(messages_config['contact_info'])
-
-        if intent in ["consulta_informativa", "otro"]:
-            _logger.info(f"General Fallback: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
+        # --- MANEJADOR UNIFICADO CON IA ---
+        if intent in ["consulta_horario_direccion", "consulta_informativa", "otro"]:
+            _logger.info(f"General Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
             return self._send_text(faq_response)
 
