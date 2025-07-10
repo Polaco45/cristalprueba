@@ -70,10 +70,16 @@
     - Que puede hacer el chatbot
     - Etc
 
+* ORDENES DE VENTA 
+    + Que la etiqueta que se crea en el lead sea la correcta
+        + EJEMPLO: "EMPRESA" EN LUGAR DE "TIPO CLIENTE / EMPRESA"
+    + Corregir el bug de que cuando pedis no podes elegir un indice.
+
+* ONBOARDING:
+    + Que linkee al contacto cuando crea el lead
+
 * Manejar todos los demas casos de negocio (b2c, mayoristas)
     * B2C: Trato mas seco, derivar a website
-
-*  Agregar etiqueta en el LEAD (para ver si es Empresa o Mayorista)
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 
