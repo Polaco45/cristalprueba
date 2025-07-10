@@ -67,7 +67,7 @@ class ChatbotProcessor:
                 extraction_prompt = prompts_config['product_extraction_system_prompt']
                 resp = openai.ChatCompletion.create(model="gpt-4o-mini", messages=[{"role": "system", "content": extraction_prompt}, {"role": "user", "content": self.plain_text}], temperature=0)
                 query = resp.choices[0].message.content.strip()
-                variants = lookup_product_variants(self.env, self.partner, query, limit=3)
+                variants = lookup_product_variants(self.env, self.partner, query)
                 product_list_str = "\n".join([f"• *{v['name']}* - ${v['price']:.2f}" for v in variants])
                 return self._send_text(messages_config['b2c_product_query_response'].format(products=product_list_str, web_url=web_url))
             except UserError as e:
@@ -202,7 +202,7 @@ class ChatbotProcessor:
         qty = current_product.get('quantity')
         _logger.info(f"⚙️ Procesando siguiente en la cola: {query} (Cantidad: {qty})")
         try:
-            variants = lookup_product_variants(self.env, self.partner, query, limit=6)
+            variants = lookup_product_variants(self.env, self.partner, query)
         except UserError as ue:
             _logger.warning(f"⚠️ Error buscando variantes para '{query}': {str(ue)}")
             self._send_text(messages_config['processing_next_item'].format(query=query))
