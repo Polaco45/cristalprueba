@@ -157,15 +157,14 @@ def handle_faq_con_ai(env, partner, user_text):
     """
     try:
         company = env['res.company'].sudo().search([], limit=1)
-        company_name = company.name or "Química Cristal"
+        company_name = "Química Cristal"
         
         # Usar valores hardcodeados como fallback si no están en Odoo
         address = "San Martín 2350"
         schedule = "Lunes a Viernes de 8:30 a 12:30 y 15:30 a 19:30, Sábados de 9:00 a 13:00"
 
         # Obtener ejemplos de categorías de productos
-        categories = env['product.category'].sudo().search([('name', 'not in', ['Todos', 'POS'])], limit=5).mapped('name')
-        product_examples = ", ".join(categories) if categories else "lavandina, detergente, desengrasante, y mucho más"
+        product_examples = "lavandinas, detergentes, escobas, desengrasantes, y mucho más"
 
         # Capacidades del chatbot
         chatbot_capabilities = "puedo ayudarte a crear pedidos, consultar productos, solicitar facturas, y darte información sobre nuestros horarios y dirección."
@@ -206,4 +205,5 @@ def handle_respuesta_faq(intent, partner, text):
     """
     Todas las FAQs pasan por handle_faq_con_ai.
     """
-    return handle_faq_con_ai(partner, text)
+    env = intent
+    return handle_faq_con_ai(env, partner, text)
