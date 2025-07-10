@@ -462,9 +462,6 @@ class ChatbotProcessor:
             _logger.error(f"❌ Error en la llamada a OpenAI: {e}")
             return self._send_text(messages_config['error_processing'])
 
-        if not msg.get('function_call'):
-            return self._send_text(messages_config['error_default'])
-
         args = json.loads(msg.function_call.arguments)
         products_to_add = args.get('products', [])
         if not products_to_add:
