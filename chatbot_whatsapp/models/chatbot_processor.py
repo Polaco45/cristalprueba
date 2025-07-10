@@ -91,7 +91,7 @@ class ChatbotProcessor:
         if intent == "agradecimiento_cierre":
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
-        if intent in ["consulta_informativa", "otro"]:
+        if intent in ["consulta_informativa", "otro", ""]:
             _logger.info(f"B2C Fallback: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
             return self._send_text(faq_response)
@@ -462,6 +462,9 @@ class ChatbotProcessor:
             _logger.error(f"❌ Error en la llamada a OpenAI: {e}")
             return self._send_text(messages_config['error_processing'])
 
+        if not msg.get('function_call'):
+            return self._send_text(messages_config['error_default'])
+
         args = json.loads(msg.function_call.arguments)
         products_to_add = args.get('products', [])
         if not products_to_add:
@@ -585,6 +588,9 @@ class ChatbotProcessor:
             if response_data.get('flow_state'):
                 self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
             return self._send_response(response_data)
+        
+        if intent == "consulta_horario_direccion":
+            return self._send_text(messages_config['contact_info'])
 
         if intent in ["consulta_informativa", "otro"]:
             _logger.info(f"General Fallback: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
