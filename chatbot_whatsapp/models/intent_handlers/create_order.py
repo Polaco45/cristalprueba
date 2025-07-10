@@ -47,24 +47,12 @@ def handle_modificar_pedido(env, memory):
     memory.write({'flow_state': 'esperando_seleccion_eliminar'})
     return messages_config['cart_summary'].format(summary=cart_summary)
 
-def lookup_product_variants(env, partner, query, limit=20):
-    """Busca variantes de producto por nombre, nombre público, categoría y atributos."""
+def lookup_product_variants(env, partner, query, limit=10):
     Product = env['product.product'].sudo()
-    
-    # --- CORRECCIÓN: Se amplía el dominio de búsqueda para una mayor cobertura ---
-    search_domain = [
-        '|',
-            ('name', 'ilike', query),
-        '|',
-            ('display_name', 'ilike', query),
-        '|',
-            ('categ_id.name', 'ilike', query),
-            ('attribute_line_ids.value_ids.name', 'ilike', query)
-    ]
-    
-    variants = Product.search(search_domain, limit=limit)
-    _logger.info(f"🔍 Buscando variantes para query '{query}' con dominio ampliado — Encontradas: {len(variants)}")
-    
+    variants = Product.search([
+        '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
+    ], limit=limit)
+    _logger.info(f"🔍 Buscando variantes para query '{query}' — Encontradas: {len(variants)}")
     if not variants:
         raise UserError(messages_config['product_not_in_odoo'].format(query=query))
 
@@ -186,7 +174,7 @@ def handle_crear_pedido(env, partner, text, memory):
     _logger.info(f"🔧 GPT detectó producto: {query} (Cantidad: {qty})")
 
     try:
-        variants = lookup_product_variants(env, partner, query, limit=6)
+        variants = lookup_product_variants(env, partner, query)
     except UserError as ue:
         _logger.warning(f"⚠️ Error buscando variantes: {str(ue)}")
         return str(ue)
