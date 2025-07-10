@@ -91,7 +91,7 @@ class ChatbotProcessor:
         # --- MANEJADOR UNIFICADO CON IA ---
         if intent in ["consulta_horario_direccion", "consulta_informativa", "otro", ""]:
             _logger.info(f"B2C Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
-            faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
+            faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text, conv)
             return self._send_text(faq_response)
 
         return self._send_text(messages_config['error_default'])
@@ -590,7 +590,7 @@ class ChatbotProcessor:
         # --- MANEJADOR UNIFICADO CON IA ---
         if intent in ["consulta_horario_direccion", "consulta_informativa", "otro"]:
             _logger.info(f"General Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
-            faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
+            faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text, conv)
             return self._send_text(faq_response)
 
         return self._send_text(messages_config['error_default'])

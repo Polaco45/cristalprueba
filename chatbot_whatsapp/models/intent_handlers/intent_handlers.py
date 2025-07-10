@@ -151,7 +151,7 @@ def handle_solicitar_factura(env, partner, text):
         'data_buffer': json.dumps({'invoice_ids': invoices.ids})
     }
         
-def handle_faq_con_ai(env, partner, user_text):
+def handle_faq_con_ai(env, partner, user_text, conv_history):
     """
     Genera dinámicamente la respuesta a preguntas frecuentes usando IA.
     """
@@ -161,20 +161,24 @@ def handle_faq_con_ai(env, partner, user_text):
         address = "San Martín 2350"
         schedule = "Lunes a Viernes de 8:30 a 12:30 y 15:30 a 19:30, Sábados de 9:00 a 13:00"
         product_examples = "lavandinas, detergentes, escobas, desengrasantes, y mucho más"
-        chatbot_capabilities = "crear pedidos, consultar productos, solicitar facturas, y darte información sobre nuestros horarios y dirección."
+        chatbot_capabilities = "puedo ayudarte a crear pedidos, consultar productos, solicitar facturas, y darte información sobre nuestros horarios y dirección."
 
-        prompt_template = prompts_config['faq_system_prompt']
+        system_prompt_template = prompts_config['faq_system_prompt']
         
-        prompt = prompt_template.format(
+        system_prompt = system_prompt_template.format(
             company_name=company_name,
             address=address,
             schedule=schedule,
             product_examples=product_examples,
-            chatbot_capabilities=chatbot_capabilities,
-            user_text=user_text
+            chatbot_capabilities=chatbot_capabilities
         )
 
-        _logger.info(f"📝 Prompt para FAQ con IA (primeros 100 chars): {prompt[:100]}...")
+        # Construye la lista de mensajes, comenzando con el prompt del sistema
+        messages = [{"role": "system", "content": system_prompt}]
+        # Agrega el historial de la conversación
+        messages.extend(conv_history)
+
+        _logger.info(f"📝 Mensajes para FAQ con IA: {messages}")
 
         api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
         if not api_key:
@@ -184,9 +188,7 @@ def handle_faq_con_ai(env, partner, user_text):
         openai.api_key = api_key
         result = openai.ChatCompletion.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.5,
             max_tokens=200
         )
@@ -199,10 +201,10 @@ def handle_faq_con_ai(env, partner, user_text):
         _logger.error("❌ Error al generar respuesta de FAQ con IA: %s", e, exc_info=True)
         return messages_config['error_processing']
 
-def handle_respuesta_faq(intent, partner, text):
+def handle_respuesta_faq(intent, partner, text, conv_history):
     """
     Todas las FAQs pasan por handle_faq_con_ai.
     """
     _logger.info(f"Redirecting informational query to AI handler. User: {partner.name}, Text: '{text}'")
     env = intent
-    return handle_faq_con_ai(env, partner, text)
+    return handle_faq_con_ai(env, partner, text, conv_history)
