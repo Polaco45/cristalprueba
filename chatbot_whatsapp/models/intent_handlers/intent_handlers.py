@@ -157,29 +157,23 @@ def handle_faq_con_ai(env, partner, user_text):
     """
     _logger.info(f"🧠 Entrando en handle_faq_con_ai para el partner: {partner.name}. Pregunta: '{user_text}'")
     try:
-        company = env['res.company'].sudo().search([], limit=1)
         company_name = "Química Cristal"
-        
-        # Usar valores hardcodeados como fallback si no están en Odoo
         address = "San Martín 2350"
         schedule = "Lunes a Viernes de 8:30 a 12:30 y 15:30 a 19:30, Sábados de 9:00 a 13:00"
-
-        # Obtener ejemplos de categorías de productos
         product_examples = "lavandinas, detergentes, escobas, desengrasantes, y mucho más"
+        chatbot_capabilities = "crear pedidos, consultar productos, solicitar facturas, y darte información sobre nuestros horarios y dirección."
 
-        # Capacidades del chatbot
-        chatbot_capabilities = "puedo ayudarte a crear pedidos, consultar productos, solicitar facturas, y darte información sobre nuestros horarios y dirección."
-
-        prompt = (
-            f"Eres un asistente de ventas virtual de '{company_name}'. Eres muy amable, servicial y vas directo al grano.\n"
-            f"Tu base de conocimiento es:\n"
-            f"- **Dirección**: {address}.\n"
-            f"- **Horarios de atención**: {schedule}.\n"
-            f"- **Ejemplos de productos que vendemos**: {product_examples}.\n"
-            f"- **Lo que puedes hacer (tus capacidades)**: {chatbot_capabilities}.\n\n"
-            f"Usa esta información para responder la siguiente pregunta del cliente de manera concisa y amigable. No inventes información que no esté aquí.\n\n"
-            f"**Pregunta del cliente**: \"{user_text}\""
+        prompt_template = prompts_config['faq_system_prompt']
+        
+        prompt = prompt_template.format(
+            company_name=company_name,
+            address=address,
+            schedule=schedule,
+            product_examples=product_examples,
+            chatbot_capabilities=chatbot_capabilities,
+            user_text=user_text
         )
+
         _logger.info(f"📝 Prompt para FAQ con IA (primeros 100 chars): {prompt[:100]}...")
 
         api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
@@ -191,7 +185,6 @@ def handle_faq_con_ai(env, partner, user_text):
         result = openai.ChatCompletion.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Eres un asistente de ventas virtual, amable y eficiente."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5,
@@ -211,7 +204,5 @@ def handle_respuesta_faq(intent, partner, text):
     Todas las FAQs pasan por handle_faq_con_ai.
     """
     _logger.info(f"Redirecting informational query to AI handler. User: {partner.name}, Text: '{text}'")
-    # El primer parámetro 'intent' contiene el objeto 'env' de Odoo.
-    # Lo pasamos a la siguiente función.
     env = intent
     return handle_faq_con_ai(env, partner, text)
