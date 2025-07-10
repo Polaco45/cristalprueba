@@ -325,87 +325,95 @@ class ChatbotProcessor:
         Maneja la respuesta del usuario tras mostrar una lista. Puede entender selección
         por nombre, número o contexto, y también preguntas de seguimiento o cancelaciones.
         """
-        api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
-        system_prompt = prompts_config['product_selection_intent_system']
-        sub_intent = detect_intention([{"role": "user", "content": self.plain_text}], api_key, system_prompt)
-        
-        _logger.info(f"🔎 Sub-intención detectada en selección: '{sub_intent}'")
         data = json.loads(self.memory.data_buffer or '{}')
+        variants = data.get('products', [])
+        selected_index = -1
 
-        if sub_intent == 'seleccionar_producto':
+        # --- CORRECCIÓN: Manejo directo de selección numérica ---
+        if self.plain_text.isdigit():
             try:
-                variants, qty = data.get('products', []), data.get('qty')
-                
+                choice = int(self.plain_text)
+                if 1 <= choice <= len(variants):
+                    selected_index = choice - 1
+                    _logger.info(f"✅ Selección numérica directa detectada: índice {selected_index}")
+            except (ValueError, IndexError):
+                pass
+
+        if selected_index == -1:
+            _logger.info("La selección no fue numérica, usando IA para interpretar.")
+            api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+            system_prompt = prompts_config['product_selection_intent_system']
+            sub_intent = detect_intention([{"role": "user", "content": self.plain_text}], api_key, system_prompt)
+            
+            _logger.info(f"🔎 Sub-intención detectada en selección: '{sub_intent}'")
+
+            if sub_intent == 'seleccionar_producto':
                 disambiguation_prompt = prompts_config['product_disambiguation_prompt']
                 product_names = [v['name'] for v in variants]
                 
-                resp = openai.ChatCompletion.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": disambiguation_prompt},
-                        {"role": "user", "content": f"Lista: {product_names}\nRespuesta de usuario: \"{self.plain_text}\""}
-                    ],
-                    temperature=0,
-                )
-                
                 try:
+                    resp = openai.ChatCompletion.create(
+                        model="gpt-4o-mini",
+                        messages=[
+                            {"role": "system", "content": disambiguation_prompt},
+                            {"role": "user", "content": f"Lista: {product_names}\nRespuesta de usuario: \"{self.plain_text}\""}
+                        ],
+                        temperature=0,
+                    )
                     selected_index = int(resp.choices[0].message.content.strip())
-                except ValueError:
-                    selected_index = -1
-
-                if 0 <= selected_index < len(variants):
-                    selected_variant = variants[selected_index]
-                else:
-                    return self._send_text(messages_config['invalid_option'])
-                
-                self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
-                pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
-
-                if not qty:
-                    self.memory.write({
-                        'flow_state': 'esperando_cantidad_producto', 'last_variant_id': pid, 
-                        'data_buffer': self.memory.data_buffer
-                    })
-                    return self._send_text(messages_config['ask_for_quantity'].format(name=name))
-                
-                if qty <= avail:
-                    return self._add_item_and_decide_next_step(pid, qty, name)
-                else:
-                    self.memory.write({
-                        'flow_state': 'esperando_confirmacion_stock', 'last_variant_id': pid, 
-                        'last_qty_suggested': avail, 'data_buffer': self.memory.data_buffer
-                    })
-                    return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
-
-            except (ValueError, json.JSONDecodeError, openai.error.OpenAIError) as e:
-                _logger.error(f"Error procesando selección de producto con IA: {e}")
+                except (ValueError, openai.error.OpenAIError) as e:
+                    _logger.error(f"Error procesando desambiguación con IA: {e}")
+                    return self._send_text(messages_config['error_processing'])
+            
+            elif sub_intent == 'nueva_consulta':
+                _logger.info("El usuario hizo una nueva consulta sobre los productos mostrados.")
+                products_in_context = data.get('products', [])
+                context_for_ai = "Productos en contexto:\n" + "\n".join([f"- {p['name']} (${p['price']:.2f})" for p in products_in_context])
+                comparison_prompt = prompts_config['product_comparison_prompt']
+                try:
+                    resp = openai.ChatCompletion.create(
+                        model=general_config['openai']['model'],
+                        messages=[
+                            {"role": "system", "content": comparison_prompt},
+                            {"role": "user", "content": f"{context_for_ai}\n\nPregunta del cliente: '{self.plain_text}'"}
+                        ],
+                        temperature=0.7
+                    )
+                    return self._send_text(resp.choices[0].message.content)
+                except Exception as e:
+                    _logger.error(f"Error en la sub-consulta de producto: {e}")
+                    return self._send_text(messages_config['error_processing'])
+            
+            elif sub_intent == 'cancelar_seleccion':
+                _logger.info("El usuario canceló la selección de producto.")
                 self.memory.write({'flow_state': False, 'data_buffer': ''})
-                return self._send_text(messages_config['error_processing'])
+                return self._send_text(messages_config['selection_cancelled'])
+            
+            else:
+                 return self._send_text(messages_config['invalid_option'])
 
-        elif sub_intent == 'nueva_consulta':
-            _logger.info("El usuario hizo una nueva consulta sobre los productos mostrados.")
-            products_in_context = data.get('products', [])
-            context_for_ai = "Productos en contexto:\n" + "\n".join([f"- {p['name']} (${p['price']:.2f})" for p in products_in_context])
-            comparison_prompt = prompts_config['product_comparison_prompt']
-            try:
-                resp = openai.ChatCompletion.create(
-                    model=general_config['openai']['model'],
-                    messages=[
-                        {"role": "system", "content": comparison_prompt},
-                        {"role": "user", "content": f"{context_for_ai}\n\nPregunta del cliente: '{self.plain_text}'"}
-                    ],
-                    temperature=0.7
-                )
-                return self._send_text(resp.choices[0].message.content)
-            except Exception as e:
-                _logger.error(f"Error en la sub-consulta de producto: {e}")
-                return self._send_text(messages_config['error_processing'])
-        
-        elif sub_intent == 'cancelar_seleccion':
-            _logger.info("El usuario canceló la selección de producto.")
-            self.memory.write({'flow_state': False, 'data_buffer': ''})
-            return self._send_text(messages_config['selection_cancelled'])
+        if 0 <= selected_index < len(variants):
+            selected_variant = variants[selected_index]
+            qty = data.get('qty')
+            
+            self.memory.write({'data_buffer': json.dumps({'pending_products': data.get('original_queue', [])})})
+            pid, name, avail = selected_variant['id'], selected_variant['name'], int(selected_variant['stock'])
 
+            if not qty:
+                self.memory.write({
+                    'flow_state': 'esperando_cantidad_producto', 'last_variant_id': pid, 
+                    'data_buffer': self.memory.data_buffer
+                })
+                return self._send_text(messages_config['ask_for_quantity'].format(name=name))
+            
+            if qty <= avail:
+                return self._add_item_and_decide_next_step(pid, qty, name)
+            else:
+                self.memory.write({
+                    'flow_state': 'esperando_confirmacion_stock', 'last_variant_id': pid, 
+                    'last_qty_suggested': avail, 'data_buffer': self.memory.data_buffer
+                })
+                return self._send_text(messages_config['insufficient_stock'].format(avail=avail, name=name))
         else:
             return self._send_text(messages_config['invalid_option'])
 

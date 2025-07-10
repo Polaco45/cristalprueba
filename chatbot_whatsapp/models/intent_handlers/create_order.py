@@ -103,7 +103,6 @@ def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create(order_vals)
     _logger.info(f"✅ Orden creada: {order.name} para la dirección ID: {order.partner_shipping_id.id}")
 
-    # --- CORRECCIÓN: Se añaden los campos del contacto explícitamente ---
     lead_vals = {
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner.id,
@@ -140,7 +139,6 @@ def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
             'user_id': partner.user_id.id or env.user.id,
         })
     return order
-
 
 def handle_crear_pedido(env, partner, text, memory):
     openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
