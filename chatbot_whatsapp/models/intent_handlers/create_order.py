@@ -48,11 +48,21 @@ def handle_modificar_pedido(env, memory):
     return messages_config['cart_summary'].format(summary=cart_summary)
 
 def lookup_product_variants(env, partner, query, limit=20):
+    """Busca variantes de producto por nombre, nombre público y categoría."""
     Product = env['product.product'].sudo()
-    variants = Product.search([
-        '|', ('name', 'ilike', query), ('display_name', 'ilike', query)
-    ], limit=limit)
-    _logger.info(f"🔍 Buscando variantes para query '{query}' — Encontradas: {len(variants)}")
+    
+    # --- CORRECCIÓN: Se amplía el dominio de búsqueda para incluir la categoría ---
+    search_domain = [
+        '|',
+        '|',
+        ('name', 'ilike', query),
+        ('display_name', 'ilike', query),
+        ('categ_id', 'ilike', query)
+    ]
+    
+    variants = Product.search(search_domain, limit=limit)
+    _logger.info(f"🔍 Buscando variantes para query '{query}' con dominio ampliado — Encontradas: {len(variants)}")
+    
     if not variants:
         raise UserError(messages_config['product_not_in_odoo'].format(query=query))
 
