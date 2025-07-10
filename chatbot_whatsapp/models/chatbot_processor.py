@@ -61,20 +61,16 @@ class ChatbotProcessor:
 
         web_url = "https://www.quimicacristal.com.ar"
 
+        # --- CORRECCIÓN: Unificar el flujo de consulta de producto ---
         if intent == "consulta_producto":
-            try:
-                openai.api_key = api_key
-                extraction_prompt = prompts_config['product_extraction_system_prompt']
-                resp = openai.ChatCompletion.create(model="gpt-4o-mini", messages=[{"role": "system", "content": extraction_prompt}, {"role": "user", "content": self.plain_text}], temperature=0)
-                query = resp.choices[0].message.content.strip()
-                variants = lookup_product_variants(self.env, self.partner, query)
-                product_list_str = "\n".join([f"• *{v['name']}* - ${v['price']:.2f}" for v in variants])
-                return self._send_text(messages_config['b2c_product_query_response'].format(products=product_list_str, web_url=web_url))
-            except UserError as e:
-                return self._send_text(str(e))
-            except Exception as e:
-                _logger.error(f"❌ Error en consulta B2C: {e}")
-                return self._send_text(messages_config['error_processing'])
+            _logger.info("Manejando 'consulta_producto' para B2C usando el flujo conversacional.")
+            response_data = handle_consulta_producto(self.env, self.partner, self.plain_text)
+            if response_data.get('flow_state'):
+                self.memory.write({
+                    'flow_state': response_data['flow_state'], 
+                    'data_buffer': response_data.get('data_buffer', '')
+                })
+            return self._send_response(response_data)
 
         if intent == "crear_pedido":
             return self._send_text(messages_config['b2c_create_order_response'].format(web_url=web_url))
@@ -173,7 +169,6 @@ class ChatbotProcessor:
     def _send_text(self, text_to_send):
         return self._send_response({'message': text_to_send})
     
-
     def _add_item_and_decide_next_step(self, pid, qty, name):
         add_item_to_cart(self.memory, pid, qty)
         buffer_data = json.loads(self.memory.data_buffer or '{}')

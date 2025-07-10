@@ -75,11 +75,14 @@
         - EJEMPLO: "EMPRESA" EN LUGAR DE "TIPO CLIENTE / EMPRESA"
     - Corregir el bug de que cuando pedis y te da opciones de producto no podes elegir un indice.
 
-* Corregir la forma en la que busca variantes de producto
-    + EJEMPLO: Faltan distintos tipos de esponjas
+- Corregir la forma en la que busca variantes de producto
+    - EJEMPLO: Faltan distintos tipos de esponjas
 
 * Manejar todos los demas casos de negocio (b2c, mayoristas)
     * B2C: Trato mas seco, derivar a website
+        + Explicar sobre productos 
+
+* Cuando ofrezca variantes de un producto, diga que si no le mostramos la que queria, puede buscarla en la web.
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
 
