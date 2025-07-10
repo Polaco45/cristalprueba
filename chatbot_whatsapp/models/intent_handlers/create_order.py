@@ -48,18 +48,18 @@ def handle_modificar_pedido(env, memory):
     return messages_config['cart_summary'].format(summary=cart_summary)
 
 def lookup_product_variants(env, partner, query, limit=20):
-    """Busca variantes de producto por nombre, nombre público, categoría y etiquetas."""
+    """Busca variantes de producto por nombre, código, nombre público y categoría."""
     Product = env['product.product'].sudo()
     
-    # --- CORRECCIÓN: Se amplía el dominio de búsqueda para incluir etiquetas de producto ---
+    # --- CORRECCIÓN: Se amplía y corrige el dominio de búsqueda ---
     search_domain = [
         '|',
-        '|',
-        '|',
         ('name', 'ilike', query),
+        '|',
         ('display_name', 'ilike', query),
-        ('categ_id', 'ilike', query),
-        ('product_tag_ids.name', 'ilike', query)
+        '|',
+        ('default_code', 'ilike', query),
+        ('categ_id.name', 'ilike', query) # Búsqueda correcta en el nombre de la categoría
     ]
     
     variants = Product.search(search_domain, limit=limit)
