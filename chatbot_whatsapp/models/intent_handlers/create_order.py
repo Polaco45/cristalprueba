@@ -103,21 +103,22 @@ def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create(order_vals)
     _logger.info(f"✅ Orden creada: {order.name} para la dirección ID: {order.partner_shipping_id.id}")
 
+    # --- CORRECCIÓN: Se añaden los campos del contacto explícitamente ---
     lead_vals = {
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
-        'partner_id': partner_id,
+        'partner_id': partner.id,
         'type': 'opportunity',
+        'contact_name': partner.name,
+        'email_from': partner.email,
+        'phone': partner.phone,
         'description': "Se generó un pedido desde WhatsApp con los siguientes items:\n" + "\n".join(description_lines),
         'expected_revenue': order.amount_total,
     }
     
-    # --- CORRECCIÓN: Limpia el nombre de la etiqueta antes de asignarla ---
     if partner.category_id:
         full_tag_name = partner.category_id[0].name
-        # Extrae el nombre real de la etiqueta (ej: "EMPRESA" de "Tipo de Cliente / EMPRESA")
         simple_tag_name = full_tag_name.split(' / ')[-1].strip()
         
-        # Busca o crea la etiqueta de CRM con el nombre simplificado
         crm_tag = env['crm.tag'].sudo().search([('name', 'ilike', simple_tag_name)], limit=1)
         if not crm_tag:
             crm_tag = env['crm.tag'].sudo().create({'name': simple_tag_name})
