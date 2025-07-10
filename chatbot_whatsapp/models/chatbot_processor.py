@@ -33,7 +33,7 @@ class ChatbotProcessor:
 
     def process_message(self):
         flow = self.memory.flow_state
-        _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'}")
+        _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'} para {self.partner.name}")
 
         # Si el cliente es B2C y no está en un flujo activo, se usa el manejador de B2C.
         if self._is_b2c() and not flow:
@@ -57,12 +57,12 @@ class ChatbotProcessor:
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
 
-        _logger.info(f"👤 Intent B2C detectado: {intent}")
+        _logger.info(f"👤 Intent B2C detectado: {intent} para {self.partner.name}")
 
         web_url = "https://www.quimicacristal.com.ar"
 
         if intent == "consulta_horario_direccion":
-             return self._send_text(messages_config['contact_info'])
+                return self._send_text(messages_config['contact_info'])
 
         if intent == "consulta_producto":
             try:
@@ -91,8 +91,8 @@ class ChatbotProcessor:
         if intent == "agradecimiento_cierre":
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
-        # --- NUEVO FALLBACK INTELIGENTE ---
         if intent in ["consulta_informativa", "otro"]:
+            _logger.info(f"B2C Fallback: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
             return self._send_text(faq_response)
 
@@ -123,7 +123,7 @@ class ChatbotProcessor:
             
             mail_message = self.env['mail.message'].sudo().create({
             'model': 'account.move',  # Especifica el TIPO de documento
-            'res_id': invoice.id,     # Especifica QUÉ documento es
+            'res_id': invoice.id,      # Especifica QUÉ documento es
             'body': wa_template.body,
             })
 
@@ -560,6 +560,7 @@ class ChatbotProcessor:
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
+        _logger.info(f"👤 Intent General detectado: {intent} para {self.partner.name}")
 
         if intent == "solicitar_factura":
             number_match = re.search(r'[\d\-\s]+', self.plain_text)
@@ -588,8 +589,8 @@ class ChatbotProcessor:
                 self.memory.write({'flow_state': response_data['flow_state'], 'data_buffer': response_data.get('data_buffer', '')})
             return self._send_response(response_data)
 
-        # --- NUEVO FALLBACK INTELIGENTE ---
         if intent in ["consulta_informativa", "otro"]:
+            _logger.info(f"General Fallback: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text)
             return self._send_text(faq_response)
 

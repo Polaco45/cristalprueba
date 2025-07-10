@@ -155,6 +155,7 @@ def handle_faq_con_ai(env, partner, user_text):
     """
     Genera dinámicamente la respuesta a preguntas frecuentes usando IA.
     """
+    _logger.info(f"🧠 Entrando en handle_faq_con_ai para el partner: {partner.name}. Pregunta: '{user_text}'")
     try:
         company = env['res.company'].sudo().search([], limit=1)
         company_name = "Química Cristal"
@@ -179,6 +180,7 @@ def handle_faq_con_ai(env, partner, user_text):
             f"Usa esta información para responder la siguiente pregunta del cliente de manera concisa y amigable. No inventes información que no esté aquí.\n\n"
             f"**Pregunta del cliente**: \"{user_text}\""
         )
+        _logger.info(f"📝 Prompt para FAQ con IA (primeros 100 chars): {prompt[:100]}...")
 
         api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
         if not api_key:
@@ -195,15 +197,21 @@ def handle_faq_con_ai(env, partner, user_text):
             temperature=0.5,
             max_tokens=200
         )
-        return result.choices[0].message.content.strip()
+        
+        response_text = result.choices[0].message.content.strip()
+        _logger.info(f"✅ Respuesta de FAQ con IA generada exitosamente: '{response_text}'")
+        return response_text
 
     except Exception as e:
-        _logger.error("Error al generar respuesta de FAQ con AI: %s", e)
+        _logger.error("❌ Error al generar respuesta de FAQ con IA: %s", e, exc_info=True)
         return messages_config['error_processing']
 
 def handle_respuesta_faq(intent, partner, text):
     """
     Todas las FAQs pasan por handle_faq_con_ai.
     """
+    _logger.info(f"Redirecting informational query to AI handler. User: {partner.name}, Text: '{text}'")
+    # El primer parámetro 'intent' contiene el objeto 'env' de Odoo.
+    # Lo pasamos a la siguiente función.
     env = intent
     return handle_faq_con_ai(env, partner, text)
