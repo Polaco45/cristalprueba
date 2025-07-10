@@ -111,12 +111,19 @@ def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
         'expected_revenue': order.amount_total,
     }
     
-    # --- NUEVO: Copia la etiqueta del cliente al lead del CRM ---
+    # --- CORRECCIÓN: Limpia el nombre de la etiqueta antes de asignarla ---
     if partner.category_id:
-        tag_name = partner.category_id[0].name
-        crm_tag = env['crm.tag'].sudo().search([('name', '=', tag_name)], limit=1) or env['crm.tag'].sudo().create({'name': tag_name})
+        full_tag_name = partner.category_id[0].name
+        # Extrae el nombre real de la etiqueta (ej: "EMPRESA" de "Tipo de Cliente / EMPRESA")
+        simple_tag_name = full_tag_name.split(' / ')[-1].strip()
+        
+        # Busca o crea la etiqueta de CRM con el nombre simplificado
+        crm_tag = env['crm.tag'].sudo().search([('name', 'ilike', simple_tag_name)], limit=1)
+        if not crm_tag:
+            crm_tag = env['crm.tag'].sudo().create({'name': simple_tag_name})
+            
         lead_vals['tag_ids'] = [(6, 0, [crm_tag.id])]
-        _logger.info(f"🏷️  Etiqueta '{tag_name}' asignada al lead.")
+        _logger.info(f"🏷️  Etiqueta '{simple_tag_name}' asignada al lead.")
 
     lead = env['crm.lead'].sudo().create(lead_vals)
     order.write({'opportunity_id': lead.id})
