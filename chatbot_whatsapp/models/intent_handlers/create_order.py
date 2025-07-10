@@ -110,18 +110,14 @@ def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
         'description': "Se generó un pedido desde WhatsApp con los siguientes items:\n" + "\n".join(description_lines),
         'expected_revenue': order.amount_total,
     }
-
-    # --- NUEVO: Agregar etiquetas de cliente al lead ---
-    if partner.category_id:
-        partner_tag_names = partner.category_id.mapped('name')
-        if partner_tag_names:
-            # Buscar etiquetas de CRM que coincidan por nombre
-            crm_tags = env['crm.tag'].sudo().search([('name', 'in', partner_tag_names)])
-            if crm_tags:
-                _logger.info(f"🏷️ Agregando etiquetas al lead: {[tag.name for tag in crm_tags]}")
-                # El formato (6, 0, [...]) reemplaza las etiquetas existentes con la nueva lista
-                lead_vals['tag_ids'] = [(6, 0, crm_tags.ids)]
     
+    # --- NUEVO: Copia la etiqueta del cliente al lead del CRM ---
+    if partner.category_id:
+        tag_name = partner.category_id[0].name
+        crm_tag = env['crm.tag'].sudo().search([('name', '=', tag_name)], limit=1) or env['crm.tag'].sudo().create({'name': tag_name})
+        lead_vals['tag_ids'] = [(6, 0, [crm_tag.id])]
+        _logger.info(f"🏷️  Etiqueta '{tag_name}' asignada al lead.")
+
     lead = env['crm.lead'].sudo().create(lead_vals)
     order.write({'opportunity_id': lead.id})
 
