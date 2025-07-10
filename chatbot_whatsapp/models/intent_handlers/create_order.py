@@ -76,7 +76,7 @@ def lookup_product_variants(env, partner, query, limit=20):
     return products_with_prices
 
 def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
-    """Crea la orden de venta y el lead asociado, agregando la etiqueta de tipo de cliente."""
+    """Crea la orden de venta y el lead asociado."""
     partner = env['res.partner'].browse(partner_id)
     pricelist = partner.property_product_pricelist
 
@@ -103,31 +103,26 @@ def create_sale_order(env, partner_id, order_lines, partner_shipping_id=None):
     order = env['sale.order'].with_context(pricelist=pricelist.id).sudo().create(order_vals)
     _logger.info(f"✅ Orden creada: {order.name} para la dirección ID: {order.partner_shipping_id.id}")
 
-    # --- NUEVA LÓGICA PARA ETIQUETAS DE LEAD ---
-    b2c_customer_tag_name = "Tipo de Cliente / Consumidor Final"
-    is_b2c = partner.category_id and any(tag.name == b2c_customer_tag_name for tag in partner.category_id)
-    
-    lead_tag_name = "WhatsApp B2C" if is_b2c else "WhatsApp B2B"
-    
-    # Busca la etiqueta del lead o la crea si no existe
-    LeadTag = env['crm.lead.tag'].sudo()
-    lead_tag = LeadTag.search([('name', '=', lead_tag_name)], limit=1)
-    if not lead_tag:
-        lead_tag = LeadTag.create({'name': lead_tag_name})
-        _logger.info(f"🏷️ Etiqueta de lead creada: '{lead_tag_name}'")
-
     lead_vals = {
         'name': f"Pedido WhatsApp: {partner.name or 'Cliente sin nombre'}",
         'partner_id': partner_id,
         'type': 'opportunity',
         'description': "Se generó un pedido desde WhatsApp con los siguientes items:\n" + "\n".join(description_lines),
         'expected_revenue': order.amount_total,
-        # Agrega la etiqueta al lead
-        'tag_ids': [(4, lead_tag.id)]
     }
+
+    # --- NUEVO: Agregar etiquetas de cliente al lead ---
+    if partner.category_id:
+        partner_tag_names = partner.category_id.mapped('name')
+        if partner_tag_names:
+            # Buscar etiquetas de CRM que coincidan por nombre
+            crm_tags = env['crm.tag'].sudo().search([('name', 'in', partner_tag_names)])
+            if crm_tags:
+                _logger.info(f"🏷️ Agregando etiquetas al lead: {[tag.name for tag in crm_tags]}")
+                # El formato (6, 0, [...]) reemplaza las etiquetas existentes con la nueva lista
+                lead_vals['tag_ids'] = [(6, 0, crm_tags.ids)]
     
     lead = env['crm.lead'].sudo().create(lead_vals)
-    _logger.info(f"✅ Lead Creado: {lead.name} con etiqueta '{lead_tag.name}'")
     order.write({'opportunity_id': lead.id})
 
     activity_type_id = env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
