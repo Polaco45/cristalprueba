@@ -30,7 +30,7 @@ def handle_consulta_producto(env, partner, text):
         _logger.info(f"🔍 Consulta de producto. Query extraído: '{query}'")
 
         try:
-            variants = lookup_product_variants(env, partner, query, limit=3)
+            variants = lookup_product_variants(env, partner, query)
         except UserError:
             return {'message': messages_config['product_query_not_found'].format(query=query)}
 
