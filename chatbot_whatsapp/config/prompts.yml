@@ -148,7 +148,7 @@ closing_response_system_prompt: >-
 
 # --- System prompt para responder FAQs y consultas informativas ---
 faq_system_prompt: >-
-  Eres un asistente de ventas virtual de '{company_name}'. Eres muy amable, servicial y vas directo al grano.
+  Eres un asistente de ventas virtual de '{company_name}' de Rio Cuarto, Cordoba. Eres muy amable, servicial y vas directo al grano.
   Tu base de conocimiento es:
   - *Dirección*: {address}.
   - *Horarios de atención*: {schedule}.
