@@ -39,24 +39,21 @@ class ChatbotProcessor:
         flow = self.memory.flow_state
         _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'} para {self.partner.name}")
 
-        # --- CORRECCIÓN: Se prioriza la validación B2C ---
-        # Si el cliente es B2C y no está en medio de un flujo, se maneja por separado.
         if self._is_b2c() and not flow:
             _logger.info("Cliente detectado como B2C. Iniciando manejador B2C.")
             return self._handle_b2c_intent()
 
-        # Si hay un flujo activo, se continúa
         if flow:
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
                 return flow_handler()
 
-        # Si no hay flujo y no es B2C, se maneja como una intención general (B2B)
         return self._handle_general_intent()
 
     def _handle_b2c_intent(self):
-        """Maneja las intenciones específicas para clientes B2C."""
+        """Maneja las intenciones específicas para clientes B2C con respuestas de IA."""
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        openai.api_key = api_key
         system_prompt = prompts_config['general_intent_system']
         history = self.env['whatsapp.message'].sudo().search([
             ('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id),
@@ -78,17 +75,50 @@ class ChatbotProcessor:
 
         if intent == "consulta_producto":
             try:
-                # La consulta de producto en B2C ahora redirige a la web.
                 extraction_prompt = prompts_config['product_extraction_system_prompt']
-                resp = openai.ChatCompletion.create(model="gpt-4o-mini", messages=[{"role": "system", "content": extraction_prompt}, {"role": "user", "content": self.plain_text}], temperature=0)
-                query = resp.choices[0].message.content.strip()
-                return self._send_text(messages_config['b2c_product_query_response'].format(query=query, web_url=web_url))
+                resp_ext = openai.ChatCompletion.create(model="gpt-4o-mini", messages=[{"role": "system", "content": extraction_prompt}, {"role": "user", "content": self.plain_text}], temperature=0)
+                query = resp_ext.choices[0].message.content.strip()
+
+                try:
+                    variants = lookup_product_variants(self.env, self.partner, query)
+                except UserError as e:
+                    return self._send_text(str(e) + f"\n\nDe todas formas, podés ver todo nuestro catálogo en {web_url} 😉")
+
+                product_list_str = "\n".join([f"- {v['name']} - ${v['price']:.2f}" for v in variants])
+                
+                system_prompt_b2c = prompts_config['b2c_product_query_prompt']
+                user_prompt_b2c = f"Productos encontrados:\n{product_list_str}\n\nURL de la tienda: {web_url}"
+
+                resp_final = openai.ChatCompletion.create(
+                    model=general_config['openai']['model'],
+                    messages=[
+                        {"role": "system", "content": system_prompt_b2c},
+                        {"role": "user", "content": user_prompt_b2c}
+                    ],
+                    temperature=0.7
+                )
+                return self._send_text(resp_final.choices[0].message.content.strip())
             except Exception as e:
-                _logger.error(f"❌ Error en consulta B2C: {e}")
+                _logger.error(f"❌ Error en consulta B2C con IA: {e}")
                 return self._send_text(messages_config['error_processing'])
 
         if intent == "crear_pedido":
-            return self._send_text(messages_config['b2c_create_order_response'].format(web_url=web_url))
+            try:
+                system_prompt_b2c = prompts_config['b2c_create_order_prompt']
+                user_prompt_b2c = f"Mensaje del cliente: \"{self.plain_text}\"\nURL de la tienda: {web_url}"
+
+                resp = openai.ChatCompletion.create(
+                    model=general_config['openai']['model'],
+                    messages=[
+                        {"role": "system", "content": system_prompt_b2c},
+                        {"role": "user", "content": user_prompt_b2c}
+                    ],
+                    temperature=0.7
+                )
+                return self._send_text(resp.choices[0].message.content.strip())
+            except Exception as e:
+                _logger.error(f"❌ Error en crear_pedido B2C con IA: {e}")
+                return self._send_text(messages_config['error_processing'])
 
         if intent == "solicitar_factura":
             return self._send_text(messages_config['b2c_invoice_response'])
@@ -605,7 +635,7 @@ class ChatbotProcessor:
             return self._send_response(response_data)
         
         # --- MANEJADOR UNIFICADO CON IA ---
-        if intent in ["consulta_horario_direccion", "consulta_informativa", "otro"]:
+        if intent in ["consulta_horario_direccion", "consulta_informativa", "otro", ""]:
             _logger.info(f"General Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text, conv)
             return self._send_text(faq_response)
