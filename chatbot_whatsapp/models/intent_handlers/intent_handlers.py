@@ -34,10 +34,9 @@ def handle_consulta_producto(env, partner, text):
         except UserError:
             return {'message': messages_config['product_query_not_found'].format(query=query)}
 
-        top_variants = variants[:3]
         product_list_str = "\n".join([
             f"{i+1}) *{v['name']}* - ${v['price']:.2f}" 
-            for i, v in enumerate(top_variants)
+            for i, v in enumerate(variants)
         ])
 
         response_prompt = prompts_config['product_query_response_system_prompt']
@@ -53,7 +52,7 @@ def handle_consulta_producto(env, partner, text):
         return {
             'message': final_response_resp.choices[0].message.content,
             'flow_state': 'esperando_seleccion_producto',
-            'data_buffer': json.dumps({'products': top_variants, 'qty': None})
+            'data_buffer': json.dumps({'products': variants, 'qty': None})
         }
 
     except Exception as e:
