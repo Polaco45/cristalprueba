@@ -76,10 +76,8 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, messages_config['onboarding_unquoted'])
                 continue
 
+            # --- DELEGACIÓN AL PROCESADOR CENTRAL ---
             processor = ChatbotProcessor(self.env, record, partner, memory)
-            response = processor.process_message()
-            if response:
-                _send_text(record, response)
-
+            processor.process_message()
 
         return records
