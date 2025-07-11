@@ -33,37 +33,29 @@ class ChatbotProcessor:
 
     def process_message(self):
         """
-        Punto de entrada principal.
-        Determina si el cliente es B2C y enruta al manejador correspondiente.
+        Procesa el mensaje entrante, priorizando el flujo B2C si el cliente
+        está etiquetado como tal.
         """
         flow = self.memory.flow_state
         _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'} para {self.partner.name}")
 
-        # --- CORRECCIÓN: La verificación de B2C es lo primero que se hace ---
-        if self._is_b2c():
+        # --- CORRECCIÓN: Se prioriza la validación B2C ---
+        # Si el cliente es B2C y no está en medio de un flujo, se maneja por separado.
+        if self._is_b2c() and not flow:
+            _logger.info("Cliente detectado como B2C. Iniciando manejador B2C.")
             return self._handle_b2c_intent()
 
-        # Si no es B2C, procesa los flujos normales para B2B y otros.
+        # Si hay un flujo activo, se continúa
         if flow:
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
                 return flow_handler()
+
+        # Si no hay flujo y no es B2C, se maneja como una intención general (B2B)
         return self._handle_general_intent()
 
     def _handle_b2c_intent(self):
-        """
-        Maneja TODAS las intenciones y flujos para clientes B2C.
-        """
-        flow = self.memory.flow_state
-        
-        # Revisa si el B2C está en un flujo de consulta de producto permitido.
-        allowed_b2c_flows = ['esperando_seleccion_producto', 'esperando_cantidad_producto', 'esperando_confirmacion_stock']
-        if flow in allowed_b2c_flows:
-            flow_handler = getattr(self, f"_handle_flow_{flow}", None)
-            if flow_handler:
-                return flow_handler()
-
-        # Si no hay un flujo activo, detecta la intención del nuevo mensaje.
+        """Maneja las intenciones específicas para clientes B2C."""
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
         history = self.env['whatsapp.message'].sudo().search([
@@ -73,11 +65,27 @@ class ChatbotProcessor:
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
+
         _logger.info(f"👤 Intent B2C detectado: {intent} para {self.partner.name}")
 
-        web_url = "https://www.quimicacristal.com.ar"
+        website_urls = {
+            "Tipo de Cliente / Consumidor Final": "https://www.quimicacristal.com.ar",
+            "Tipo de Cliente / EMPRESA": "https://www.cristalempresas.com.ar",
+            "Tipo de Cliente / Mayorista": "https://www.cristalmayorista.com.ar"
+        }
+        partner_category_name = self.partner.category_id[0].name if self.partner.category_id else None
+        web_url = website_urls.get(partner_category_name, "https://www.quimicacristal.com.ar")
 
-        # --- Lógica de intención específica para B2C ---
+        if intent == "consulta_producto":
+            try:
+                # La consulta de producto en B2C ahora redirige a la web.
+                extraction_prompt = prompts_config['product_extraction_system_prompt']
+                resp = openai.ChatCompletion.create(model="gpt-4o-mini", messages=[{"role": "system", "content": extraction_prompt}, {"role": "user", "content": self.plain_text}], temperature=0)
+                query = resp.choices[0].message.content.strip()
+                return self._send_text(messages_config['b2c_product_query_response'].format(query=query, web_url=web_url))
+            except Exception as e:
+                _logger.error(f"❌ Error en consulta B2C: {e}")
+                return self._send_text(messages_config['error_processing'])
 
         if intent == "crear_pedido":
             return self._send_text(messages_config['b2c_create_order_response'].format(web_url=web_url))
@@ -85,15 +93,6 @@ class ChatbotProcessor:
         if intent == "solicitar_factura":
             return self._send_text(messages_config['b2c_invoice_response'])
 
-        if intent == "consulta_producto":
-            response_data = handle_consulta_producto(self.env, self.partner, self.plain_text)
-            if response_data.get('flow_state'):
-                self.memory.write({
-                    'flow_state': response_data['flow_state'], 
-                    'data_buffer': response_data.get('data_buffer', '')
-                })
-            return self._send_response(response_data)
-        
         if intent == "saludo":
             return self._send_text(handle_saludo(self.env, self.partner))
 
@@ -101,11 +100,12 @@ class ChatbotProcessor:
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
         if intent in ["consulta_horario_direccion", "consulta_informativa", "otro", ""]:
+            _logger.info(f"B2C Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text, conv)
             return self._send_text(faq_response)
 
         return self._send_text(messages_config['error_default'])
-
+    
     def _send_template(self, template_name_to_send, partner, invoice):
         """
         Envía una plantilla de WhatsApp para una factura con el número dinámico,
