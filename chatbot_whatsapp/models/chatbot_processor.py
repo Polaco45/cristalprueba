@@ -32,13 +32,18 @@ class ChatbotProcessor:
         return self.partner.category_id and any(tag.name == b2c_tag_name for tag in self.partner.category_id)
 
     def process_message(self):
+        """
+        Punto de entrada principal.
+        Determina si el cliente es B2C y enruta al manejador correspondiente.
+        """
         flow = self.memory.flow_state
         _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'} para {self.partner.name}")
 
-        # Si el cliente es B2C y no está en un flujo activo, se usa el manejador de B2C.
-        if self._is_b2c() and not flow:
+        # --- CORRECCIÓN: La verificación de B2C es lo primero que se hace ---
+        if self._is_b2c():
             return self._handle_b2c_intent()
 
+        # Si no es B2C, procesa los flujos normales para B2B y otros.
         if flow:
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
@@ -46,7 +51,19 @@ class ChatbotProcessor:
         return self._handle_general_intent()
 
     def _handle_b2c_intent(self):
-        """Maneja las intenciones específicas para clientes B2C."""
+        """
+        Maneja TODAS las intenciones y flujos para clientes B2C.
+        """
+        flow = self.memory.flow_state
+        
+        # Revisa si el B2C está en un flujo de consulta de producto permitido.
+        allowed_b2c_flows = ['esperando_seleccion_producto', 'esperando_cantidad_producto', 'esperando_confirmacion_stock']
+        if flow in allowed_b2c_flows:
+            flow_handler = getattr(self, f"_handle_flow_{flow}", None)
+            if flow_handler:
+                return flow_handler()
+
+        # Si no hay un flujo activo, detecta la intención del nuevo mensaje.
         api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
         system_prompt = prompts_config['general_intent_system']
         history = self.env['whatsapp.message'].sudo().search([
@@ -56,21 +73,11 @@ class ChatbotProcessor:
         conv = [{"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()} for msg in reversed(history)]
         intent = detect_intention(conv, api_key, system_prompt)
         self.memory.write({'last_intent_detected': intent})
-
         _logger.info(f"👤 Intent B2C detectado: {intent} para {self.partner.name}")
 
         web_url = "https://www.quimicacristal.com.ar"
 
-        # --- CORRECCIÓN: Unificar el flujo de consulta de producto ---
-        if intent == "consulta_producto":
-            _logger.info("Manejando 'consulta_producto' para B2C usando el flujo conversacional.")
-            response_data = handle_consulta_producto(self.env, self.partner, self.plain_text)
-            if response_data.get('flow_state'):
-                self.memory.write({
-                    'flow_state': response_data['flow_state'], 
-                    'data_buffer': response_data.get('data_buffer', '')
-                })
-            return self._send_response(response_data)
+        # --- Lógica de intención específica para B2C ---
 
         if intent == "crear_pedido":
             return self._send_text(messages_config['b2c_create_order_response'].format(web_url=web_url))
@@ -78,15 +85,22 @@ class ChatbotProcessor:
         if intent == "solicitar_factura":
             return self._send_text(messages_config['b2c_invoice_response'])
 
+        if intent == "consulta_producto":
+            response_data = handle_consulta_producto(self.env, self.partner, self.plain_text)
+            if response_data.get('flow_state'):
+                self.memory.write({
+                    'flow_state': response_data['flow_state'], 
+                    'data_buffer': response_data.get('data_buffer', '')
+                })
+            return self._send_response(response_data)
+        
         if intent == "saludo":
             return self._send_text(handle_saludo(self.env, self.partner))
 
         if intent == "agradecimiento_cierre":
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
-        # --- MANEJADOR UNIFICADO CON IA ---
         if intent in ["consulta_horario_direccion", "consulta_informativa", "otro", ""]:
-            _logger.info(f"B2C Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text, conv)
             return self._send_text(faq_response)
 
