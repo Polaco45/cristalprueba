@@ -41,7 +41,7 @@ class ChatbotProcessor:
 
         # --- CORRECCIÓN: Se prioriza la validación B2C ---
         # Si el cliente es B2C y no está en medio de un flujo, se maneja por separado.
-        if self._is_b2c():
+        if self._is_b2c() and not flow:
             _logger.info("Cliente detectado como B2C. Iniciando manejador B2C.")
             return self._handle_b2c_intent()
 
