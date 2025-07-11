@@ -99,7 +99,7 @@ class ChatbotProcessor:
         if intent == "agradecimiento_cierre":
             return self._send_text(handle_agradecimiento_cierre(self.env, self.partner, self.plain_text))
 
-        if intent in ["consulta_horario_direccion", "consulta_informativa", "otro", ""]:
+        if intent in ["consulta_horario_direccion", "consulta_informativa", "otro"]:
             _logger.info(f"B2C Fallback/Info: Intención '{intent}' detectada. Enviando a handle_respuesta_faq.")
             faq_response = handle_respuesta_faq(self.env, self.partner, self.plain_text, conv)
             return self._send_text(faq_response)
