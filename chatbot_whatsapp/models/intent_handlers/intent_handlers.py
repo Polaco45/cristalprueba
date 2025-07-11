@@ -11,12 +11,12 @@ _logger = logging.getLogger(__name__)
 
 def handle_consulta_producto(env, partner, text):
     """
-    Maneja la consulta de un producto, devolviendo un diccionario con el mensaje, 
+    Maneja la consulta de un producto, devolviendo un diccionario con el mensaje,
     el nuevo estado del flujo y el buffer de datos.
     """
     try:
         openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
-        
+
         extraction_prompt = prompts_config['product_extraction_system_prompt']
         resp = openai.ChatCompletion.create(
             model="gpt-4o-mini",
@@ -35,7 +35,7 @@ def handle_consulta_producto(env, partner, text):
             return {'message': messages_config['product_query_not_found'].format(query=query)}
 
         product_list_str = "\n".join([
-            f"{i+1}) *{v['name']}* - ${v['price']:.2f}" 
+            f"{i+1}) *{v['name']}* - ${v['price']:.2f}"
             for i, v in enumerate(variants)
         ])
 
@@ -48,7 +48,7 @@ def handle_consulta_producto(env, partner, text):
             ],
             temperature=0.7,
         )
-        
+
         return {
             'message': final_response_resp.choices[0].message.content,
             'flow_state': 'esperando_seleccion_producto',
@@ -78,7 +78,7 @@ def handle_saludo(env, partner):
         _logger.error(f"❌ Error al generar saludo con IA: {e}. Usando fallback.")
         fallback_template = messages_config.get('greeting_fallback', "¡Hola! ¿En qué puedo ayudarte?")
         return fallback_template.format(partner_name=partner_name)
-    
+
 def handle_agradecimiento_cierre(env, partner, text):
     """Genera una respuesta de cierre dinámica usando IA, basada en el mensaje real del usuario."""
     partner_name = partner.name if partner and 'WhatsApp:' not in partner.name else ''
@@ -106,7 +106,7 @@ def find_invoice_by_number(env, partner, invoice_number):
     Devuelve el objeto de la factura si la encuentra, sino devuelve None.
     """
     _logger.info(f"🧾 Buscando factura que contenga: '{invoice_number}' para {partner.name}")
-    
+
     clean_number = invoice_number.strip()
     if not clean_number:
         return None
@@ -126,7 +126,7 @@ def handle_solicitar_factura(env, partner, text):
     e inicia el flujo de selección o búsqueda.
     """
     _logger.info(f"🧾 Iniciando flujo de factura para {partner.name}. Ofreciendo recientes.")
-    
+
     invoices = env['account.move'].sudo().search([
         ('partner_id', '=', partner.id),
         ('state', '=', 'posted'),
@@ -143,19 +143,31 @@ def handle_solicitar_factura(env, partner, text):
 
     invoice_lines = [f"{i+1}) *{inv.name}* del {inv.invoice_date.strftime('%d/%m/%Y')} - ${inv.amount_total:,.2f}" for i, inv in enumerate(invoices)]
     invoice_list_str = "\n".join(invoice_lines)
-    
+
     return {
         'message': messages_config['invoice_direct_offer_or_search'].format(invoices=invoice_list_str),
         'flow_state': 'esperando_seleccion_o_numero_factura', # Nuevo estado de flujo
         'data_buffer': json.dumps({'invoice_ids': invoices.ids})
     }
-        
+
 def handle_faq_con_ai(env, partner, user_text, conv_history):
     """
-    Genera dinámicamente la respuesta a preguntas frecuentes usando IA.
+    Genera dinámicamente la respuesta a preguntas frecuentes usando IA,
+    seleccionando la URL del sitio web según el tipo de cliente.
     """
-    _logger.info(f"🧠 Entrando en handle_faq_con_ai para el partner: {partner.name}. Pregunta: '{user_text}'")
+    _logger.info(f"🧠 Entrando en handle_faq_con_ai para: {partner.name}. Pregunta: '{user_text}'")
     try:
+        # --- LÓGICA DE SELECCIÓN DE URL ---
+        website_urls = {
+            "Tipo de Cliente / Consumidor Final": "https://www.quimicacristal.com.ar",
+            "Tipo de Cliente / EMPRESA": "https://www.cristalempresas.com.ar",
+            "Tipo de Cliente / Mayorista": "https://www.cristalmayorista.com.ar"
+        }
+        partner_category_name = partner.category_id[0].name if partner.category_id else None
+        website_url = website_urls.get(partner_category_name, "https://www.quimicacristal.com.ar")
+        _logger.info(f"🌐 URL seleccionada para '{partner_category_name}': {website_url}")
+
+        # --- Datos para el prompt ---
         company_name = "Química Cristal"
         address = "San Martín 2350"
         schedule = "Lunes a Viernes de 8:30 a 12:30 y 15:30 a 19:30, Sábados de 9:00 a 13:00"
@@ -163,18 +175,17 @@ def handle_faq_con_ai(env, partner, user_text, conv_history):
         chatbot_capabilities = "puedo ayudarte a crear pedidos, consultar productos, solicitar facturas, y darte información sobre nuestros horarios y dirección."
 
         system_prompt_template = prompts_config['faq_system_prompt']
-        
+
         system_prompt = system_prompt_template.format(
             company_name=company_name,
             address=address,
             schedule=schedule,
             product_examples=product_examples,
-            chatbot_capabilities=chatbot_capabilities
+            chatbot_capabilities=chatbot_capabilities,
+            website_url=website_url  # Se inyecta la URL correcta
         )
 
-        # Construye la lista de mensajes, comenzando con el prompt del sistema
         messages = [{"role": "system", "content": system_prompt}]
-        # Agrega el historial de la conversación
         messages.extend(conv_history)
 
         _logger.info(f"📝 Mensajes para FAQ con IA: {messages}")
@@ -191,9 +202,9 @@ def handle_faq_con_ai(env, partner, user_text, conv_history):
             temperature=0.5,
             max_tokens=200
         )
-        
+
         response_text = result.choices[0].message.content.strip()
-        _logger.info(f"✅ Respuesta de FAQ con IA generada exitosamente: '{response_text}'")
+        _logger.info(f"✅ Respuesta de FAQ con IA generada: '{response_text}'")
         return response_text
 
     except Exception as e:
