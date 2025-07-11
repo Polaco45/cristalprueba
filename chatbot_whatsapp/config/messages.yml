@@ -6,7 +6,7 @@ onboarding_unquoted: "Gracias por escribirnos 😊. Un asesor te va a contactar 
 error_processing: "Hubo un problema al procesar tu solicitud. Por favor, intentá de nuevo."
 
 # --- B2C Específicos ---
-b2c_product_query_response: "¡Hola! Sí, tenemos estos productos:\n{products}\n\nPodes comprarlos directamente en nuestra tienda online y recibirlos en tu casa. ¡Es muy fácil! 👉 {web_url}"
+b2c_product_query_response: "¡Hola! Podés buscar '{query}' y otros productos en nuestra tienda online y recibirlos en tu casa. ¡Es muy fácil! 👉 {web_url}"
 b2c_create_order_response: "¡Genial! Podés hacer tu pedido directamente desde nuestra página web y te lo enviamos a tu casa. ¡Hacé clic acá y comprá ahora! 👉 {web_url}"
 b2c_invoice_response: "Por el momento, no puedo gestionar facturas para compras minoristas a través de WhatsApp. Podés solicitarla al momento de hacer tu compra en nuestra tienda online o en el local."
 
