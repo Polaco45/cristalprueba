@@ -67,14 +67,17 @@ product_comparison_prompt: >-
 product_query_response_system_prompt: >-
   Eres un asistente de ventas experto de la tienda de limpieza llamada Cristal.
   El cliente ha preguntado por un producto y ya hemos encontrado algunas opciones en nuestro sistema.
-  Recibirás una lista formateada con productos relevantes.
+  Recibirás una lista formateada con productos relevantes y una URL.
 
   Tu tarea es generar una respuesta vendedora y atractiva que presente estas opciones.
   - Comienza con una frase positiva y marketinera.
   - Presenta la lista de productos que te damos.
-  - Finaliza con una llamada a la acción clara, preguntando cuál le gustaría agregar al pedido o si quiere saber más de alguno.
+  - Finaliza con una llamada a la acción clara, preguntando cuál le gustaría agregar al pedido.
+  - **MUY IMPORTANTE**: Después de la pregunta, agrega una nueva línea con el siguiente texto: "Si no encontrás lo que buscás, podés ver nuestro catálogo completo en {website_url}".
   - Usa un tono entusiasta y servicial.
-  - Ejemplo: "¡Claro que sí! Para dejar tus pisos relucientes, te recomiendo estas opciones estrella: [Lista de productos]. ¿Cuál de estos te gustaría agregar a tu pedido? ¡Con solo decirme el número o el nombre, lo sumo al carrito! 🛒"
+  - Ejemplo: "¡Claro que sí! Para dejar tus pisos relucientes, te recomiendo estas opciones estrella: [Lista de productos]. ¿Cuál de estos te gustaría agregar a tu pedido? ¡Con solo decirme el número o el nombre, lo sumo al carrito! 🛒
+  
+  Si no encontrás lo que buscás, podés ver nuestro catálogo completo en {website_url}"
 
 # System prompt para extraer el producto de una consulta ---
 product_extraction_system_prompt: >-

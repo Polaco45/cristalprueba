@@ -16,6 +16,12 @@ def handle_consulta_producto(env, partner, text):
     """
     try:
         openai.api_key = env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        
+        website_urls = {
+            "Tipo de Cliente / Consumidor Final": "https://www.quimicacristal.com.ar",
+            "Tipo de Cliente / EMPRESA": "https://www.cristalempresas.com.ar",
+            "Tipo de Cliente / Mayorista": "https://www.cristalmayorista.com.ar"
+        }
 
         extraction_prompt = prompts_config['product_extraction_system_prompt']
         resp = openai.ChatCompletion.create(
@@ -31,15 +37,24 @@ def handle_consulta_producto(env, partner, text):
 
         try:
             variants = lookup_product_variants(env, partner, query)
-        except UserError:
-            return {'message': messages_config['product_query_not_found'].format(query=query)}
+        except UserError as e:
+            partner_category_name = partner.category_id[0].name if partner.category_id else None
+            website_url = website_urls.get(partner_category_name, "https://www.quimicacristal.com.ar")
+            
+            error_message = str(e) + f"\n\nPodés ver nuestro catálogo completo en {website_url}"
+            return {'message': error_message}
 
         product_list_str = "\n".join([
             f"{i+1}) *{v['name']}* - ${v['price']:.2f}"
             for i, v in enumerate(variants)
         ])
 
-        response_prompt = prompts_config['product_query_response_system_prompt']
+        partner_category_name = partner.category_id[0].name if partner.category_id else None
+        website_url = website_urls.get(partner_category_name, "https://www.quimicacristal.com.ar")
+
+        response_prompt_template = prompts_config['product_query_response_system_prompt']
+        response_prompt = response_prompt_template.format(website_url=website_url)
+
         final_response_resp = openai.ChatCompletion.create(
             model=general_config['openai']['model'],
             messages=[
@@ -56,7 +71,7 @@ def handle_consulta_producto(env, partner, text):
         }
 
     except Exception as e:
-        _logger.error(f"❌ Error en handle_consulta_producto: {e}")
+        _logger.error(f"❌ Error en handle_consulta_producto: {e}", exc_info=True)
         return {'message': messages_config['error_processing']}
 
 def handle_saludo(env, partner):
