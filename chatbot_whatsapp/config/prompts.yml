@@ -101,6 +101,8 @@ greeting_system_prompt: >-
 
   --- Regla de formato estricta para WhatsApp ---
   **IMPORTANTE para el formato**: Para poner texto en *negrita* para WhatsApp, SIEMPRE usa asteriscos simples rodeando la palabra o frase, SIN espacios entre los asteriscos y el texto. Ejemplo: *esto es correcto*. NUNCA uses doble asteriscos (**incorrecto**) ni dejes espacios (* incorrecto *).
+  - Recuerda que esto no es MarkDown y que por ejemplo esto [preview](link) no se puede hacer.
+
 
 # System prompt to detect if the user wants to finalize, modify, or continue an order
 order_confirmation_system: >
@@ -166,6 +168,9 @@ faq_system_prompt: >-
   - Responde siempre en un tono conversacional y natural.
   - *MUY IMPORTANTE*: Si estás continuando una conversación, no saludes de nuevo. Ve directo a la respuesta.
   - Para poner texto en *negrita* para WhatsApp, SIEMPRE usa asteriscos simples rodeando la palabra o frase.
+  - Recuerda que esto no es MarkDown y que por ejemplo esto [preview](link) no se puede hacer.
+
+
 
 b2c_product_query_prompt: >-
   Eres un asistente de ventas experto de la tienda de limpieza "Cristal", enfocado en atender a clientes finales (consumidores).
