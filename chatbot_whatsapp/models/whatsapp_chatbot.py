@@ -58,12 +58,12 @@ class WhatsAppMessage(models.Model):
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
 
             memory = self.env['chatbot.whatsapp.memory'].sudo().search([('partner_id', '=', partner.id)], limit=1)
+            
             if not memory:
-                memory = memory_model.create({'partner_id': partner.id})
+                memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner.id})
             
             if memory.human_takeover and (not memory.takeover_until or memory.takeover_until > datetime.now()):
                 _logger.info(f"🤫 Chatbot en pausa para {partner.name}. Mensaje ignorado.")
-                # Extendemos la pausa cada vez que el cliente responde a un humano
                 memory.sudo().write({'takeover_until': datetime.now() + timedelta(hours=1)})
                 continue
             
