@@ -180,35 +180,41 @@ class ChatbotProcessor:
         except Exception as e:
             _logger.error(f"❌ Error al enviar plantilla: {e}", exc_info=True)
 
-    def _send_response(self, response_data):
-        message = response_data.get('message')
-        if not message:
-            return
-        try:
-            mail_message = self.record.mail_message_id
-            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
-                channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                channel.with_context(from_wa_bot=True).message_post(
-                    body=message,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment'
-                )
-        except Exception as e:
-            _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
-        try:
-            vals = {
-                'mobile_number': self.record.mobile_number,
-                'body': message,
-                'state': 'outgoing',
-                'wa_account_id': self.record.wa_account_id.id,
-                'create_uid': self.env.ref('base.user_admin').id,
-            }
-            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            outgoing_msg.sudo().write({'body': message})
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-        except Exception as e:
-            _logger.error(f"❌ Error al enviar el mensaje de texto por WhatsApp: {e}", exc_info=True)
+    def _send_text(to_record, text_to_send):
+                _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
+                
+                # --- PASO 1: Postear el mensaje en el canal de Odoo para que sea visible ---
+                try:
+                    # El 'to_record' es el mensaje entrante original que disparó esta respuesta.
+                    mail_message = to_record.mail_message_id
+                    if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
+                        channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
+                        # Postea el mensaje en el canal. Odoo lo mostrará como "Public User" o "OdooBot".
+                        channel.message_post(
+                            body=text_to_send,
+                            message_type='comment',
+                            subtype_xmlid='mail.mt_comment'
+                        )
+                        _logger.info(f"✅ Mensaje del bot posteado en el canal {channel.id}.")
+                    else:
+                        _logger.warning("⚠️ No se encontró el canal de Odoo para postear el mensaje del bot.")
+                except Exception as e:
+                    _logger.error(f"❌ Error al postear mensaje del bot en el canal de Odoo: {e}", exc_info=True)
+
+                # --- PASO 2: Enviar el mensaje real por WhatsApp ---
+                # (Esta parte ya funcionaba bien)
+                bot_user_id = self.env.ref('base.user_admin').id
+                vals = {
+                    'mobile_number': to_record.mobile_number,
+                    'body': text_to_send,
+                    'state': 'outgoing',
+                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
+                    'create_uid': bot_user_id,
+                }
+                outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+                if hasattr(outgoing_msg, '_send_message'):
+                    outgoing_msg._send_message()
+                _logger.info(f"✅ Mensaje de WhatsApp '{outgoing_msg.id}' procesado para envío.")
 
     def _send_text(self, text_to_send):
         return self._send_response({'message': text_to_send})
