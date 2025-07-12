@@ -13,18 +13,24 @@ class WhatsAppMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # --- LÓGICA DE DETECCIÓN DE INTERVENCIÓN HUMANA (MENSAJES SALIENTES) ---
+        # Obtenemos el ID del usuario bot (Administrador) UNA VEZ para comparar
+        bot_user_id = self.env.ref('base.user_admin').id
+
+        # --- NUEVA LÓGICA DE DETECCIÓN BASADA EN create_uid ---
         for vals in vals_list:
-            # Detectamos si un usuario de Odoo (no el admin/bot) está enviando un mensaje.
-            # El contexto 'from_wa_bot' se usa para evitar que el propio bot se pause a sí mismo.
-            if vals.get('state') in ('outgoing', 'sent') and not self.env.context.get('from_wa_bot'):
+            # Si el mensaje es saliente y el creador (create_uid) NO es el bot, es un humano.
+            # El create_uid puede no estar en vals si lo envía un usuario público, así que lo manejamos con .get()
+            creator_id = vals.get('create_uid')
+            
+            if vals.get('state') in ('outgoing', 'sent') and creator_id and creator_id != bot_user_id:
                 phone = normalize_phone(vals.get('mobile_number', ''))
                 partner = self.env['res.partner'].sudo().search(['|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)], limit=1)
                 if partner:
                     memory = self.env['chatbot.whatsapp.memory'].sudo().search([('partner_id', '=', partner.id)], limit=1)
                     if memory:
-                        takeover_duration_hours = 24  # El bot se reactivará después de 24 horas de inactividad
-                        _logger.info(f"👤 Intervención humana detectada para {partner.name}. Pausando chatbot por {takeover_duration_hours} hs.")
+                        # Reducimos la duración del takeover a 1 hora
+                        takeover_duration_hours = 1
+                        _logger.info(f"👤 Intervención humana (Usuario ID: {creator_id}) detectada para {partner.name}. Pausando chatbot por {takeover_duration_hours} hs.")
                         memory.sudo().write({
                             'human_takeover': True,
                             'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours)
@@ -33,11 +39,9 @@ class WhatsAppMessage(models.Model):
         records = super().create(vals_list)
 
         for record in records:
-            # --- PROCESAMIENTO NORMAL DE MENSAJES ENTRANTES ---
             if record.state not in ('received', 'inbound'):
                 continue
             
-            # ... (código existente para obtener plain, phone, etc.)
             plain = clean_html(record.body or "").strip()
             phone = normalize_phone(record.mobile_number or record.phone or "")
             if not (plain and phone):
@@ -47,7 +51,6 @@ class WhatsAppMessage(models.Model):
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
             
-            # ... (código de creación de partner si no existe)
             if not partner:
                 partner = self.env['res.partner'].sudo().create({
                     'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone
@@ -56,16 +59,14 @@ class WhatsAppMessage(models.Model):
 
             memory = self.env['chatbot.whatsapp.memory'].sudo().search([('partner_id', '=', partner.id)], limit=1)
             if not memory:
-                memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner.id})
+                memory = memory_model.create({'partner_id': partner.id})
             
-            # --- ¡VERIFICACIÓN CLAVE! ---
-            # Si el takeover está activo y no ha expirado, el bot no responde.
             if memory.human_takeover and (not memory.takeover_until or memory.takeover_until > datetime.now()):
                 _logger.info(f"🤫 Chatbot en pausa para {partner.name}. Mensaje ignorado.")
-                memory.sudo().write({'takeover_until': datetime.now() + timedelta(hours=24)}) # Extendemos el takeover con cada mensaje del cliente
+                # Extendemos la pausa cada vez que el cliente responde a un humano
+                memory.sudo().write({'takeover_until': datetime.now() + timedelta(hours=1)})
                 continue
             
-            # Si el takeover expiró, lo desactivamos para que el bot pueda responder.
             if memory.human_takeover and memory.takeover_until and memory.takeover_until <= datetime.now():
                 _logger.info(f"🤖 Reactivando chatbot para {partner.name} por expiración de takeover.")
                 memory.sudo().write({'human_takeover': False, 'takeover_until': False})
@@ -73,7 +74,7 @@ class WhatsAppMessage(models.Model):
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name or 'desconocido'} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
             
-            # Para que los mensajes del bot no activen el takeover, los enviamos con un contexto especial.
+            # La función _send_text ahora no necesita el with_context, pero lo dejamos por si acaso
             def _send_text(to_record, text_to_send):
                 _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
                 vals = {
@@ -81,16 +82,14 @@ class WhatsAppMessage(models.Model):
                     'body': text_to_send,
                     'state': 'outgoing',
                     'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
-                    'create_uid': self.env.ref('base.user_admin').id,
+                    'create_uid': bot_user_id, # Aseguramos que el bot siempre cree el mensaje como el usuario bot
                 }
-                # Usamos with_context para marcar que este mensaje es del bot
-                outgoing_msg = self.env['whatsapp.message'].with_context(from_wa_bot=True).sudo().create(vals)
+                outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
                 outgoing_msg.sudo().write({'body': text_to_send})
                 if hasattr(outgoing_msg, '_send_message'):
                     outgoing_msg._send_message()
                 _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
             
-            # ... (el resto de tu lógica de onboarding y procesamiento sigue aquí, usando la nueva función _send_text)
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, self.env['chatbot.whatsapp.memory'].sudo()
