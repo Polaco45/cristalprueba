@@ -19,8 +19,8 @@
         'whatsapp'  # Asegurate que es el nombre técnico correcto del módulo de WhatsApp
     ],
     'data': [
-        'security/ir.model.access.csv'# XMLs si agregás vistas, acciones, parámetros de sistema, etc.
-        'data/cron_jobs.xml'
+        'security/ir.model.access.csv',# XMLs si agregás vistas, acciones, parámetros de sistema, etc.
+        'data/cron_jobs.xml',
     ],
     'assets': {
         # Si en el futuro agregás JS/CSS para interfaz
