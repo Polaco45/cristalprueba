@@ -82,8 +82,15 @@ class WhatsAppMessage(models.Model):
                 """
                 _logger.info(f"🚀 Preparando para enviar mensaje a través del canal: '{text_to_send}'")
                 
-                # 1. El registro de mensaje entrante ('incoming_record') tiene el canal de chat asociado.
-                channel = incoming_record.channel_id
+                # --- FIX START ---
+                # 1. Get the mail.message associated with the WhatsApp message.
+                mail_message = incoming_record.mail_message_id
+                
+                # 2. Get the channel from the mail.message.
+                #    channel_ids is a many2many, so we take the first one.
+                channel = mail_message.channel_ids[:1] if mail_message else False
+                # --- FIX END ---
+
                 if not channel:
                     _logger.error(f"❌ No se encontró un canal de discusión para el mensaje {incoming_record.id}. No se puede enviar la respuesta.")
                     return
