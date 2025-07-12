@@ -75,43 +75,21 @@ class WhatsAppMessage(models.Model):
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
             
             # La función _send_text ahora no necesita el with_context, pero lo dejamos por si acaso
-            def _send_text(incoming_record, text_to_send):
-                """
-                Envía una respuesta utilizando el método nativo de Odoo 'message_post',
-                asegurando que el mensaje aparezca en el chatter.
-                """
-                _logger.info(f"🚀 Preparando para enviar mensaje a través del canal: '{text_to_send}'")
-                
-                # --- INICIO DE LA CORRECCIÓN ---
-                # 1. Obtenemos el canal a través del `mail.message` asociado al mensaje de WhatsApp.
-                #    El mensaje de WhatsApp (`incoming_record`) no tiene un `channel_id` directo.
-                mail_message = incoming_record.mail_message_id
-                if not mail_message or mail_message.model != 'discuss.channel' or not mail_message.res_id:
-                    _logger.error(f"❌ No se pudo determinar el canal de discusión para el mensaje de WhatsApp {incoming_record.id}. No se puede enviar la respuesta.")
-                    return
-                
-                channel = self.env['discuss.channel'].browse(mail_message.res_id)
-                # --- FIN DE LA CORRECCIÓN ---
-
-                if not channel:
-                    _logger.error(f"❌ No se encontró un canal de discusión para el mensaje {incoming_record.id}. No se puede enviar la respuesta.")
-                    return
-
-                # 2. El autor de un mensaje en el chatter debe ser un 'res.partner'.
-                # Obtenemos el partner asociado al usuario Administrador.
-                bot_partner_id = self.env.ref('base.user_admin').partner_id.id
-
-                # 3. Publicamos en el canal. Odoo se encarga del resto.
-                # El 'author_id' asegura que el mensaje aparezca como enviado por el Bot/Empresa.
-                channel.sudo().message_post(
-                    body=text_to_send,
-                    author_id=bot_partner_id,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment'
-                )
-                _logger.info(f"✅ Mensaje posteado en el canal '{channel.name}' para envío.")
+            def _send_text(to_record, text_to_send):
+                _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
+                vals = {
+                    'mobile_number': to_record.mobile_number,
+                    'body': text_to_send,
+                    'state': 'outgoing',
+                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
+                    'create_uid': bot_user_id, # Aseguramos que el bot siempre cree el mensaje como el usuario bot
+                }
+                outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+                outgoing_msg.sudo().write({'body': text_to_send})
+                if hasattr(outgoing_msg, '_send_message'):
+                    outgoing_msg._send_message()
+                _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
             
-            # El resto del código que llama a _send_text no necesita cambios.
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
                 self.env, record, phone, plain, self.env['chatbot.whatsapp.memory'].sudo()
