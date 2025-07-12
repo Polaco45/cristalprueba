@@ -4,7 +4,7 @@ import re
 import openai
 from odoo.exceptions import UserError
 from ..utils.nlp import detect_intention
-from ..utils.utils import clean_html
+from ..utils.utils import clean_html, is_cotizado 
 from ..config.config import prompts_config, messages_config, general_config
 from .intent_handlers.create_order import (
     create_sale_order, handle_modificar_pedido,
@@ -19,36 +19,145 @@ from .intent_handlers.intent_handlers import (
 _logger = logging.getLogger(__name__)
 
 class ChatbotProcessor:
-    def __init__(self, env, record, partner, memory):
+    def __init__(self, env, record, partner, memory, plain_text):
         self.env = env
         self.record = record
         self.partner = partner
         self.memory = memory
-        self.plain_text = clean_html(record.body or "").strip()
+        self.plain_text = plain_text
+        # La API Key se inicializa una vez para todo el procesador
+        self.openai_api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+        openai.api_key = self.openai_api_key
+
+    # =================================================================
+    # =========== MÉTODOS CENTRALIZADOS DE ENVÍO DE MENSAJES ==========
+    # =================================================================
+    
+    def _send_response(self, message, template_info=None):
+        """
+        Método ÚNICO para enviar respuestas. Maneja tanto texto simple como plantillas.
+        También registra el mensaje en el chatter de Odoo para visibilidad interna.
+        """
+        if not message and not template_info:
+            return
+
+        bot_user_id = self.env.ref('base.user_admin').id
+        wa_account = self.record.wa_account_id
+
+        # --- Envío real a WhatsApp ---
+        try:
+            vals = {
+                'mobile_number': self.record.mobile_number,
+                'state': 'outgoing',
+                'wa_account_id': wa_account.id,
+                'create_uid': bot_user_id, # El bot es siempre el autor
+            }
+            if template_info:
+                vals.update(template_info)
+            else:
+                vals['body'] = message
+
+            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
+            outgoing_msg.sudo().write({'body': message})
+
+            _logger.info(f"✅ Mensaje de WhatsApp (ID: {outgoing_msg.id}) creado y encolado para envío.")
+        except Exception as e:
+            _logger.error(f"❌ Error crítico al crear el mensaje de respuesta de WhatsApp: {e}", exc_info=True)
+
+        # --- Registro en el chatter de Odoo (secundario) ---
+        try:
+            mail_message = self.record.mail_message_id
+            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
+                channel = self.env['discuss.channel'].browse(mail_message.res_id)
+                channel.sudo().message_post(
+                    body=message,
+                    author_id=bot_user_id.partner_id.id,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment'
+                )
+        except Exception as e:
+            _logger.warning(f"⚠️ No se pudo registrar la respuesta en el canal interno de Odoo: {e}", exc_info=True)
+
+    def _send_text(self, text_to_send):
+        """Atajo para enviar mensajes de texto simple."""
+        self._send_response(message=text_to_send)
+        
+    def _send_template(self, template_name, invoice):
+        """Prepara y envía un mensaje de plantilla."""
+        wa_template = self.env['whatsapp.template'].sudo().search([
+            ('template_name', '=', template_name),
+            ('wa_account_id', '=', self.record.wa_account_id.id)
+        ], limit=1)
+        if not wa_template:
+            _logger.error(f"No se encontró la plantilla: {template_name}")
+            return self._send_text(messages_config['error_processing'])
+        
+        # El mail.message es necesario para que el renderizado de la plantilla funcione
+        mail_message = self.env['mail.message'].sudo().create({
+            'model': 'account.move', 'res_id': invoice.id, 'body': wa_template.body,
+        })
+        template_data = {
+            'wa_template_id': wa_template.id,
+            'mail_message_id': mail_message.id,
+        }
+        # El cuerpo del mensaje se renderizará automáticamente por Odoo.
+        self._send_response(message=wa_template.body, template_info=template_data)
+
+    # =================================================================
+    # ================== MÉTODOS DE LÓGICA DEL CHATBOT ==================
+    # =================================================================
 
     def _is_b2c(self):
         """Verifica si el partner es un cliente B2C (Consumidor Final)."""
         b2c_tag_name = "Tipo de Cliente / Consumidor Final"
-        return self.partner.category_id and any(tag.name == b2c_tag_name for tag in self.partner.category_id)
+        return any(tag.name == b2c_tag_name for tag in self.partner.category_id)
+
+    def _get_ai_intent(self, system_prompt):
+        """
+        Método centralizado para obtener la intención del usuario usando OpenAI.
+        Reutiliza la lógica de obtener historial y llamar a la API.
+        """
+        history = self.env['whatsapp.message'].sudo().search([
+            ('mobile_number', '=', self.record.mobile_number),
+            ('id', '<=', self.record.id),
+            ('state', 'in', ['received', 'inbound', 'outgoing', 'sent'])
+        ], order='id desc', limit=3)
+        
+        conversation = [
+            {"role": "user" if msg.state in ("received", "inbound") else "assistant", "content": clean_html(msg.body or "").strip()}
+            for msg in reversed(history)
+        ]
+        
+        intent = detect_intention(conversation, self.openai_api_key, system_prompt)
+        self.memory.write({'last_intent_detected': intent})
+        return intent, conversation
 
     def process_message(self):
         """
-        Procesa el mensaje entrante, priorizando el flujo B2C si el cliente
-        está etiquetado como tal.
+        Punto de entrada principal para procesar la lógica del mensaje.
+        Orquesta la verificación de tipo de cliente y el manejo de flujos.
         """
+        # --- REGLA #1: B2B/Mayorista sin cotización (movida aquí) ---
+        if not self._is_b2c() and not is_cotizado(self.partner):
+            _logger.info("🚫 Usuario B2B/Mayorista sin cotización. Enviando mensaje de contacto.")
+            return self._send_text(messages_config['onboarding_unquoted'])
+        
+        # --- REGLA #2: Manejar flujos de conversación activos ---
         flow = self.memory.flow_state
-        _logger.info(f"➡️  Procesando flujo: {flow or 'N/A'} para {self.partner.name}")
-
-        if self._is_b2c() and not flow:
-            _logger.info("Cliente detectado como B2C. Iniciando manejador B2C.")
-            return self._handle_b2c_intent()
-
         if flow:
+            _logger.info(f"➡️  Procesando flujo activo: {flow} para {self.partner.name}")
             flow_handler = getattr(self, f"_handle_flow_{flow}", None)
             if flow_handler:
                 return flow_handler()
+            else:
+                _logger.warning(f"No se encontró un manejador para el flujo '{flow}'. Reiniciando.")
+                self.memory.write({'flow_state': False})
 
-        return self._handle_general_intent()
+        # --- REGLA #3: Determinar intención si no hay flujo activo ---
+        if self._is_b2c():
+            return self._handle_b2c_intent()
+        else:
+            return self._handle_general_intent()
 
     def _handle_b2c_intent(self):
         """Maneja las intenciones específicas para clientes B2C con respuestas de IA."""
@@ -135,83 +244,6 @@ class ChatbotProcessor:
             return self._send_text(faq_response)
 
         return self._send_text(messages_config['error_default'])
-    
-    def _send_template(self, template_name_to_send, partner, invoice):
-        """
-        Envía una plantilla de WhatsApp para una factura con el número dinámico,
-        armando el body manualmente según cómo lo envía el UI.
-        """
-        wa_account = self.record.wa_account_id
-        if not wa_account:
-            _logger.error("No se encontró una cuenta de WhatsApp activa.")
-            return
-
-        try:
-            # Buscar plantilla
-            wa_template = self.env['whatsapp.template'].sudo().search([
-                ('template_name', '=', template_name_to_send),
-                ('wa_account_id', '=', wa_account.id)
-            ], limit=1)
-
-            if not wa_template:
-                _logger.error(f"No se encontró la plantilla: {template_name_to_send}")
-                return
-
-            invoice_number = invoice.name
-            
-            mail_message = self.env['mail.message'].sudo().create({
-            'model': 'account.move',  # Especifica el TIPO de documento
-            'res_id': invoice.id,      # Especifica QUÉ documento es
-            'body': wa_template.body,
-            })
-
-            vals = {
-                'mobile_number': partner.phone or partner.mobile,
-                'wa_account_id': wa_account.id,
-                'wa_template_id': wa_template.id,
-                'mail_message_id': mail_message.id,
-                'state': 'outgoing',
-            }
-
-            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            outgoing_msg._send_message()
-            _logger.info(f"✅ Plantilla {outgoing_msg.id} enviada para la factura {invoice.name}.")
-
-        except Exception as e:
-            _logger.error(f"❌ Error al enviar plantilla: {e}", exc_info=True)
-
-    def _send_response(self, response_data):
-        message = response_data.get('message')
-        if not message:
-            return
-        try:
-            mail_message = self.record.mail_message_id
-            if mail_message and mail_message.model == 'discuss.channel' and mail_message.res_id:
-                channel = self.env['discuss.channel'].sudo().browse(mail_message.res_id)
-                channel.with_context(from_wa_bot=True).message_post(
-                    body=message,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment'
-                )
-        except Exception as e:
-            _logger.error(f"⚠️ No se pudo registrar el mensaje de texto en el canal de Odoo: {e}", exc_info=True)
-        try:
-            vals = {
-                'mobile_number': self.record.mobile_number,
-                'body': message,
-                'state': 'outgoing',
-                'wa_account_id': self.record.wa_account_id.id,
-                'create_uid': self.env.ref('base.user_admin').id,
-            }
-            outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-            outgoing_msg.sudo().write({'body': message})
-            if hasattr(outgoing_msg, '_send_message'):
-                outgoing_msg._send_message()
-        except Exception as e:
-            _logger.error(f"❌ Error al enviar el mensaje de texto por WhatsApp: {e}", exc_info=True)
-
-    def _send_text(self, text_to_send):
-        return self._send_response({'message': text_to_send})
     
     def _add_item_and_decide_next_step(self, pid, qty, name):
         add_item_to_cart(self.memory, pid, qty)
