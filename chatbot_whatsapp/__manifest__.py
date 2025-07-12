@@ -20,7 +20,7 @@
     ],
     'data': [
         'security/ir.model.access.csv'# XMLs si agregás vistas, acciones, parámetros de sistema, etc.
-        # Por ahora lo dejás vacío si todo es backend puro
+        'data/cron_jobs.xml'
     ],
     'assets': {
         # Si en el futuro agregás JS/CSS para interfaz
