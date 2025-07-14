@@ -39,21 +39,18 @@ class WhatsAppMessage(models.Model):
             if not memory:
                 memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner.id})
 
-            # --- LÓGICA DE PAUSA Y REACTIVACIÓN ---
+            # --- LÓGICA DE PAUSA Y REACTIVACIÓN UNIFICADA ---
+            # Si el bot está en pausa, extendemos la pausa y no hacemos nada más.
             if memory.human_takeover and (not memory.takeover_until or memory.takeover_until > datetime.now()):
-                _logger.info(f"🤫 Chatbot en pausa para {partner.name} por intervención humana. Mensaje ignorado.")
+                _logger.info(f"🤫 Chatbot en pausa para {partner.name}. Mensaje ignorado. Pausa extendida.")
                 memory.sudo().write({'takeover_until': datetime.now() + timedelta(hours=1)})
                 continue
 
+            # Si la pausa ha expirado, reactivamos el bot para la siguiente interacción.
             if memory.human_takeover and memory.takeover_until and memory.takeover_until <= datetime.now():
                 _logger.info(f"🤖 Reactivando chatbot para {partner.name} por expiración de takeover.")
                 memory.sudo().write({'human_takeover': False, 'takeover_until': False})
             
-            # --- NUEVA LÓGICA DE ESTADO 'esperando_cotizacion' ---
-            if memory.flow_state == 'esperando_cotizacion':
-                _logger.info(f"🤫 Chatbot en pausa para {partner.name} porque está esperando cotización. Mensaje ignorado.")
-                continue
-
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name or 'desconocido'} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
 
@@ -85,12 +82,19 @@ class WhatsAppMessage(models.Model):
             b2c_tag_name = "Tipo de Cliente / Consumidor Final"
             is_b2c = partner.category_id and any(tag.name == b2c_tag_name for tag in partner.category_id)
 
+            # --- LÓGICA MEJORADA PARA USUARIO NO COTIZADO ---
             if not is_b2c and not is_cotizado(partner):
+                # La lógica de 'human_takeover' al principio de la función ya previene el spam.
+                # Si llegamos aquí, es porque el bot está activo. Enviamos el mensaje y lo pausamos.
                 _logger.info("🚫 Usuario B2B/Mayorista sin cotización. Notificando y pausando.")
                 _send_text(record, messages_config['onboarding_unquoted'])
-                # --- AQUÍ LA MAGIA ---
-                # Establecemos el nuevo estado para que no vuelva a responder
-                memory.write({'flow_state': 'esperando_cotizacion'})
+                
+                takeover_duration_hours = 1
+                memory.sudo().write({
+                    'human_takeover': True,
+                    'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours)
+                })
+                _logger.info(f"🤖 Chatbot pausado automáticamente por {takeover_duration_hours} hs para esperar al asesor.")
                 continue
 
             processor = ChatbotProcessor(self.env, record, partner, memory)
@@ -103,10 +107,6 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        """
-        Sobrecargamos el `create` de `mail.message` para detectar
-        cuando un humano responde en un canal de WhatsApp.
-        """
         bot_user_id = self.env.ref('base.user_admin').id
 
         for vals in vals_list:
@@ -124,10 +124,10 @@ class MailMessage(models.Model):
                         if memory:
                             takeover_duration_hours = 1
                             _logger.info(f"👤 Intervención humana detectada en canal de WhatsApp para {partner.name}. Pausando chatbot por {takeover_duration_hours} hs.")
+                            # Simplificamos: solo actualizamos la pausa y limpiamos el flujo por si acaso.
                             memory.sudo().write({
                                 'human_takeover': True,
                                 'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                                # Limpiamos el estado de 'esperando_cotizacion' si un humano interviene
                                 'flow_state': False
                             })
 
