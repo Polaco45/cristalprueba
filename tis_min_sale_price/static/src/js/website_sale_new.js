@@ -12,15 +12,17 @@ import wSaleUtils from "@website_sale/js/website_sale_utils";
         //order total
         // Create a temporary div to parse the HTML content
         var tempDiv = document.createElement('div');
-        tempDiv.innerHTML = data['website_sale.total'];
+        tempDiv.innerHTML = data['website_sale.total'] || '';
 
-        // Get the total amount from the strong element
-        var amountTotalTag = tempDiv.querySelector('strong.monetary_field.text-end.p-0').textContent.replace(/[^\d.-]/g, '');
+        var totalTagEl = tempDiv.querySelector('strong.monetary_field.text-end.p-0');
+        var amountTotalTag = totalTagEl ? totalTagEl.textContent.replace(/[^\d.-]/g, '') : '0.0';
         var order_total = parseFloat(amountTotalTag);
+
         var cartTotalSubtotalTd = tempDiv.querySelector('td#cart_total_subtotal');
-        var amountUntaxedSpan = cartTotalSubtotalTd.parentElement.querySelector('td#cart_total_subtotal + td .oe_currency_value');
-        var amount_untaxed_tag = amountUntaxedSpan.textContent.replace(/[^\d.-]/g, '');
+        var amountUntaxedSpan = cartTotalSubtotalTd?.parentElement?.querySelector('td#cart_total_subtotal + td .oe_currency_value');
+        var amount_untaxed_tag = amountUntaxedSpan ? amountUntaxedSpan.textContent.replace(/[^\d.-]/g, '') : '0.0';
         var amount_untaxed = parseFloat(amount_untaxed_tag);
+
         //min sale amount
         var myDivText = $('#min_sale_amt').text();
         var min_sale_amount = parseFloat(myDivText);

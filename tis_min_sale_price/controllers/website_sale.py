@@ -112,7 +112,8 @@ class WebsiteSaleInherit(WebsiteSale):
             keep_carrier = bool(int(post.get('keep_carrier', 0)))
             if carrier_id:
                 carrier_id = int(carrier_id)
-            order._check_carrier_quotation(force_carrier_id=carrier_id, keep_carrier=keep_carrier)
+            if hasattr(order, '_check_carrier_quotation'):
+                order._check_carrier_quotation(force_carrier_id=carrier_id, keep_carrier=keep_carrier)
             if carrier_id:
                 return request.redirect("/shop/payment")
 
