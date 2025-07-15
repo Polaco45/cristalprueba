@@ -106,6 +106,7 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # Si el bot está publicando en el canal, se añade un contexto. Ignoramos estos mensajes.
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
@@ -116,24 +117,19 @@ class MailMessage(models.Model):
             model = vals.get('model')
             res_id = vals.get('res_id')
 
+            # Nos aseguramos de que el autor no sea el propio bot
             if model == 'discuss.channel' and author_id and author_id != bot_partner_id:
                 channel = self.env['discuss.channel'].browse(res_id)
 
                 if channel.channel_type == 'whatsapp':
-                    # --- CORRECCIÓN CLAVE AQUÍ ---
-                    # Excluimos al bot, al usuario público Y al empleado que está escribiendo.
-                    # Lo que queda es, inequívocamente, el cliente.
-                    exclude_partner_ids = {
-                        bot_partner_id,
-                        self.env.ref('base.partner_root').id,
-                        author_id  # Excluimos al autor del mensaje (el empleado)
-                    }
-                    
+                    # --- LÓGICA CORREGIDA ---
+                    # Identificamos al cliente final excluyendo al empleado que escribe (author_id) y al bot.
                     end_user_partner = channel.channel_partner_ids.filtered(
-                        lambda p: p.id not in exclude_partner_ids
+                        lambda p: p.id not in (author_id, bot_partner_id, self.env.ref('base.partner_root').id)
                     )
                     
                     if end_user_partner:
+                        # En un canal de WhatsApp 1 a 1, solo debería quedar el cliente.
                         partner_to_pause = end_user_partner[0]
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
@@ -144,7 +140,7 @@ class MailMessage(models.Model):
                         
                         takeover_duration_hours = 1
                         human_author_name = self.env['res.partner'].browse(author_id).name
-                        _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
+                        _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para el cliente '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
                         memory.sudo().write({
                             'human_takeover': True,
                             'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
