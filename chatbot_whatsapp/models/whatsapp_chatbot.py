@@ -35,20 +35,25 @@ class WhatsAppMessage(models.Model):
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
 
             memory = self.env['chatbot.whatsapp.memory'].sudo().search([('partner_id', '=', partner.id)], limit=1)
-
             if not memory:
                 memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner.id})
 
             # --- LÓGICA DE PAUSA Y REACTIVACIÓN ---
-            if memory.human_takeover and (not memory.takeover_until or memory.takeover_until > datetime.now()):
+            now = datetime.now()
+
+            # Si está en pausa y aún no venció el takeover
+            if memory.human_takeover and memory.takeover_until and memory.takeover_until > now:
                 _logger.info(f"🤫 Chatbot en pausa para {partner.name} por intervención humana. Mensaje ignorado.")
-                memory.sudo().write({'takeover_until': datetime.now() + timedelta(hours=1)})
                 continue
 
-            if memory.human_takeover and memory.takeover_until and memory.takeover_until <= datetime.now():
-                _logger.info(f"🤖 Reactivando chatbot para {partner.name} por expiración de takeover.")
-                memory.sudo().write({'human_takeover': False, 'takeover_until': False})
-            
+            # Si estaba en pausa pero el takeover expiró → reactivar
+            if memory.human_takeover and memory.takeover_until and memory.takeover_until <= now:
+                _logger.info(f"🔁 Reactivando chatbot para {partner.name}, takeover vencido.")
+                memory.sudo().write({
+                    'human_takeover': False,
+                    'takeover_until': False
+                })
+
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name or 'desconocido'} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
 
@@ -84,7 +89,7 @@ class WhatsAppMessage(models.Model):
                 if not memory.human_takeover:
                     _logger.info("🚫 Usuario B2B/Mayorista sin cotización. Notificando y pausando.")
                     _send_text(record, messages_config['onboarding_unquoted'])
-                    
+
                     takeover_duration_hours = 1
                     memory.sudo().write({
                         'human_takeover': True,
@@ -93,7 +98,6 @@ class WhatsAppMessage(models.Model):
                     _logger.info(f"🤖 Chatbot pausado automáticamente por {takeover_duration_hours} hs para esperar al asesor.")
                 else:
                     _logger.info(f"🤫 Chatbot ya está en pausa para {partner.name}, ignorando mensaje recurrente de usuario no cotizado.")
-                
                 continue
 
             processor = ChatbotProcessor(self.env, record, partner, memory)
@@ -101,40 +105,36 @@ class WhatsAppMessage(models.Model):
 
         return records
 
+
 class MailMessage(models.Model):
     _inherit = 'mail.message'
 
     @api.model_create_multi
     def create(self, vals_list):
+        # Si el bot está publicando en el canal, se añade un contexto. Ignoramos estos mensajes.
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
         bot_partner_id = self.env.ref('base.user_admin').partner_id.id
 
         for vals in vals_list:
+            # Solo nos interesan los mensajes en 'discuss.channel' de un autor real
             author_id = vals.get('author_id')
             model = vals.get('model')
             res_id = vals.get('res_id')
 
+            # Nos aseguramos de que el autor no sea el propio bot
             if model == 'discuss.channel' and author_id and author_id != bot_partner_id:
                 channel = self.env['discuss.channel'].browse(res_id)
 
                 if channel.channel_type == 'whatsapp':
-                    # --- INICIO DE LA CORRECCIÓN ---
-                    # 1. Obtenemos los partners de todos los usuarios internos del sistema.
-                    internal_user_partners = self.env['res.users'].search([('share', '=', False)]).partner_id
-                    
-                    # 2. Creamos una lista de IDs a excluir: usuarios internos, el bot y el usuario público.
-                    exclude_ids = internal_user_partners.ids + [bot_partner_id, self.env.ref('base.partner_root').id]
-                    
-                    # 3. Filtramos los miembros del canal para encontrar al que NO está en la lista de exclusión.
-                    #    Ese es nuestro cliente final.
+                    # Identificamos al cliente final en el canal, excluyendo al bot y al usuario público
                     end_user_partner = channel.channel_partner_ids.filtered(
-                        lambda p: p.id not in exclude_ids
+                        lambda p: p.id not in (bot_partner_id, self.env.ref('base.partner_root').id)
                     )
-                    # --- FIN DE LA CORRECCIÓN ---
                     
                     if end_user_partner:
+                        # En un canal de WhatsApp, solo debería haber un cliente final.
                         partner_to_pause = end_user_partner[0]
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
@@ -143,11 +143,11 @@ class MailMessage(models.Model):
                         if memory:
                             takeover_duration_hours = 1
                             human_author_name = self.env['res.partner'].browse(author_id).name
-                            _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para el cliente '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
+                            _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
                             memory.sudo().write({
                                 'human_takeover': True,
                                 'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                                'flow_state': False
+                                'flow_state': False  # Limpiamos cualquier flujo anterior
                             })
 
         return super().create(vals_list)
