@@ -113,51 +113,45 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Ignorar mensajes del bot
+        # Ignorar mensajes generados por el bot
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
         bot_pid = self.env.ref('base.user_admin').partner_id.id
-        public_pid = self.env.ref('base.partner_root').id
 
         for vals in vals_list:
             author = vals.get('author_id')
             model = vals.get('model')
-            res_id = vals.get('res_id')
 
+            # Solo consideramos intervenciones en canales de tipo WhatsApp
             if model == 'discuss.channel' and author and author != bot_pid:
-                channel = self.env['discuss.channel'].browse(res_id)
-                if channel.channel_type == 'whatsapp':
-                    # ------ NUEVA LÓGICA AQUI ------
-                    # 1) Encontrar el último whatsapp.message INBOUND en este canal
-                    last_msg = self.env['whatsapp.message'].sudo().search([
-                        ('channel_id', '=', channel.id),
-                        ('state', 'inbound')
-                    ], order='create_date desc', limit=1)
+                # 1) Buscamos el último whatsapp.message entrante (inbound)
+                last_msg = self.env['whatsapp.message'].sudo().search([
+                    ('state', '=', 'inbound')
+                ], order='create_date desc', limit=1)
 
-                    if last_msg and last_msg.mobile_number:
-                        # 2) Normalizar y buscar partner por ese número
-                        phone = normalize_phone(last_msg.mobile_number)
-                        partner = self.env['res.partner'].sudo().search([
-                            '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
+                if last_msg and last_msg.mobile_number:
+                    # 2) Normalizamos el número y buscamos el partner
+                    phone = normalize_phone(last_msg.mobile_number)
+                    partner = self.env['res.partner'].sudo().search([
+                        '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
+                    ], limit=1)
+                    if partner:
+                        # 3) Pausamos la memoria de ese partner
+                        memory = self.env['chatbot.whatsapp.memory'].sudo().search([
+                            ('partner_id', '=', partner.id)
                         ], limit=1)
-                        if partner:
-                            memory = self.env['chatbot.whatsapp.memory'].sudo().search([
-                                ('partner_id', '=', partner.id)
-                            ], limit=1)
-                            if memory:
-                                # 3) Pausar el chatbot para ese partner
-                                takeover_h = 1
-                                human_name = self.env['res.partner'].browse(author).name
-                                _logger.info(
-                                    f"👤 Intervención humana de '{human_name}'. "
-                                    f"Pausando chatbot para '{partner.name}' por {takeover_h} hs."
-                                )
-                                memory.sudo().write({
-                                    'human_takeover': True,
-                                    'takeover_until': datetime.now() + timedelta(hours=takeover_h),
-                                    'flow_state': False,
-                                })
-                    # ------------------------------
+                        if memory:
+                            takeover_hours = 1
+                            human_name = self.env['res.partner'].browse(author).name
+                            _logger.info(
+                                f"👤 Intervención humana de '{human_name}'. "
+                                f"Pausando chatbot para '{partner.name}' por {takeover_hours} hs."
+                            )
+                            memory.sudo().write({
+                                'human_takeover': True,
+                                'takeover_until': datetime.now() + timedelta(hours=takeover_hours),
+                                'flow_state': False,
+                            })
 
         return super().create(vals_list)
