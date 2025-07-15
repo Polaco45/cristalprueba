@@ -102,9 +102,10 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, messages_config['onboarding_unquoted'])
                     memory.sudo().write({
                         'human_takeover': True,
-                        'takeover_until': now + timedelta(hours=1)
+                        # CAMBIO A 1 MINUTO
+                        'takeover_until': now + timedelta(minutes=1)
                     })
-                    _logger.info(f"🤖 Chatbot pausado automáticamente por 1 hs para esperar al asesor.")
+                    _logger.info("🤖 Chatbot pausado automáticamente por 1 minuto para esperar al asesor.")
                 else:
                     _logger.info(f"🤫 Chatbot ya está en pausa para {partner.name}, ignorando mensaje.")
                 continue
@@ -135,7 +136,7 @@ class MailMessage(models.Model):
             # Continuar solo si es un mensaje en un canal de Odoo de un autor real
             if not (model == 'discuss.channel' and author_id and res_id):
                 continue
-            
+
             author_partner = self.env['res.partner'].browse(author_id)
             if author_partner.id == bot_partner_id:
                 continue
@@ -144,12 +145,11 @@ class MailMessage(models.Model):
             if author_partner.user_ids:
                 channel = self.env['discuss.channel'].browse(res_id)
                 if channel.channel_type == 'whatsapp':
-                    
+
                     partner_to_pause = self.env['res.partner']
-                    
+
                     # --- LÓGICA MEJORADA ---
                     # MÉTODO 1 (Principal y más fiable): Buscar al cliente por el número de WhatsApp asociado al canal.
-                    # La mayoría de los conectores de WhatsApp guardan el número del cliente en el propio canal.
                     if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
                         customer_phone = normalize_phone(channel.whatsapp_number)
                         if customer_phone:
@@ -173,14 +173,15 @@ class MailMessage(models.Model):
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
                         if memory and not memory.human_takeover:
-                            takeover_duration = 1  # horas
+                            # CAMBIO A 1 MINUTO
+                            takeover_duration_minutes = 1
                             _logger.info(
                                 f"👤 Intervención humana de '{author_partner.name}' detectada. "
-                                f"Pausando chatbot para el cliente '{partner_to_pause.name}' por {takeover_duration} hs."
+                                f"Pausando chatbot para el cliente '{partner_to_pause.name}' por {takeover_duration_minutes} minuto(s)."
                             )
                             memory.sudo().write({
                                 'human_takeover': True,
-                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration),
+                                'takeover_until': datetime.now() + timedelta(minutes=takeover_duration_minutes),
                                 'flow_state': False, # Reiniciar el flujo del chatbot
                             })
                         elif memory:
