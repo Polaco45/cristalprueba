@@ -126,7 +126,6 @@ class MailMessage(models.Model):
             return super().create(vals_list)
 
         bot_partner_id = self.env.ref('base.user_admin').partner_id.id
-        public_partner_id = self.env.ref('base.partner_root').id
 
         for vals in vals_list:
             author_id = vals.get('author_id')
@@ -136,35 +135,40 @@ class MailMessage(models.Model):
             # Continuar solo si es un mensaje en un canal de Odoo de un autor real
             if not (model == 'discuss.channel' and author_id and res_id):
                 continue
-
-            # Obtener el autor y verificar que no sea el propio bot
+            
             author_partner = self.env['res.partner'].browse(author_id)
             if author_partner.id == bot_partner_id:
                 continue
 
-            # Verificar si el mensaje es de un empleado (usuario interno) en un canal de WhatsApp
-            is_internal_user = any(user.has_group('base.group_user') for user in author_partner.user_ids)
-
-            if is_internal_user:
+            # La intervención humana solo ocurre cuando un empleado (usuario interno) escribe.
+            if author_partner.user_ids:
                 channel = self.env['discuss.channel'].browse(res_id)
                 if channel.channel_type == 'whatsapp':
-
-                    # --- LÓGICA MEJORADA ---
-                    # 1. Identificar a TODOS los partners del canal que son empleados (usuarios internos).
-                    all_partners_in_channel = channel.channel_partner_ids
-                    employee_partners = all_partners_in_channel.filtered(
-                        lambda p: any(user.has_group('base.group_user') for user in p.user_ids)
-                    )
-                    employee_partner_ids = employee_partners.ids
-
-                    # 2. El cliente es el partner que NO es un empleado y tampoco es el bot o el usuario público.
-                    customer_partner = all_partners_in_channel.filtered(
-                        lambda p: p.id not in employee_partner_ids and p.id not in (bot_partner_id, public_partner_id)
-                    )
                     
-                    # 3. Si encontramos un único cliente, pausamos el bot para él.
-                    if len(customer_partner) == 1:
-                        partner_to_pause = customer_partner
+                    partner_to_pause = self.env['res.partner']
+                    
+                    # --- LÓGICA MEJORADA ---
+                    # MÉTODO 1 (Principal y más fiable): Buscar al cliente por el número de WhatsApp asociado al canal.
+                    # La mayoría de los conectores de WhatsApp guardan el número del cliente en el propio canal.
+                    if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
+                        customer_phone = normalize_phone(channel.whatsapp_number)
+                        if customer_phone:
+                            partner_to_pause = self.env['res.partner'].sudo().search([
+                                '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
+                            ], limit=1)
+                            _logger.info(f"Cliente identificado por número de canal WA: {customer_phone} -> {partner_to_pause.name}")
+
+                    # MÉTODO 2 (Respaldo): Si el método 1 falla, intentar la lógica anterior de miembros del canal.
+                    if not partner_to_pause:
+                        _logger.info("No se encontró cliente por número de canal, intentando por miembros del canal.")
+                        customer_partners = channel.channel_partner_ids.filtered(
+                            lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
+                        )
+                        if len(customer_partners) == 1:
+                            partner_to_pause = customer_partners
+
+                    # Si encontramos un cliente por cualquiera de los dos métodos, pausamos el bot para él.
+                    if partner_to_pause:
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
@@ -177,12 +181,17 @@ class MailMessage(models.Model):
                             memory.sudo().write({
                                 'human_takeover': True,
                                 'takeover_until': datetime.now() + timedelta(hours=takeover_duration),
-                                'flow_state': False,  # Reiniciar el flujo del chatbot
+                                'flow_state': False, # Reiniciar el flujo del chatbot
                             })
+                        elif memory:
+                             _logger.info(f"Intervención humana detectada, pero el chatbot para '{partner_to_pause.name}' ya estaba en pausa.")
+                        else:
+                            _logger.info(f"Cliente '{partner_to_pause.name}' no tiene memoria de chatbot para pausar.")
                     else:
+                        # Si ninguno de los dos métodos funcionó, registramos el fallo.
                         _logger.warning(
                             f"Intervención humana de '{author_partner.name}' en canal WA {channel.id}, "
-                            f"pero no se pudo identificar un único partner cliente para pausar. Se encontraron {len(customer_partner)}."
+                            f"pero NO se pudo identificar al partner cliente para pausar (ni por número ni por miembros)."
                         )
 
         return super(MailMessage, self).create(vals_list)
