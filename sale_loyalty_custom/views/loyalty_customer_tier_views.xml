@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <!-- Loyalty Customer Tier list view -->
+
+    <record model="ir.ui.view" id="loyalty_customer_tier_list_view">
+      <field name="name">sale_loyalty_loyalty_customer_tier list</field>
+      <field name="model">loyalty.customer.tier</field>
+      <field name="arch" type="xml">
+        <list>
+          <field name="name"/>
+        </list>
+      </field>
+    </record>
+
+    <record model="ir.ui.view" id="loyalty_customer_tier_form_view">
+      <field name="name">sale_loyalty_loyalty_customer_tier list</field>
+      <field name="model">loyalty.customer.tier</field>
+      <field name="arch" type="xml">
+        <form>
+        <sheet>
+            <div class="oe_button_box" name="button_box">
+                    <button name="action_view_linked_partners"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-users"
+                        invisible="customer_count == 0">
+                        <field name="customer_count" widget="statinfo" string="Customers"/>
+                    </button>
+                </div>
+            <group>
+                <field name="name"/>
+                <field name="description"/>
+            </group>
+        </sheet>
+            
+        </form>
+      </field>
+    </record>
+
+    <!-- actions opening views on models -->
+
+    <record model="ir.actions.act_window" id="loyalty_customer_tier_action_window">
+      <field name="name">Loyalty Customer Tier</field>
+      <field name="res_model">loyalty.customer.tier</field>
+      <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem 
+        id="loyalty_customer_tier_menu" 
+        name="Loyalty Customer Tier" 
+        sequence="99" 
+        action="loyalty_customer_tier_action_window" 
+        parent="sale.sale_order_menu"
+        />
+
+  </data>
+</odoo>

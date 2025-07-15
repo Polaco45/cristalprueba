@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <template id="ew_modify_code_form_inherit" inherit_id="website_sale_loyalty.modify_code_form" name="Loyalty, coupon, gift card">
+            <xpath expr="//div[@id='cart_total']//table/tr[@class='oe_website_sale_gift_card']/td/span" position="inside">
+                <t t-if="website_sale_order.get_loyalty_code_error(delete=False)">
+                    <div class="alert alert-warning text-start alert-dismissible fade show">
+                        <strong>Warning!</strong> <t t-esc="website_sale_order.get_loyalty_code_error(delete=True)"/>
+                        <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+                    </div>
+                </t>
+                <t t-if="website_sale_order.get_shipping_code_error(delete=False)">
+                    <div class="alert alert-warning text-start alert-dismissible fade show">
+                        <strong>Warning!</strong> <t t-esc="website_sale_order.get_shipping_code_error(delete=True)"/>
+                        <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+                    </div>
+                </t>
+            </xpath>
+        </template>
+    
+    </data>
+</odoo>

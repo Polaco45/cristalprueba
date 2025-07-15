@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <record id="ew_sale_loyalty_custom_loyalty_program_form" model="ir.ui.view">
+        <field name="name">ew.loyalty.program.form</field>
+        <field name="model">loyalty.program</field>
+        <field name="inherit_id" ref="loyalty.loyalty_program_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='portal_point_name']" position="after">
+                <field
+                    name="ew_rule_partners_domain"
+                    widget="domain"
+                    options="{'model': 'res.partner', 'in_dialog': true}"
+                />
+            </xpath>
+            <xpath expr="//field[@name='available_on']" position="after">
+                <field name="is_one_use_per_customer"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
