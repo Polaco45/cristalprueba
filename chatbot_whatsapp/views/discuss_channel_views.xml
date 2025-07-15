@@ -1,16 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data>
-        <record id="view_discuss_channel_form_chatbot_inherit" model="ir.ui.view">
-            <field name="name">discuss.channel.form.chatbot.inherit</field>
-            <field name="model">discuss.channel</field>
-            <field name="priority">99</field> <field name="arch" type="xml">
-                <xpath expr="//form/sheet" position="before">
-                    <header>
-                        <div id="chatbot_toggle_container" class="o_thread_header_button"/>
-                    </header>
-                </xpath>
-            </field>
-        </record>
-    </data>
+  <data>
+    <record id="view_discuss_channel_form_chatbot_inherit" model="ir.ui.view">
+      <field name="name">discuss.channel.form.chatbot.inherit</field>
+      <field name="model">discuss.channel</field>
+      <!-- Indicar explícitamente que es una vista de formulario -->
+      <field name="type">form</field>
+      <field name="priority">99</field>
+      <field name="arch" type="xml">
+        <xpath expr="//form/sheet" position="before">
+          <header>
+            <div id="chatbot_toggle_container" class="o_thread_header_button"/>
+          </header>
+        </xpath>
+      </field>
+    </record>
+  </data>
 </odoo>
