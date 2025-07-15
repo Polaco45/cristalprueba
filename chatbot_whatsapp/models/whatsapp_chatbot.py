@@ -102,7 +102,6 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, messages_config['onboarding_unquoted'])
                     memory.sudo().write({
                         'human_takeover': True,
-                        # CAMBIO A 1 MINUTO
                         'takeover_until': now + timedelta(minutes=1)
                     })
                     _logger.info("🤖 Chatbot pausado automáticamente por 1 minuto para esperar al asesor.")
@@ -133,7 +132,6 @@ class MailMessage(models.Model):
             model = vals.get('model')
             res_id = vals.get('res_id')
 
-            # Continuar solo si es un mensaje en un canal de Odoo de un autor real
             if not (model == 'discuss.channel' and author_id and res_id):
                 continue
 
@@ -141,15 +139,11 @@ class MailMessage(models.Model):
             if author_partner.id == bot_partner_id:
                 continue
 
-            # La intervención humana solo ocurre cuando un empleado (usuario interno) escribe.
             if author_partner.user_ids:
                 channel = self.env['discuss.channel'].browse(res_id)
                 if channel.channel_type == 'whatsapp':
-
                     partner_to_pause = self.env['res.partner']
 
-                    # --- LÓGICA MEJORADA ---
-                    # MÉTODO 1 (Principal y más fiable): Buscar al cliente por el número de WhatsApp asociado al canal.
                     if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
                         customer_phone = normalize_phone(channel.whatsapp_number)
                         if customer_phone:
@@ -158,7 +152,6 @@ class MailMessage(models.Model):
                             ], limit=1)
                             _logger.info(f"Cliente identificado por número de canal WA: {customer_phone} -> {partner_to_pause.name}")
 
-                    # MÉTODO 2 (Respaldo): Si el método 1 falla, intentar la lógica anterior de miembros del canal.
                     if not partner_to_pause:
                         _logger.info("No se encontró cliente por número de canal, intentando por miembros del canal.")
                         customer_partners = channel.channel_partner_ids.filtered(
@@ -167,32 +160,35 @@ class MailMessage(models.Model):
                         if len(customer_partners) == 1:
                             partner_to_pause = customer_partners
 
-                    # Si encontramos un cliente por cualquiera de los dos métodos, pausamos el bot para él.
+                    # --- LÓGICA CORREGIDA PARA REINICIAR LA PAUSA ---
                     if partner_to_pause:
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
-                        if memory and not memory.human_takeover:
-                            # CAMBIO A 1 MINUTO
+                        # Si el cliente tiene una memoria de chatbot, pausamos o reiniciamos la pausa.
+                        # No importa si ya estaba en pausa, cada mensaje del empleado reinicia el contador.
+                        if memory:
                             takeover_duration_minutes = 1
+                            log_action = "Pausando"
+                            if memory.human_takeover:
+                                log_action = "Reiniciando pausa para"
+
                             _logger.info(
                                 f"👤 Intervención humana de '{author_partner.name}' detectada. "
-                                f"Pausando chatbot para el cliente '{partner_to_pause.name}' por {takeover_duration_minutes} minuto(s)."
+                                f"{log_action} chatbot del cliente '{partner_to_pause.name}' por {takeover_duration_minutes} minuto(s)."
                             )
+                            # Escribimos en la base de datos para pausar/reiniciar.
                             memory.sudo().write({
                                 'human_takeover': True,
                                 'takeover_until': datetime.now() + timedelta(minutes=takeover_duration_minutes),
                                 'flow_state': False, # Reiniciar el flujo del chatbot
                             })
-                        elif memory:
-                             _logger.info(f"Intervención humana detectada, pero el chatbot para '{partner_to_pause.name}' ya estaba en pausa.")
                         else:
                             _logger.info(f"Cliente '{partner_to_pause.name}' no tiene memoria de chatbot para pausar.")
                     else:
-                        # Si ninguno de los dos métodos funcionó, registramos el fallo.
                         _logger.warning(
                             f"Intervención humana de '{author_partner.name}' en canal WA {channel.id}, "
-                            f"pero NO se pudo identificar al partner cliente para pausar (ni por número ni por miembros)."
+                            f"pero NO se pudo identificar al partner cliente para pausar."
                         )
 
         return super(MailMessage, self).create(vals_list)
