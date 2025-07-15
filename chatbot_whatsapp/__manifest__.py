@@ -1,3 +1,4 @@
+# chatbot_whatsapp/__manifest__.py
 {
     'name': "Chatbot WhatsApp",
     'version': '1.0',
@@ -16,14 +17,17 @@
         'mail',
         'sale',
         'account',
-        'whatsapp'  # Asegurate que es el nombre técnico correcto del módulo de WhatsApp
+        'whatsapp',
     ],
     'data': [
-        'security/ir.model.access.csv',# XMLs si agregás vistas, acciones, parámetros de sistema, etc.
+        'security/ir.model.access.csv',
         'data/cron_jobs.xml',
+        'views/discuss_channel_views.xml',
     ],
     'assets': {
-        
+        'web.assets_backend': [
+            'static/src/js/chatbot_toggle_button.js',
+        ],
     },
     'installable': True,
     'application': False,

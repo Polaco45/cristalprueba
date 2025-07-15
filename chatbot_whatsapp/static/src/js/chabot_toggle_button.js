@@ -1,11 +1,11 @@
-odoo.define('tu_modulo.ChatbotToggleButton', function (require) {
+odoo.define('chatbot_whatsapp.ChatbotToggleButton', function (require) { // <-- CAMBIO AQUÍ
     "use strict";
 
     const FormController = require('web.FormController');
     const rpc = require('web.rpc');
     const { patch } = require('web.utils');
 
-    patch(FormController.prototype, 'tu_modulo.ChatbotToggleButtonPatch', {
+    patch(FormController.prototype, 'chatbot_whatsapp.ChatbotToggleButtonPatch', { // <-- Y AQUÍ
         /**
          * Sobrescribimos el método _update para que se ejecute cada vez que la vista se actualiza.
          */
@@ -13,7 +13,7 @@ odoo.define('tu_modulo.ChatbotToggleButton', function (require) {
             await this._super.apply(this, arguments);
 
             // Solo actuamos en el modelo 'discuss.channel' y si es de tipo whatsapp
-            if (this.modelName !== 'discuss.channel' || this.renderer.state.data.channel_type !== 'whatsapp') {
+            if (this.modelName !== 'discuss.channel' || !this.renderer.state.data.channel_type || this.renderer.state.data.channel_type !== 'whatsapp') {
                 return;
             }
 
