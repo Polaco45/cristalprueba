@@ -7,7 +7,7 @@
             <field name="inherit_id" ref="mail.view_discuss_channel_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//header" position="inside">
-                     <div id="chatbot_toggle_container" class="o_thread_header_button" t-if="context.get('active_model') == 'discuss.channel'">
+                    <div id="chatbot_toggle_container" class="o_thread_header_button" t-if="context.get('active_model') == 'discuss.channel'">
                     </div>
                 </xpath>
             </field>

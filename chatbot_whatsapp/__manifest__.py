@@ -15,9 +15,10 @@
     'depends': [
         'base',
         'mail',
+        'discuss',
         'sale',
         'account',
-        'whatsapp',
+        'whatsapp'
     ],
     'data': [
         'security/ir.model.access.csv',
@@ -26,7 +27,7 @@
     ],
     'assets': {
         'web.assets_backend': [
-            'static/src/js/chatbot_toggle_button.js',
+            '/chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
         ],
     },
     'installable': True,
