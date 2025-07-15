@@ -102,9 +102,10 @@ class WhatsAppMessage(models.Model):
                     _send_text(record, messages_config['onboarding_unquoted'])
                     memory.sudo().write({
                         'human_takeover': True,
-                        'takeover_until': now + timedelta(minutes=1)
+                        # CAMBIO A 1 HORA
+                        'takeover_until': now + timedelta(hours=1)
                     })
-                    _logger.info("🤖 Chatbot pausado automáticamente por 1 minuto para esperar al asesor.")
+                    _logger.info("🤖 Chatbot pausado automáticamente por 1 hora para esperar al asesor.")
                 else:
                     _logger.info(f"🤫 Chatbot ya está en pausa para {partner.name}, ignorando mensaje.")
                 continue
@@ -159,29 +160,26 @@ class MailMessage(models.Model):
                         )
                         if len(customer_partners) == 1:
                             partner_to_pause = customer_partners
-
-                    # --- LÓGICA CORREGIDA PARA REINICIAR LA PAUSA ---
+                            
                     if partner_to_pause:
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
-                        # Si el cliente tiene una memoria de chatbot, pausamos o reiniciamos la pausa.
-                        # No importa si ya estaba en pausa, cada mensaje del empleado reinicia el contador.
                         if memory:
-                            takeover_duration_minutes = 1
+                            # CAMBIO A 1 HORA
+                            takeover_duration_hours = 1
                             log_action = "Pausando"
                             if memory.human_takeover:
                                 log_action = "Reiniciando pausa para"
 
                             _logger.info(
                                 f"👤 Intervención humana de '{author_partner.name}' detectada. "
-                                f"{log_action} chatbot del cliente '{partner_to_pause.name}' por {takeover_duration_minutes} minuto(s)."
+                                f"{log_action} chatbot del cliente '{partner_to_pause.name}' por {takeover_duration_hours} hora(s)."
                             )
-                            # Escribimos en la base de datos para pausar/reiniciar.
                             memory.sudo().write({
                                 'human_takeover': True,
-                                'takeover_until': datetime.now() + timedelta(minutes=takeover_duration_minutes),
-                                'flow_state': False, # Reiniciar el flujo del chatbot
+                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
+                                'flow_state': False,
                             })
                         else:
                             _logger.info(f"Cliente '{partner_to_pause.name}' no tiene memoria de chatbot para pausar.")
