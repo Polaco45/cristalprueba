@@ -85,6 +85,8 @@
 - Cuando ofrezca variantes de un producto, diga que si no le mostramos la que queria, puede buscarla en la web.
 
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
+    * Timer
+    * Boton
 
 * QA, ROMPER COSAS y DETALLES
 
