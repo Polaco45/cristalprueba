@@ -111,13 +111,11 @@ class WhatsAppMessage(models.Model):
 
         return records
 
-
 class MailMessage(models.Model):
     _inherit = 'mail.message'
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Ignorar mensajes enviados por el bot mismo
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
@@ -132,24 +130,29 @@ class MailMessage(models.Model):
             if model == 'discuss.channel' and author_id and author_id != bot_partner_id:
                 channel = self.env['discuss.channel'].browse(res_id)
                 if channel.channel_type == 'whatsapp':
-                    # Excluimos al bot, al usuario público y al autor humano
-                    author_partner = self.env['res.partner'].browse(author_id)
+                    # Filtrar partners que no sean ni bot ni público
                     end_users = channel.channel_partner_ids.filtered(
-                        lambda p: p.id not in (bot_partner_id, public_partner_id, author_partner.id)
+                        lambda p: p.id not in (bot_partner_id, public_partner_id)
                     )
-                    if end_users:
-                        partner_to_pause = end_users[0]
+                    # Queremos pausar el chatbot para el cliente, no para el empleado
+                    # Suponemos que el cliente es el que NO escribió el mensaje (author_id)
+                    partner_to_pause = end_users.filtered(lambda p: p.id != author_id)
+                    if not partner_to_pause and end_users:
+                        # Si no encontramos otro partner, pausamos al que escribió (fallback)
+                        partner_to_pause = end_users
+
+                    if partner_to_pause:
+                        partner_to_pause = partner_to_pause[0]
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
                         if memory:
-                            _logger.info(
-                                f"👤 Intervención humana de '{author_partner.name}' detectada. "
-                                f"Pausando chatbot para '{partner_to_pause.name}' por 1 hs."
-                            )
+                            takeover_duration_hours = 1
+                            human_author_name = self.env['res.partner'].browse(author_id).name
+                            _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
                             memory.sudo().write({
                                 'human_takeover': True,
-                                'takeover_until': datetime.now() + timedelta(hours=1),
+                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
                                 'flow_state': False
                             })
 
