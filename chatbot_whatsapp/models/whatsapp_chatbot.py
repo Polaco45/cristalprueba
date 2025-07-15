@@ -1,3 +1,4 @@
+# whatsapp_chatbot.py
 from odoo import models, api
 from ..utils.utils import clean_html, normalize_phone, is_cotizado
 from .onboarding import WhatsAppOnboardingHandler
@@ -27,39 +28,47 @@ class WhatsAppMessage(models.Model):
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
-
             if not partner:
                 partner = self.env['res.partner'].sudo().create({
                     'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone
                 })
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
 
-            memory = self.env['chatbot.whatsapp.memory'].sudo().search([('partner_id', '=', partner.id)], limit=1)
+            memory = self.env['chatbot.whatsapp.memory'].sudo().search(
+                [('partner_id', '=', partner.id)], limit=1)
             if not memory:
-                memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner.id})
+                memory = self.env['chatbot.whatsapp.memory'].sudo().create({
+                    'partner_id': partner.id
+                })
 
             # --- LÓGICA DE PAUSA Y REACTIVACIÓN ---
             now = datetime.now()
 
-            # Si está en pausa y aún no venció el takeover
+            # 1) Si está en takeover y aún no venció → ignorar
             if memory.human_takeover and memory.takeover_until and memory.takeover_until > now:
-                _logger.info(f"🤫 Chatbot en pausa para {partner.name} por intervención humana. Mensaje ignorado.")
+                _logger.info(
+                    f"🤫 Chatbot en pausa para {partner.name} por intervención humana. Mensaje ignorado."
+                )
                 continue
 
-            # Si estaba en pausa pero el takeover expiró → reactivar
+            # 2) Si estaba en takeover pero ya expiró → reactivar
             if memory.human_takeover and memory.takeover_until and memory.takeover_until <= now:
-                _logger.info(f"🔁 Reactivando chatbot para {partner.name}, takeover vencido.")
+                _logger.info(
+                    f"🔁 Reactivando chatbot para {partner.name}, takeover vencido."
+                )
                 memory.sudo().write({
                     'human_takeover': False,
                     'takeover_until': False
                 })
 
-            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name or 'desconocido'} ({phone})")
-            _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
+            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name} ({phone})")
+            _logger.info(
+                f"🧠 Memoria activa: flow={memory.flow_state}, "
+                f"intent={memory.last_intent_detected}, cart={memory.pending_order_lines}"
+            )
 
             def _send_text(to_record, text_to_send):
                 bot_user_id = self.env.ref('base.user_admin').id
-                _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
                 vals = {
                     'mobile_number': to_record.mobile_number,
                     'body': text_to_send,
@@ -73,8 +82,8 @@ class WhatsAppMessage(models.Model):
                     outgoing_msg._send_message()
                 _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
 
-            onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
-            handled, response_msg = onboarding_handler.process_onboarding_flow(
+            # Onboarding
+            handled, response_msg = WhatsAppOnboardingHandler.process_onboarding_flow(
                 self.env, record, phone, plain, self.env['chatbot.whatsapp.memory'].sudo()
             )
             if handled:
@@ -82,24 +91,32 @@ class WhatsAppMessage(models.Model):
                 _send_text(record, response_msg)
                 continue
 
+            # Verificación B2C / cotización
             b2c_tag_name = "Tipo de Cliente / Consumidor Final"
-            is_b2c = partner.category_id and any(tag.name == b2c_tag_name for tag in partner.category_id)
+            is_b2c = partner.category_id and any(
+                tag.name == b2c_tag_name for tag in partner.category_id
+            )
 
             if not is_b2c and not is_cotizado(partner):
                 if not memory.human_takeover:
-                    _logger.info("🚫 Usuario B2B/Mayorista sin cotización. Notificando y pausando.")
+                    _logger.info(
+                        "🚫 Usuario B2B/Mayorista sin cotización. Notificando y pausando."
+                    )
                     _send_text(record, messages_config['onboarding_unquoted'])
-
-                    takeover_duration_hours = 1
                     memory.sudo().write({
                         'human_takeover': True,
-                        'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours)
+                        'takeover_until': now + timedelta(hours=1)
                     })
-                    _logger.info(f"🤖 Chatbot pausado automáticamente por {takeover_duration_hours} hs para esperar al asesor.")
+                    _logger.info(
+                        "🤖 Chatbot pausado automáticamente por 1 hs para esperar al asesor."
+                    )
                 else:
-                    _logger.info(f"🤫 Chatbot ya está en pausa para {partner.name}, ignorando mensaje recurrente de usuario no cotizado.")
+                    _logger.info(
+                        f"🤫 Chatbot ya está en pausa para {partner.name}, ignorando mensaje."
+                    )
                 continue
 
+            # Procesamiento normal de mensaje
             processor = ChatbotProcessor(self.env, record, partner, memory)
             processor.process_message()
 
@@ -111,10 +128,12 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # Ignorar mensajes del bot mismo
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
         bot_partner_id = self.env.ref('base.user_admin').partner_id.id
+        root_partner_id = self.env.ref('base.partner_root').id
 
         for vals in vals_list:
             author_id = vals.get('author_id')
@@ -123,30 +142,26 @@ class MailMessage(models.Model):
 
             if model == 'discuss.channel' and author_id and author_id != bot_partner_id:
                 channel = self.env['discuss.channel'].browse(res_id)
-
                 if channel.channel_type == 'whatsapp':
-                    end_user_partner = channel.channel_partner_ids.filtered(
-                        lambda p: p.id not in (
-                            bot_partner_id,
-                            self.env.ref('base.partner_root').id,
-                            author_id  # excluímos al humano que escribió
-                        )
+                    # EXCLUIMOS al bot, al root y al propio autor humano
+                    candidates = channel.channel_partner_ids.filtered(
+                        lambda p: p.id not in (bot_partner_id, root_partner_id, author_id)
                     )
-
-                    if end_user_partner:
-                        partner_to_pause = end_user_partner[0]
+                    if candidates:
+                        partner_to_pause = candidates[0]
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
-
                         if memory:
-                            takeover_duration_hours = 1
-                            human_author_name = self.env['res.partner'].browse(author_id).name
-                            _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
                             memory.sudo().write({
                                 'human_takeover': True,
-                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                                'flow_state': False
+                                'takeover_until': datetime.now() + timedelta(hours=1),
+                                'flow_state': False,
                             })
+                            human_name = self.env['res.partner'].browse(author_id).name
+                            _logger.info(
+                                f"👤 Intervención humana de '{human_name}' detectada. "
+                                f"Pausando chatbot para '{partner_to_pause.name}' por 1 hs."
+                            )
 
         return super().create(vals_list)
