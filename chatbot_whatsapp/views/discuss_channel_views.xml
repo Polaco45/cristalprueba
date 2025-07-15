@@ -4,9 +4,9 @@
         <record id="view_discuss_channel_form_chatbot" model="ir.ui.view">
             <field name="name">discuss.channel.form.chatbot</field>
             <field name="model">discuss.channel</field>
-            <field name="inherit_id" ref="mail.view_discuss_channel_form"/>
+            <field name="inherit_id" ref="mail.discuss_channel_form"/>
             <field name="arch" type="xml">
-                <xpath expr="//form/header" position="inside">
+                <xpath expr="//header" position="inside">
                     <div id="chatbot_toggle_container" class="o_thread_header_button" t-if="context.get('active_model') == 'discuss.channel'">
                     </div>
                 </xpath>
