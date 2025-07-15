@@ -14,8 +14,7 @@
     'license': 'LGPL-3',
     'depends': [
         'base',
-        'mail',
-        'discuss',
+        'mail',      # <-- Correcto
         'sale',
         'account',
         'whatsapp'
