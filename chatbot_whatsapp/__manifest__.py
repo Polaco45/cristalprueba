@@ -23,7 +23,7 @@
         'data/cron_jobs.xml',
     ],
     'assets': {
-        # Si en el futuro agregás JS/CSS para interfaz
+        
     },
     'installable': True,
     'application': False,
