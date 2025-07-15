@@ -3,16 +3,12 @@
   <data>
     <record id="view_discuss_channel_form_chatbot_inherit"
             model="ir.ui.view">
-      <!-- human-readable name -->
       <field name="name">discuss.channel.form.chatbot.inherit</field>
-      <!-- the model on which this view applies -->
       <field name="model">discuss.channel</field>
-      <!-- <inherit_id> tells Odoo which existing view to extend -->
-      <field name="inherit_id" ref="mail.view_mail_channel_form"/>
-      <!-- specify that this is a form view -->
+      <!-- inherit the core Discuss Channel form view -->
+      <field name="inherit_id" ref="mail.mail_channel_view_form"/>
       <field name="type">form</field>
       <field name="priority">99</field>
-      <!-- arch with type="xml" contains your xpath patch -->
       <field name="arch" type="xml">
         <xpath expr="//form/sheet" position="before">
           <header>
