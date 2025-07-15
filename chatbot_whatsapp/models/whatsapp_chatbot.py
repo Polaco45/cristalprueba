@@ -14,7 +14,6 @@ class WhatsAppMessage(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
-
         for record in records:
             if record.state not in ('received', 'inbound'):
                 continue
@@ -27,88 +26,73 @@ class WhatsAppMessage(models.Model):
             partner = self.env['res.partner'].sudo().search([
                 '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
             ], limit=1)
-
             if not partner:
                 partner = self.env['res.partner'].sudo().create({
                     'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone
                 })
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
 
-            memory = self.env['chatbot.whatsapp.memory'].sudo().search(
-                [('partner_id', '=', partner.id)], limit=1
-            )
+            memory = self.env['chatbot.whatsapp.memory'].sudo().search([
+                ('partner_id', '=', partner.id)
+            ], limit=1)
             if not memory:
                 memory = self.env['chatbot.whatsapp.memory'].sudo().create({
                     'partner_id': partner.id
                 })
 
-            # --- LÓGICA DE PAUSA Y REACTIVACIÓN ---
             now = datetime.now()
-
-            # 1) Si está en pausa y aún no venció → ignorar
             if memory.human_takeover and memory.takeover_until and memory.takeover_until > now:
-                _logger.info(f"🤫 Chatbot en pausa para {partner.name} por intervención humana. Mensaje ignorado.")
+                _logger.info(f"🤫 Chatbot en pausa para {partner.name}. Ignorando.")
                 continue
-
-            # 2) Si estaba en pausa pero expiró → reactivar
             if memory.human_takeover and memory.takeover_until and memory.takeover_until <= now:
-                _logger.info(f"🔁 Reactivando chatbot para {partner.name}, takeover vencido.")
+                _logger.info(f"🔁 Reactivando chatbot para {partner.name}")
                 memory.sudo().write({
                     'human_takeover': False,
                     'takeover_until': False
                 })
 
-            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name or 'desconocido'} ({phone})")
-            _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
+            _logger.info(f"📨 Nuevo mensaje '{plain}' de {partner.name} ({phone})")
 
-            def _send_text(to_record, text_to_send):
-                bot_user_id = self.env.ref('base.user_admin').id
-                _logger.info(f"🚀 Preparando para enviar mensaje: '{text_to_send}'")
+            def _send_text(to_rec, msg):
+                bot_id = self.env.ref('base.user_admin').id
                 vals = {
-                    'mobile_number': to_record.mobile_number,
-                    'body': text_to_send,
+                    'mobile_number': to_rec.mobile_number,
+                    'body': msg,
                     'state': 'outgoing',
-                    'wa_account_id': to_record.wa_account_id.id if to_record.wa_account_id else False,
-                    'create_uid': bot_user_id,
+                    'wa_account_id': to_rec.wa_account_id.id,
+                    'create_uid': bot_id,
                 }
-                outgoing_msg = self.env['whatsapp.message'].sudo().create(vals)
-                outgoing_msg.sudo().write({'body': text_to_send})
-                if hasattr(outgoing_msg, '_send_message'):
-                    outgoing_msg._send_message()
-                _logger.info(f"✅ Mensaje '{outgoing_msg.id}' procesado para envío.")
+                out = self.env['whatsapp.message'].sudo().create(vals)
+                out.sudo().write({'body': msg})
+                if hasattr(out, '_send_message'):
+                    out._send_message()
+                _logger.info(f"✅ Enviado: '{msg}'")
 
-            # Onboarding
-            onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
-            handled, response_msg = onboarding_handler.process_onboarding_flow(
-                self.env, record, phone, plain, self.env['chatbot.whatsapp.memory'].sudo()
+            onboard = self.env['chatbot.whatsapp.onboarding_handler']
+            handled, resp = onboard.process_onboarding_flow(
+                self.env, record, phone, plain,
+                self.env['chatbot.whatsapp.memory'].sudo()
             )
             if handled:
-                _logger.info("🔄 Flujo de onboarding interceptado")
-                _send_text(record, response_msg)
+                _send_text(record, resp)
                 continue
 
-            # Validación B2C / cotización
-            b2c_tag_name = "Tipo de Cliente / Consumidor Final"
-            is_b2c = partner.category_id and any(tag.name == b2c_tag_name for tag in partner.category_id)
+            b2c_tag = "Tipo de Cliente / Consumidor Final"
+            is_b2c = partner.category_id and any(t.name == b2c_tag for t in partner.category_id)
 
             if not is_b2c and not is_cotizado(partner):
                 if not memory.human_takeover:
-                    _logger.info("🚫 Usuario B2B/Mayorista sin cotización. Notificando y pausando.")
                     _send_text(record, messages_config['onboarding_unquoted'])
-
                     memory.sudo().write({
                         'human_takeover': True,
-                        'takeover_until': datetime.now() + timedelta(hours=1)
+                        'takeover_until': now + timedelta(hours=1)
                     })
-                    _logger.info(f"🤖 Chatbot pausado automáticamente por 1 hs para esperar al asesor.")
+                    _logger.info("🤖 Pausado por falta de cotización")
                 else:
-                    _logger.info(f"🤫 Chatbot ya está en pausa para {partner.name}, ignorando mensaje recurrente.")
+                    _logger.info(f"🤫 Ya está en pausa para {partner.name}")
                 continue
 
-            # Procesamiento normal
-            processor = ChatbotProcessor(self.env, record, partner, memory)
-            processor.process_message()
-
+            ChatbotProcessor(self.env, record, partner, memory).process_message()
         return records
 
 class MailMessage(models.Model):
@@ -119,41 +103,42 @@ class MailMessage(models.Model):
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
-        bot_partner_id = self.env.ref('base.user_admin').partner_id.id
-        public_partner_id = self.env.ref('base.partner_root').id
+        bot_id = self.env.ref('base.user_admin').partner_id.id
+        public_id = self.env.ref('base.partner_root').id
 
         for vals in vals_list:
-            author_id = vals.get('author_id')
-            model = vals.get('model')
-            res_id = vals.get('res_id')
+            if vals.get('model') != 'discuss.channel' or not vals.get('author_id'):
+                continue
+            if vals['author_id'] == bot_id:
+                continue
 
-            if model == 'discuss.channel' and author_id and author_id != bot_partner_id:
-                channel = self.env['discuss.channel'].browse(res_id)
-                if channel.channel_type == 'whatsapp':
-                    # Filtrar partners que no sean ni bot ni público
-                    end_users = channel.channel_partner_ids.filtered(
-                        lambda p: p.id not in (bot_partner_id, public_partner_id)
-                    )
-                    # Queremos pausar el chatbot para el cliente, no para el empleado
-                    # Suponemos que el cliente es el que NO escribió el mensaje (author_id)
-                    partner_to_pause = end_users.filtered(lambda p: p.id != author_id)
-                    if not partner_to_pause and end_users:
-                        # Si no encontramos otro partner, pausamos al que escribió (fallback)
-                        partner_to_pause = end_users
+            channel = self.env['discuss.channel'].browse(vals['res_id'])
+            if channel.channel_type != 'whatsapp':
+                continue
 
-                    if partner_to_pause:
-                        partner_to_pause = partner_to_pause[0]
-                        memory = self.env['chatbot.whatsapp.memory'].sudo().search(
-                            [('partner_id', '=', partner_to_pause.id)], limit=1
-                        )
-                        if memory:
-                            takeover_duration_hours = 1
-                            human_author_name = self.env['res.partner'].browse(author_id).name
-                            _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
-                            memory.sudo().write({
-                                'human_takeover': True,
-                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                                'flow_state': False
-                            })
+            # Obtener clientes y empleados en el canal
+            partners = channel.channel_partner_ids.filtered(
+                lambda p: p.id not in (bot_id, public_id)
+            )
+            if not partners:
+                continue
+
+            # Empleado = quien manda; Cliente = la otra persona
+            author = self.env['res.partner'].browse(vals['author_id'])
+            client_partners = partners.filtered(lambda p: p.id != author.id)
+            target = client_partners and client_partners[0] or author
+
+            memory = self.env['chatbot.whatsapp.memory'].sudo().search([
+                ('partner_id', '=', target.id)
+            ], limit=1)
+            if not memory:
+                continue
+
+            memory.sudo().write({
+                'human_takeover': True,
+                'takeover_until': datetime.now() + timedelta(hours=1),
+                'flow_state': False
+            })
+            _logger.info(f"👤 {author.name} intervino. Pausado chatbot para {target.name} por 1 h.")
 
         return super().create(vals_list)
