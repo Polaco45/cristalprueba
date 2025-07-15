@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        <template id="assets_backend" name="chatbot_chatter_assets" inherit_id="web.assets_backend">
-            <xpath expr="." position="inside">
-                <script type="text/javascript" src="./static/src/js/chatbot_toggle_button.js"></script>
-            </xpath>
-        </template>
-
         <record id="view_discuss_channel_form_chatbot" model="ir.ui.view">
             <field name="name">discuss.channel.form.chatbot</field>
             <field name="model">discuss.channel</field>
