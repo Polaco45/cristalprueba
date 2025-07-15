@@ -111,35 +111,34 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Si el bot está publicando en el canal, se añade un contexto. Ignoramos estos mensajes.
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
         bot_partner_id = self.env.ref('base.user_admin').partner_id.id
 
         for vals in vals_list:
-            # Solo nos interesan los mensajes en 'discuss.channel' de un autor real
             author_id = vals.get('author_id')
             model = vals.get('model')
             res_id = vals.get('res_id')
 
-            # Nos aseguramos de que el autor no sea el propio bot
             if model == 'discuss.channel' and author_id and author_id != bot_partner_id:
                 channel = self.env['discuss.channel'].browse(res_id)
 
                 if channel.channel_type == 'whatsapp':
-                    # Identificamos al cliente final en el canal, excluyendo al bot y al usuario público
                     end_user_partner = channel.channel_partner_ids.filtered(
-                        lambda p: p.id not in (bot_partner_id, self.env.ref('base.partner_root').id)
+                        lambda p: p.id not in (
+                            bot_partner_id,
+                            self.env.ref('base.partner_root').id,
+                            author_id  # excluímos al humano que escribió
+                        )
                     )
-                    
+
                     if end_user_partner:
-                        # En un canal de WhatsApp, solo debería haber un cliente final.
                         partner_to_pause = end_user_partner[0]
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
-                        
+
                         if memory:
                             takeover_duration_hours = 1
                             human_author_name = self.env['res.partner'].browse(author_id).name
@@ -147,7 +146,7 @@ class MailMessage(models.Model):
                             memory.sudo().write({
                                 'human_takeover': True,
                                 'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                                'flow_state': False  # Limpiamos cualquier flujo anterior
+                                'flow_state': False
                             })
 
         return super().create(vals_list)
