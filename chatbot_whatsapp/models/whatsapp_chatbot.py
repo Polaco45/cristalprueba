@@ -106,7 +106,6 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Si el bot está publicando en el canal, se añade un contexto. Ignoramos estos mensajes.
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
@@ -117,34 +116,38 @@ class MailMessage(models.Model):
             model = vals.get('model')
             res_id = vals.get('res_id')
 
-            # Nos aseguramos de que el autor no sea el propio bot
             if model == 'discuss.channel' and author_id and author_id != bot_partner_id:
                 channel = self.env['discuss.channel'].browse(res_id)
 
                 if channel.channel_type == 'whatsapp':
-                    # --- LÓGICA CORREGIDA ---
-                    # Identificamos al cliente final excluyendo al empleado que escribe (author_id) y al bot.
+                    # --- INICIO DE LA CORRECCIÓN ---
+                    # 1. Obtenemos los partners de todos los usuarios internos del sistema.
+                    internal_user_partners = self.env['res.users'].search([('share', '=', False)]).partner_id
+                    
+                    # 2. Creamos una lista de IDs a excluir: usuarios internos, el bot y el usuario público.
+                    exclude_ids = internal_user_partners.ids + [bot_partner_id, self.env.ref('base.partner_root').id]
+                    
+                    # 3. Filtramos los miembros del canal para encontrar al que NO está en la lista de exclusión.
+                    #    Ese es nuestro cliente final.
                     end_user_partner = channel.channel_partner_ids.filtered(
-                        lambda p: p.id not in (author_id, bot_partner_id, self.env.ref('base.partner_root').id)
+                        lambda p: p.id not in exclude_ids
                     )
+                    # --- FIN DE LA CORRECCIÓN ---
                     
                     if end_user_partner:
-                        # En un canal de WhatsApp 1 a 1, solo debería quedar el cliente.
                         partner_to_pause = end_user_partner[0]
                         memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                             [('partner_id', '=', partner_to_pause.id)], limit=1
                         )
                         
-                        if not memory:
-                            memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner_to_pause.id})
-                        
-                        takeover_duration_hours = 1
-                        human_author_name = self.env['res.partner'].browse(author_id).name
-                        _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para el cliente '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
-                        memory.sudo().write({
-                            'human_takeover': True,
-                            'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                            'flow_state': False
-                        })
+                        if memory:
+                            takeover_duration_hours = 1
+                            human_author_name = self.env['res.partner'].browse(author_id).name
+                            _logger.info(f"👤 Intervención humana de '{human_author_name}' detectada. Pausando chatbot para el cliente '{partner_to_pause.name}' por {takeover_duration_hours} hs.")
+                            memory.sudo().write({
+                                'human_takeover': True,
+                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
+                                'flow_state': False
+                            })
 
         return super().create(vals_list)
