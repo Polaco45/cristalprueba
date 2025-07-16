@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<!--    config view-->
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherited.min.sale.price</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="website_sale.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//setting[@id='hide_add_to_cart_setting']" position="after">
+                <setting>
+                    <div class="content-group">
+                        <div class="row mt8">
+                            <label class="col-lg-4" string="Minimum Sale Price" for="min_sale_price"/>
+                            <field name="min_sale_price"/>
+                            <field name="tax_type" class="oe_inline"/>
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>
