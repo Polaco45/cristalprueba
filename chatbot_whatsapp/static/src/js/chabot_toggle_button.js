@@ -1,11 +1,11 @@
-odoo.define('chatbot_whatsapp.ChatbotToggleButton', function (require) { // <-- CAMBIO AQUÍ
+odoo.define('chatbot_whatsapp.ChatbotToggleButton', function (require) { 
     "use strict";
 
     const FormController = require('web.FormController');
     const rpc = require('web.rpc');
     const { patch } = require('web.utils');
 
-    patch(FormController.prototype, 'chatbot_whatsapp.ChatbotToggleButtonPatch', { // <-- Y AQUÍ
+    patch(FormController.prototype, 'chatbot_whatsapp.ChatbotToggleButtonPatch', { 
         /**
          * Sobrescribimos el método _update para que se ejecute cada vez que la vista se actualiza.
          */
