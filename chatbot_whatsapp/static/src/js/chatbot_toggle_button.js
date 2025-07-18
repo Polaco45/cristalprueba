@@ -1,79 +1,54 @@
 /** @odoo-module */
-
 import { FormController } from "@web/views/form/form_controller";
 import { patch } from "@web/core/utils/patch";
-import { useService } from "@web/core/utils/hooks";
+import { rpc } from "web.rpc";
 
-patch(FormController.prototype, 'chatbot_whatsapp.ToggleButton', {
+// 1) Guardamos el método original:
+const originalUpdate = FormController.prototype._update;
 
-    /**
-     * setup recibe el original como primer parámetro.
-     */
-    setup(original) {
-        // llamamos al setup original
-        original.call(this, ...Array.prototype.slice.call(arguments, 1));
-        // luego inyectamos nuestro servicio RPC
-        this.rpc = useService("rpc");
-    },
+patch(FormController.prototype, "chatbot_whatsapp.ChatbotToggleButtonPatch", {
+    // 2) Reemplazamos sólo _update, invocando el original manualmente:
+    async _update(...args) {
+        // Llamamos al update original
+        await originalUpdate.apply(this, args);
 
-    /**
-     * _update recibe el original como primer parámetro.
-     */
-    async _update(original) {
-        // llamamos al update original
-        await original.call(this, ...Array.prototype.slice.call(arguments, 1));
-
-        // solo actuamos en canal WhatsApp
-        if (
-            this.modelName !== 'discuss.channel' ||
-            !this.renderer.state?.data?.channel_type ||
-            this.renderer.state.data.channel_type !== 'whatsapp'
-        ) {
+        // Tu lógica para mostrar el botón
+        if (this.modelName !== 'discuss.channel'
+            || this.renderer.state?.data?.channel_type !== 'whatsapp') {
             return;
         }
-
         const container = this.el.querySelector('#chatbot_toggle_container');
-        if (!container) return;
-
+        if (!container) {
+            return;
+        }
         this.channelId = this.renderer.state.res_id;
         this._renderChatbotButton(container);
     },
 
-    /**
-     * Métodos auxiliares
-     */
+    // 3) Movemos la lógica de render dentro del mismo patch
     _renderChatbotButton(container) {
         container.innerHTML = '';
-        this.rpc.query({
+        rpc.query({
             model: 'discuss.channel',
             method: 'get_chatbot_status',
             args: [this.channelId],
         }).then(result => {
-            const isPaused = result.status === 'paused';
-            const buttonText = isPaused ? 'Reanudar Chatbot' : 'Pausar Chatbot';
-            const buttonIcon = isPaused ? 'fa-play' : 'fa-pause';
-            const buttonClass = isPaused ? 'btn-success' : 'btn-warning';
-
+            const paused = result.status === 'paused';
             const btn = document.createElement('button');
-            btn.className = `btn ${buttonClass} btn-sm`;
-            btn.innerHTML = `<i class="fa ${buttonIcon}"></i> ${buttonText}`;
-            btn.addEventListener('click', () => {
-                this._onToggleChatbotClick(isPaused, container);
-            });
+            btn.className = `btn btn-sm ${paused ? 'btn-success' : 'btn-warning'}`;
+            btn.innerHTML = `<i class="fa ${paused ? 'fa-play' : 'fa-pause'}"></i> `
+                          + (paused ? 'Reanudar Chatbot' : 'Pausar Chatbot');
+            btn.addEventListener('click', () => this._onToggleClick(paused, container));
             container.appendChild(btn);
         });
     },
 
-    _onToggleChatbotClick(wasPaused, container) {
-        const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
+    _onToggleClick(wasPaused, container) {
         container.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
-        this.rpc.query({
+        rpc.query({
             model: 'discuss.channel',
-            method: methodToCall,
+            method: wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot',
             args: [this.channelId],
-        }).then(() => {
-            this._renderChatbotButton(container);
-        });
+        }).then(() => this._renderChatbotButton(container));
     },
-
 });
