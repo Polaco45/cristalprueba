@@ -5,12 +5,10 @@
         <field name="name">discuss.channel.form.chatbot.inherit</field>
         <field name="model">discuss.channel</field>
         <field name="inherit_id" ref="mail.discuss_channel_view_form"/>
-        <field name="type">form</field>
-        <field name="priority">99</field>
         <field name="arch" type="xml">
             <xpath expr="//form/sheet" position="before">
             <header>
-                <div id="chatbot_toggle_container" class="o_thread_header_button"/>
+                <div id="chatbot_toggle_container" class="o_thread_header_button" t-ref="chatbot_toggle_container"/>
             </header>
             </xpath>
         </field>
