@@ -8,9 +8,11 @@
         <field name="type">form</field>
         <field name="priority">99</field>
         <field name="arch" type="xml">
-        <xpath expr="//header" position="inside">
-            <div id="chatbot_toggle_container" class="o_thread_header_button"/>
-        </xpath>
+            <xpath expr="//form/sheet" position="before">
+            <header>
+                <div id="chatbot_toggle_container" class="o_thread_header_button"/>
+            </header>
+            </xpath>
         </field>
     </record>
   </data>
