@@ -3,28 +3,25 @@ import { FormController } from "@web/views/form/form_controller";
 import { patch } from "@web/core/utils/patch";
 import { useService } from "@web/core/utils/hooks";
 
-// 1) Conservamos los métodos originales
+// Conservamos los métodos originales
 const _superSetup = FormController.prototype.setup;
 const _superUpdate = FormController.prototype._update;
 
-patch(FormController.prototype, "chatbot_whatsapp.ChatbotToggleButtonPatch", {
+patch(FormController.prototype, {
     /**
-     * 2) Interceptamos setup para obtener el servicio RPC
+     * 1) Interceptamos setup para obtener el servicio RPC
      */
     setup(...args) {
-        // Llamamos al setup original si existe
         _superSetup?.apply(this, args);
-        // Inyectamos el servicio RPC
         this.rpc = useService("rpc");
     },
 
     /**
-     * 3) Reemplazamos _update, llamando manualmente al original
+     * 2) Reemplazamos _update, llamando manualmente al original
      */
     async _update(...args) {
         await _superUpdate.apply(this, args);
 
-        // Solo actuamos en canales WhatsApp
         const data = this.renderer.state?.data;
         if (this.modelName !== "discuss.channel"
             || !data
@@ -32,7 +29,6 @@ patch(FormController.prototype, "chatbot_whatsapp.ChatbotToggleButtonPatch", {
         ) {
             return;
         }
-
         const container = this.el.querySelector("#chatbot_toggle_container");
         if (!container) {
             return;
@@ -42,7 +38,7 @@ patch(FormController.prototype, "chatbot_whatsapp.ChatbotToggleButtonPatch", {
     },
 
     /**
-     * 4) Renderizamos el botón llamando al RPC inyectado
+     * 3) Renderizamos el botón llamando al RPC inyectado
      */
     _renderChatbotButton(container) {
         container.innerHTML = "";
@@ -66,7 +62,7 @@ patch(FormController.prototype, "chatbot_whatsapp.ChatbotToggleButtonPatch", {
     },
 
     /**
-     * 5) On‑click del toggle
+     * 4) On‑click del toggle
      */
     _onToggleClick(wasPaused, container) {
         container.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
