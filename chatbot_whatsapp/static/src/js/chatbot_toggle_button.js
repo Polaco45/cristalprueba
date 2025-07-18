@@ -27,7 +27,7 @@ patch(FormController.prototype, {
              return;
         }
 
-        if (!container || this.model.root.resModel !== 'discuss.channel' || this.model.root.data.channel_type !== 'whatsapp') {
+        if (!container || this.model.root.resModel !== 'discuss.channel') {
             if (container) {
                 container.innerHTML = "";
             }
