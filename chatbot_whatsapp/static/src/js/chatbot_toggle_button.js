@@ -12,8 +12,15 @@ odoo.define('chatbot_whatsapp.ChatbotToggleButton', function (require) {
         _update: async function () {
             await this._super.apply(this, arguments);
 
+            // --- LÍNEAS DE DEPURACIÓN ---
+            console.log("Model:", this.modelName);
+            if (this.renderer.state.data) {
+                console.log("Channel Type:", this.renderer.state.data.channel_type);
+            }
+            // ----------------------------
+
             // Solo actuamos en el modelo 'discuss.channel' y si es de tipo whatsapp
-            if (this.modelName !== 'discuss.channel' || !this.renderer.state.data.channel_type || this.renderer.state.data.channel_type !== 'WHATSAPP') {
+            if (this.modelName !== 'discuss.channel' || !this.renderer.state.data.channel_type || this.renderer.state.data.channel_type !== 'whatsapp') {
                 return;
             }
 
