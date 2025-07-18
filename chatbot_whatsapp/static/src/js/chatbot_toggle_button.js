@@ -1,9 +1,9 @@
-odoo.define('@chatbot_whatsapp/js/chatbot_toggle_button', function (require) {
+odoo.define('chatbot_whatsapp/js/chatbot_toggle_button', function (require) {
     "use strict";
 
-    const FormController = require('web.FormController');
-    const rpc = require('web.rpc');
-    const { patch } = require('web.utils');
+    const FormController = require('@web/views/form/form_controller');
+    const rpc = require('web.rpc'); // sigue siendo válido
+    const { patch } = require('@web/core/utils/patch');
 
     patch(FormController.prototype, 'chatbot_whatsapp.ChatbotToggleButtonPatch', { 
         /**
