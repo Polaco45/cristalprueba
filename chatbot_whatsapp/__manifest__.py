@@ -26,11 +26,7 @@
     ],
     'assets': {
         'web.assets_backend': [
-            ('web.assets_backend', {
-                'js': [
-                    'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
-                ],
-            }),
+            'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
         ],
     },
     'installable': True,
