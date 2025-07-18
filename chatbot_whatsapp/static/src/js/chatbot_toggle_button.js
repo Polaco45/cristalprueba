@@ -9,13 +9,18 @@ const originalSetup = FormController.prototype.setup;
 patch(FormController.prototype, {
     setup() {
         originalSetup.apply(this, arguments);
-        // ✅ Ya no necesitamos useRef. Los hooks se encargarán de llamar al render.
         onMounted(() => this._renderChatbotButton());
         onPatched(() => this._renderChatbotButton());
     },
 
     async _renderChatbotButton() {
-        // ✅ Usamos this.el.querySelector para encontrar el div.
+        // ✅ **LA CORRECCIÓN CLAVE**:
+        // Si el elemento raíz del controlador (this.el) aún no existe,
+        // significa que no se ha renderizado. Salimos y esperamos al siguiente ciclo.
+        if (!this.el) {
+            return;
+        }
+
         const container = this.el.querySelector('#chatbot_toggle_container');
 
         if (!this.model.root || !this.model.root.data) {
@@ -42,8 +47,8 @@ patch(FormController.prototype, {
             method: 'get_chatbot_status',
             args: [channelId],
         });
-
-        // Verificamos de nuevo el contenedor porque el DOM pudo haber cambiado.
+        
+        // Es posible que el contenedor ya no exista si el usuario navegó rápido
         const currentContainer = this.el.querySelector('#chatbot_toggle_container');
         if (!currentContainer) return;
 
