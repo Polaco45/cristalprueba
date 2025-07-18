@@ -1,73 +1,85 @@
-/** @odoo-module */
+odoo.define('chatbot_whatsapp.ChatbotToggleButton', function (require) { 
+    "use strict";
 
-import { patch } from "@web/core/utils/patch";
-import { FormController } from "@web/views/form/form_controller";
-import { useService } from "@web/core/utils/hooks";
-import { onPatched, onMounted, useRef } from "@odoo/owl";
+    const FormController = require('web.FormController');
+    const rpc = require('web.rpc');
+    const { patch } = require('web.utils');
 
-patch(FormController.prototype, "chatbot_whatsapp.ChatbotToggleButtonPatch", {
-    setup() {
-        super.setup();
-        this.rpc = useService("rpc");
-        this.chatbotContainer = useRef("chatbot_toggle_container");
+    patch(FormController.prototype, 'chatbot_whatsapp.ChatbotToggleButtonPatch', { 
+        /**
+         * Sobrescribimos el método _update para que se ejecute cada vez que la vista se actualiza.
+         */
+        _update: async function () {
+            await this._super.apply(this, arguments);
 
-        onMounted(() => this.renderChatbotButton());
-        onPatched(() => this.renderChatbotButton());
-    },
+            // --- LÍNEAS DE DEPURACIÓN ---
+            console.log("Model:", this.modelName);
+            if (this.renderer.state.data) {
+                console.log("Channel Type:", this.renderer.state.data.channel_type);
+            }
+            // ----------------------------
 
-    renderChatbotButton() {
-        if (this.model.root.resModel !== 'discuss.channel' ||
-            this.model.root.data.channel_type !== 'whatsapp') {
-            return;
-        }
+            // Solo actuamos en el modelo 'discuss.channel' y si es de tipo whatsapp
+            if (this.modelName !== 'discuss.channel' || !this.renderer.state.data.channel_type || this.renderer.state.data.channel_type !== 'whatsapp') {
+                return;
+            }
 
-        const container = this.chatbotContainer.el;
-        if (!container) {
-            return;
-        }
+            const $container = this.$('#chatbot_toggle_container');
+            if (!$container.length) {
+                return;
+            }
 
-        // Limpiamos el contenedor para evitar botones duplicados
-        while (container.firstChild) {
-            container.removeChild(container.firstChild);
-        }
+            this.channelId = this.renderer.state.res_id;
+            this.renderChatbotButton($container);
+        },
 
-        const channelId = this.model.root.resId;
-        if (!channelId) {
-            return; // No hacer nada si es un registro nuevo sin guardar
-        }
+        /**
+         * Dibuja el botón y le asigna la funcionalidad.
+         * @param {jQuery} $container El div donde se insertará el botón.
+         */
+        renderChatbotButton: function ($container) {
+            $container.empty(); // Limpiamos el contenedor
 
-        this.rpc({
-            model: 'discuss.channel',
-            method: 'get_chatbot_status',
-            args: [channelId],
-        }).then(result => {
-            const isPaused = result.status === 'paused';
-            const buttonText = isPaused ? 'Reanudar Chatbot' : 'Pausar Chatbot';
-            const buttonIcon = isPaused ? 'fa-play' : 'fa-pause';
-            const buttonClass = isPaused ? 'btn-success' : 'btn-warning';
+            rpc.query({
+                model: 'discuss.channel',
+                method: 'get_chatbot_status',
+                args: [this.channelId],
+            }).then(result => {
+                const isPaused = result.status === 'paused';
+                const buttonText = isPaused ? 'Reanudar Chatbot' : 'Pausar Chatbot';
+                const buttonIcon = isPaused ? 'fa-play' : 'fa-pause';
+                const buttonClass = isPaused ? 'btn-success' : 'btn-warning';
 
-            const button = document.createElement('button');
-            button.className = `btn ${buttonClass} btn-sm`;
-            button.innerHTML = `<i class="fa ${buttonIcon} me-1"/>${buttonText}`;
+                const $button = $(`<button class="btn ${buttonClass} btn-sm"><i class="fa ${buttonIcon}"/> ${buttonText}</button>`);
+                
+                $button.on('click', () => {
+                    this._onToggleChatbotClick(isPaused);
+                });
 
-            button.addEventListener('click', () => {
-                this._onToggleChatbotClick(isPaused, channelId, container);
+                $container.append($button);
             });
+        },
 
-            container.appendChild(button);
-        });
-    },
+        /**
+         * Maneja el evento de clic en el botón.
+         * @param {boolean} wasPaused El estado del botón antes del clic.
+         */
+        _onToggleChatbotClick: function (wasPaused) {
+            const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
+            const $container = this.$('#chatbot_toggle_container');
 
-    _onToggleChatbotClick(wasPaused, channelId, container) {
-        const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
-        container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
+            // Muestra un estado de carga
+            $container.html('<i class="fa fa-spinner fa-spin"/>');
 
-        this.rpc({
-            model: 'discuss.channel',
-            method: methodToCall,
-            args: [channelId],
-        }).then(() => {
-            this.renderChatbotButton(); // Volvemos a renderizar el botón
-        });
-    },
+            rpc.query({
+                model: 'discuss.channel',
+                method: methodToCall,
+                args: [this.channelId],
+            }).then(() => {
+                // Una vez que la acción del backend termina, volvemos a dibujar el botón
+                // para que muestre el nuevo estado.
+                this.renderChatbotButton($container);
+            });
+        },
+    });
 });
