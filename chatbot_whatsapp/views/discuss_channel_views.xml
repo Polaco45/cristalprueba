@@ -8,9 +8,7 @@
         <field name="arch" type="xml">
             <xpath expr="//form/sheet" position="before">
             <header>
-                <div id="chatbot_toggle_container"
-                     class="o_thread_header_button"
-                     t-ref="chatbot_toggle_container"/>
+                <div id="chatbot_toggle_container" class="o_thread_header_button"/>
             </header>
             </xpath>
         </field>

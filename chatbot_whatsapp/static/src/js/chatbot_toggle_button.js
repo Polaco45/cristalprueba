@@ -2,28 +2,25 @@
 
 import { patch } from "@web/core/utils/patch";
 import { FormController } from "@web/views/form/form_controller";
-import { onMounted, onPatched, useRef } from "@odoo/owl";
+import { onMounted, onPatched } from "@odoo/owl";
 
-// 1. Guardamos una referencia a la función setup original antes de modificarla.
 const originalSetup = FormController.prototype.setup;
 
 patch(FormController.prototype, {
     setup() {
-        // 2. Ejecutamos la función setup original. Esto es crucial.
         originalSetup.apply(this, arguments);
-
-        // 3. Ahora que Odoo ha inicializado todo, añadimos nuestra lógica de forma segura.
-        this.chatbotContainer = useRef("chatbot_toggle_container");
+        // ✅ Ya no necesitamos useRef. Los hooks se encargarán de llamar al render.
         onMounted(() => this._renderChatbotButton());
         onPatched(() => this._renderChatbotButton());
     },
 
     async _renderChatbotButton() {
+        // ✅ Usamos this.el.querySelector para encontrar el div.
+        const container = this.el.querySelector('#chatbot_toggle_container');
+
         if (!this.model.root || !this.model.root.data) {
              return;
         }
-
-        const container = this.chatbotContainer.el;
 
         if (!container || this.model.root.resModel !== 'discuss.channel' || this.model.root.data.channel_type !== 'whatsapp') {
             if (container) {
@@ -31,7 +28,7 @@ patch(FormController.prototype, {
             }
             return;
         }
-
+        
         const channelId = this.model.root.resId;
         if (!channelId) {
             container.innerHTML = "";
@@ -40,14 +37,15 @@ patch(FormController.prototype, {
 
         container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
 
-        // Usamos this.env.services.rpc que ya está disponible gracias al setup original.
         const result = await this.env.services.rpc({
             model: 'discuss.channel',
             method: 'get_chatbot_status',
             args: [channelId],
         });
 
-        if (!this.chatbotContainer.el) return;
+        // Verificamos de nuevo el contenedor porque el DOM pudo haber cambiado.
+        const currentContainer = this.el.querySelector('#chatbot_toggle_container');
+        if (!currentContainer) return;
 
         const isPaused = result.status === 'paused';
         const button = document.createElement("button");
@@ -57,13 +55,13 @@ patch(FormController.prototype, {
         button.addEventListener("click", () => {
             this._onToggleChatbotClick(isPaused, channelId);
         });
-
-        this.chatbotContainer.el.innerHTML = "";
-        this.chatbotContainer.el.appendChild(button);
+        
+        currentContainer.innerHTML = "";
+        currentContainer.appendChild(button);
     },
 
     _onToggleChatbotClick(wasPaused, channelId) {
-        const container = this.chatbotContainer.el;
+        const container = this.el.querySelector('#chatbot_toggle_container');
         if (container) {
             container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
         }
