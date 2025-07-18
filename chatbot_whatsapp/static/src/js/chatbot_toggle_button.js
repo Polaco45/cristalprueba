@@ -5,45 +5,50 @@ import { FormController } from "@web/views/form/form_controller";
 import { useService } from "@web/core/utils/hooks";
 import { onMounted, onPatched, useRef } from "@odoo/owl";
 
-patch(FormController.prototype, "chatbot_whatsapp.FormControllerPatch", {
+// 👇 CORRECCIÓN AQUÍ: Eliminamos el segundo argumento "chatbot_whatsapp.FormControllerPatch"
+patch(FormController.prototype, {
     setup() {
-        this._super(...arguments); // ✅ Forma correcta de llamar al setup original
+        this._super(...arguments); 
         this.rpc = useService("rpc");
         this.chatbotContainer = useRef("chatbot_toggle_container");
 
-        // Usamos los "hooks" del ciclo de vida de Owl para renderizar el botón
-        // Esto asegura que el HTML exista antes de intentar modificarlo.
         onMounted(() => this._renderChatbotButton());
         onPatched(() => this._renderChatbotButton());
     },
 
     _renderChatbotButton() {
-        // Condición para asegurarnos de que estamos en el lugar correcto
+        if (!this.model.root || !this.model.root.data) {
+             return;
+        }
+
         if (this.model.root.resModel !== 'discuss.channel' ||
-            !this.model.root.data ||
             this.model.root.data.channel_type !== 'whatsapp') {
+            // Si el contenedor existe, lo vaciamos para que no queden botones viejos
+            if (this.chatbotContainer.el) {
+                this.chatbotContainer.el.innerHTML = "";
+            }
             return;
         }
 
         const container = this.chatbotContainer.el;
         if (!container) {
-            return; // El contenedor aún no está en el DOM, esperamos al siguiente ciclo
+            return; 
         }
         
         const channelId = this.model.root.resId;
         if (!channelId) {
-            container.innerHTML = ""; // Limpiamos si es un registro nuevo sin guardar
+            container.innerHTML = "";
             return;
         }
 
-        container.innerHTML = '<i class="fa fa-spinner fa-spin"></i>'; // Indicador de carga
+        container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
 
         this.rpc({
             model: 'discuss.channel',
             method: 'get_chatbot_status',
             args: [channelId],
         }).then(result => {
-            if (!this.chatbotContainer.el) return; // El componente podría haberse desmontado
+            if (!this.chatbotContainer.el) return;
 
             const isPaused = result.status === 'paused';
             const button = document.createElement("button");
@@ -54,7 +59,7 @@ patch(FormController.prototype, "chatbot_whatsapp.FormControllerPatch", {
                 this._onToggleChatbotClick(isPaused, channelId);
             });
             
-            this.chatbotContainer.el.innerHTML = ""; // Limpiamos el spinner
+            this.chatbotContainer.el.innerHTML = "";
             this.chatbotContainer.el.appendChild(button);
         });
     },
@@ -62,7 +67,7 @@ patch(FormController.prototype, "chatbot_whatsapp.FormControllerPatch", {
     _onToggleChatbotClick(wasPaused, channelId) {
         const container = this.chatbotContainer.el;
         if (container) {
-            container.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+            container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
         }
 
         const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
@@ -71,8 +76,7 @@ patch(FormController.prototype, "chatbot_whatsapp.FormControllerPatch", {
             model: 'discuss.channel',
             method: methodToCall,
             args: [channelId],
-        }).then(() => {
-            // No es necesario llamar a renderizar de nuevo, onPatched lo hará automáticamente
         });
+        // onPatched se encargará de volver a renderizar automáticamente
     },
 });
