@@ -1,4 +1,4 @@
-odoo.define('chatbot_whatsapp.ChatbotToggleButton', function (require) { 
+odoo.define('chatbot_whatsapp/js/chatbot_toggle_button', function (require) {
     "use strict";
 
     const FormController = require('web.FormController');
