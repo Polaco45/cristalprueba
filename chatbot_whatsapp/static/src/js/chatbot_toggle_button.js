@@ -12,7 +12,7 @@ patch(FormController.prototype, "chatbot_whatsapp.ChatbotToggleButtonPatch", {
      * 2) Interceptamos setup para obtener el servicio RPC
      */
     setup(...args) {
-        // Llamamos al setup original (si existe)
+        // Llamamos al setup original si existe
         _superSetup?.apply(this, args);
         // Inyectamos el servicio RPC
         this.rpc = useService("rpc");
