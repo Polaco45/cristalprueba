@@ -5,10 +5,10 @@ import { FormController } from "@web/views/form/form_controller";
 import { useService } from "@web/core/utils/hooks";
 import { onMounted, onPatched, useRef } from "@odoo/owl";
 
-// 👇 CORRECCIÓN AQUÍ: Eliminamos el segundo argumento "chatbot_whatsapp.FormControllerPatch"
 patch(FormController.prototype, {
     setup() {
-        this._super(...arguments); 
+        // La utilidad "patch" se encarga de llamar al setup original.
+        // Por eso, eliminamos la línea "this._super(...arguments);" que causaba el error.
         this.rpc = useService("rpc");
         this.chatbotContainer = useRef("chatbot_toggle_container");
 
@@ -17,37 +17,35 @@ patch(FormController.prototype, {
     },
 
     _renderChatbotButton() {
+        // Verificamos que el componente no se haya destruido
         if (!this.model.root || !this.model.root.data) {
              return;
         }
 
-        if (this.model.root.resModel !== 'discuss.channel' ||
-            this.model.root.data.channel_type !== 'whatsapp') {
-            // Si el contenedor existe, lo vaciamos para que no queden botones viejos
-            if (this.chatbotContainer.el) {
-                this.chatbotContainer.el.innerHTML = "";
+        const container = this.chatbotContainer.el;
+
+        // Si el contenedor no está o no estamos en el canal correcto, lo vaciamos y salimos.
+        if (!container || this.model.root.resModel !== 'discuss.channel' || this.model.root.data.channel_type !== 'whatsapp') {
+            if (container) {
+                container.innerHTML = "";
             }
             return;
-        }
-
-        const container = this.chatbotContainer.el;
-        if (!container) {
-            return; 
         }
         
         const channelId = this.model.root.resId;
         if (!channelId) {
-            container.innerHTML = "";
+            container.innerHTML = ""; // Limpiamos si es un registro nuevo sin guardar
             return;
         }
 
-        container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
+        container.innerHTML = '<i class="fa fa-spinner fa-spin"/>'; // Indicador de carga
 
         this.rpc({
             model: 'discuss.channel',
             method: 'get_chatbot_status',
             args: [channelId],
         }).then(result => {
+            // Volvemos a verificar por si el usuario navegó a otro lado mientras se hacía la llamada
             if (!this.chatbotContainer.el) return;
 
             const isPaused = result.status === 'paused';
@@ -77,6 +75,6 @@ patch(FormController.prototype, {
             method: methodToCall,
             args: [channelId],
         });
-        // onPatched se encargará de volver a renderizar automáticamente
+        // onPatched se encargará de volver a renderizar el botón automáticamente después de la acción.
     },
 });
