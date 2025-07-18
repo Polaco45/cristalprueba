@@ -4,12 +4,16 @@ import { patch } from "@web/core/utils/patch";
 import { FormController } from "@web/views/form/form_controller";
 import { onMounted, onPatched, useRef } from "@odoo/owl";
 
+// 1. Guardamos una referencia a la función setup original antes de modificarla.
+const originalSetup = FormController.prototype.setup;
+
 patch(FormController.prototype, {
     setup() {
-        // La utilidad "patch" llama al setup original.
-        // Accedemos a los servicios a través del entorno (this.env), que es más estable.
-        this.chatbotContainer = useRef("chatbot_toggle_container");
+        // 2. Ejecutamos la función setup original. Esto es crucial.
+        originalSetup.apply(this, arguments);
 
+        // 3. Ahora que Odoo ha inicializado todo, añadimos nuestra lógica de forma segura.
+        this.chatbotContainer = useRef("chatbot_toggle_container");
         onMounted(() => this._renderChatbotButton());
         onPatched(() => this._renderChatbotButton());
     },
@@ -27,7 +31,7 @@ patch(FormController.prototype, {
             }
             return;
         }
-        
+
         const channelId = this.model.root.resId;
         if (!channelId) {
             container.innerHTML = "";
@@ -36,14 +40,13 @@ patch(FormController.prototype, {
 
         container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
 
-        // ✅ Usamos this.env.services.rpc para llamar al servicio
+        // Usamos this.env.services.rpc que ya está disponible gracias al setup original.
         const result = await this.env.services.rpc({
             model: 'discuss.channel',
             method: 'get_chatbot_status',
             args: [channelId],
         });
 
-        // Verificamos que el contenedor siga existiendo después de la llamada asíncrona
         if (!this.chatbotContainer.el) return;
 
         const isPaused = result.status === 'paused';
@@ -54,7 +57,7 @@ patch(FormController.prototype, {
         button.addEventListener("click", () => {
             this._onToggleChatbotClick(isPaused, channelId);
         });
-        
+
         this.chatbotContainer.el.innerHTML = "";
         this.chatbotContainer.el.appendChild(button);
     },
@@ -67,7 +70,6 @@ patch(FormController.prototype, {
 
         const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
 
-        // ✅ Usamos this.env.services.rpc aquí también
         this.env.services.rpc({
             model: 'discuss.channel',
             method: methodToCall,
