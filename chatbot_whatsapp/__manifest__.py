@@ -26,7 +26,7 @@
     ],
     'assets': {
         'web.assets_backend': [
-            'static/src/js/chatbot_toggle_button.js',
+            '/static/src/js/chatbot_toggle_button.js',
         ],
     },
     'installable': True,
