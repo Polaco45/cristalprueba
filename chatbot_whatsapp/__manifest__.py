@@ -25,13 +25,9 @@
     ],
 
     'assets': {
-        # Este bundle carga los templates XML que necesita el cliente web
-        'web.assets_qweb': [
-            'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
-        ],
-        # Este bundle carga el JavaScript específico para la app de Discuss/Mail
-        'mail.assets_messaging': [
+        'web.assets_backend': [
             'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
+            'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
         ],
     },
     'installable': True,
