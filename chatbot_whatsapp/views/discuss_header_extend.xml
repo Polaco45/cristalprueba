@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+  <!--
+    t-name: the name of the template you are extending
+    t-extend: same as t-name when you only want to add/modify
+  -->
+  <t t-name="mail.DiscussHeader" t-extend="mail.DiscussHeader">
+    <!--
+      Use t-jquery/t-operation or <xpath> depending on style:
+    -->
+    <xpath expr="//div[contains(@class,'o-mail-Discuss-header')]" position="inside">
+      <div id="chatbot_toggle_container" class="ms-3 align-self-center"/>
+    </xpath>
+  </t>
+</templates>

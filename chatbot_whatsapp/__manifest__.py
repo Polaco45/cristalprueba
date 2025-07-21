@@ -22,7 +22,9 @@
     'data': [
         'security/ir.model.access.csv',
         'data/cron_jobs.xml',
-        'views/discuss_channel_views.xml',
+    ],
+    'qweb': [
+    'static/src/xml/discuss_header_extend.xml',
     ],
     'assets': {
         'web.assets_backend': [
