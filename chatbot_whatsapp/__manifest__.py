@@ -24,7 +24,7 @@
         'data/cron_jobs.xml',
     ],
     'qweb': [
-    'static/src/xml/discuss_header_extend.xml',
+        'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
     ],
     'assets': {
         'web.assets_backend': [
