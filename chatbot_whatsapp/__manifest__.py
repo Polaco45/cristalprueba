@@ -27,6 +27,11 @@
         'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
     ],
     'assets': {
+        # for everything in the mail/thread/discuss view:
+        'mail.assets_messaging': [
+            'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
+        ],
+        # and also include in the general backend so it gets registered:
         'web.assets_backend': [
             'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
         ],
