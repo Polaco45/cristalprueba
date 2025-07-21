@@ -14,7 +14,7 @@
     'license': 'LGPL-3',
     'depends': [
         'base',
-        'mail',      # <-- Correcto
+        'mail',      
         'sale',
         'account',
         'whatsapp'
@@ -28,6 +28,9 @@
     ],
     'assets': {
         # for everything in the mail/thread/discuss view:
+        'web.assets_qweb': [
+           'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
+        ],
         'mail.assets_messaging': [
             'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
         ],
