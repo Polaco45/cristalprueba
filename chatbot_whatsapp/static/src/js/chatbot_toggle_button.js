@@ -1,7 +1,7 @@
 /** @odoo-module **/
 import { patch } from "@web/core/utils/patch";
 // 🎯 Correct import:
-import { Discuss } from "@mail/components/discuss/discuss";
+import { Discuss } from "@mail/core/public_web/discuss";
 import { onMounted, onPatched } from "@odoo/owl";
 
 // Parcheamos el componente correcto
