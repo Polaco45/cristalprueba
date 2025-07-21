@@ -9,6 +9,7 @@
             <xpath expr="//form/sheet" position="before">
             <header>
                 <div id="chatbot_toggle_container" class="o_thread_header_button"/>
+                <h2> Hola </h2>
             </header>
             </xpath>
         </field>
