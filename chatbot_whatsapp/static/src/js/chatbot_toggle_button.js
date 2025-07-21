@@ -1,79 +1,66 @@
 /** @odoo-module **/
-import { patch } from "@web/core/utils/patch";
-import { ThreadContainer } from "@mail/core/common/thread_container"; // Importación correcta para Odoo 18
-import { onMounted, onPatched, onWillUpdateProps, useState } from "@odoo/owl";
+
+import { Component, onWillUpdateProps, onMounted, useState } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
-import { _t } from "@web/core/l10n/translation";
+import { registry } from "@web/core/registry";
 
-patch(ThreadContainer.prototype, {
+class ChatbotToggleButton extends Component {
+    static template = "chatbot_whatsapp.ChatbotToggleButton";
+    static props = {
+        thread: { type: Object },
+        class: { type: String, optional: true },
+    };
+
     setup() {
-        super.setup(...arguments);
         this.rpc = useService("rpc");
-        this.state = useState({
-            chatbotStatus: "unknown",
-            isLoading: true,
-        });
+        this.state = useState({ status: "loading" }); // loading, active, paused, error, hidden
 
-        // Hooks para asegurar que el botón se renderice y actualice correctamente
-        onMounted(() => this._fetchChatbotStatus());
-        onPatched(() => this._fetchChatbotStatus());
+        onMounted(() => this.fetchStatus(this.props.thread));
         onWillUpdateProps(async (nextProps) => {
-            // Si cambiamos de canal, volvemos a buscar el estado
-            if (this.props.thread?.id !== nextProps.thread?.id) {
-                await this._fetchChatbotStatus(nextProps);
+            if (this.props.thread.id !== nextProps.thread.id) {
+                await this.fetchStatus(nextProps.thread);
             }
         });
-    },
+    }
 
-    // Nueva función para saber si debemos mostrar el botón
-    shouldShowChatbotButton() {
-        return this.props.thread?.type === 'channel' && this.props.thread?.id;
-    },
-
-    // Función para obtener el estado del bot
-    async _fetchChatbotStatus(props) {
-        const thread = props ? props.thread : this.props.thread;
-        if (!thread || thread.type !== 'channel' || !thread.id) {
-            this.state.chatbotStatus = "unknown";
+    async fetchStatus(thread) {
+        // Solo mostramos el botón en canales de WhatsApp
+        if (thread?.type !== 'channel' || !thread.id) {
+            this.state.status = "hidden";
             return;
         }
-
-        this.state.isLoading = true;
+        
+        this.state.status = "loading";
         try {
             const result = await this.rpc({
                 model: 'discuss.channel',
                 method: 'get_chatbot_status',
                 args: [thread.id],
             });
-            this.state.chatbotStatus = result.status;
-        } catch (error) {
-            console.error("Chatbot: Error fetching status.", error);
-            this.state.chatbotStatus = "error";
-        } finally {
-            this.state.isLoading = false;
+            this.state.status = result.status; // Espera 'active' o 'paused'
+        } catch (e) {
+            console.error("Error al obtener estado del chatbot:", e);
+            this.state.status = "error";
         }
-    },
+    }
 
-    // Función para manejar el clic en el botón
-    async _onToggleChatbotClick() {
-        if (!this.props.thread || !this.props.thread.id) return;
-
-        this.state.isLoading = true;
-        const wasPaused = this.state.chatbotStatus === 'paused';
-        const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
-
+    async onToggleClick() {
+        const threadId = this.props.thread.id;
+        const method = this.state.status === 'paused' ? 'action_resume_chatbot' : 'action_pause_chatbot';
+        this.state.status = "loading";
         try {
             await this.rpc({
                 model: 'discuss.channel',
-                method: methodToCall,
-                args: [this.props.thread.id],
+                method: method,
+                args: [threadId],
             });
-            // Refrescamos el estado después de la acción
-            await this._fetchChatbotStatus();
-        } catch (error) {
-            console.error("Chatbot: Error toggling status.", error);
-            this.state.chatbotStatus = "error";
-            this.state.isLoading = false;
+            await this.fetchStatus(this.props.thread); // Refresca el estado
+        } catch (e) {
+             console.error("Error al cambiar estado del chatbot:", e);
+             this.state.status = "error";
         }
-    },
-});
+    }
+}
+
+// Registramos el componente para que Odoo lo reconozca
+registry.category("components").add("ChatbotToggleButton", ChatbotToggleButton);

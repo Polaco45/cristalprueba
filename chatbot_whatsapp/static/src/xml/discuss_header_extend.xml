@@ -1,32 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <t t-name="chatbot_whatsapp.ChatbotToggleButton" t-inherit="mail.ThreadContainer" t-inherit-mode="extension">
-        <xpath expr="//div[hasclass('o_ThreadView_topbar')]//div[hasclass('o_ThreadViewTopbar_actions')]" position="prepend">
-            <div t-if="shouldShowChatbotButton()" class="me-2 d-flex align-items-center">
-                <t t-if="state.isLoading">
-                    <i class="fa fa-spinner fa-spin"/>
-                </t>
-                <t t-else="">
-                    <button class="btn btn-sm"
-                            t-att-class="{
-                                'btn-success': state.chatbotStatus === 'paused',
-                                'btn-warning': state.chatbotStatus === 'active',
-                                'btn-danger': state.chatbotStatus === 'error'
-                            }"
-                            t-on-click.prevent="_onToggleChatbotClick"
-                            t-att-disabled="state.chatbotStatus === 'error'">
-                        <i class="fa me-1"
-                           t-att-class="{
-                               'fa-play': state.chatbotStatus === 'paused',
-                               'fa-pause': state.chatbotStatus === 'active',
-                               'fa-exclamation-triangle': state.chatbotStatus === 'error'
-                           }"/>
-                        <t t-if="state.chatbotStatus === 'paused'">Reanudar Chatbot</t>
-                        <t t-if="state.chatbotStatus === 'active'">Pausar Chatbot</t>
-                        <t t-if="state.chatbotStatus === 'error'">Error</t>
-                    </button>
-                </t>
-            </div>
+
+    <t t-name="chatbot_whatsapp.DiscussHeaderButton" t-inherit="mail.ThreadContainer" t-inherit-mode="extension">
+        
+        <xpath expr="//div[hasclass('o_ThreadViewTopbar_actions')]" position="prepend">
+            
+            <ChatbotToggleButton thread="props.thread" class="me-2"/>
+            
         </xpath>
     </t>
+
+    <t t-name="chatbot_whatsapp.ChatbotToggleButton" owl="1">
+        <div t-if="state.status !== 'hidden'" class="d-flex align-items-center">
+            <button t-if="state.status === 'loading'" class="btn btn-sm btn-secondary" disabled="1">
+                <i class="fa fa-spinner fa-spin"/>
+            </button>
+            <button t-if="state.status === 'error'" class="btn btn-sm btn-danger" disabled="1" title="Error">
+                <i class="fa fa-exclamation-triangle"/>
+            </button>
+            <button t-if="state.status === 'paused'" class="btn btn-sm btn-success" t-on-click="onToggleClick">
+                <i class="fa fa-play me-1"/> Reanudar Chatbot
+            </button>
+            <button t-if="state.status === 'active'" class="btn btn-sm btn-warning" t-on-click="onToggleClick">
+                <i class="fa fa-pause me-1"/> Pausar Chatbot
+            </button>
+        </div>
+    </t>
+
 </templates>

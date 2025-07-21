@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<templates xml:space="preserve">
-    <t t-name="chatbot_whatsapp.ChatbotButton" t-inherit="mail.ThreadContainer" t-inherit-mode="extension">
-        <xpath expr="//div[hasclass('o-mail-Discuss-threadActions')]" position="prepend">
-            <div id="chatbot_toggle_container" class="d-flex align-items-center me-2"/>
-        </xpath>
-    </t>
-</templates>
