@@ -1,47 +1,44 @@
 /** @odoo-module */
 
 import { patch } from "@web/core/utils/patch";
-import { FormController } from "@web/views/form/form_controller";
+// 🎯 ¡Importante! Importamos el componente correcto: ThreadHeader
+import { ThreadHeader } from "@mail/core/common/thread_header"; 
 import { onMounted, onPatched } from "@odoo/owl";
 
-const originalSetup = FormController.prototype.setup;
-
-patch(FormController.prototype, {
+// Guardamos el setup original del componente que vamos a parchear
+const originalSetup = ThreadHeader.prototype.setup;
+    
+patch(ThreadHeader.prototype, {
     setup() {
+        // Llamamos al setup original primero
         originalSetup.apply(this, arguments);
+
+        // Los hooks onMounted y onPatched aseguran que nuestro botón se renderice
+        // al cargar y al actualizar el componente.
         onMounted(() => this._renderChatbotButton());
         onPatched(() => this._renderChatbotButton());
     },
 
     async _renderChatbotButton() {
-        // ✅ **LA CORRECCIÓN CLAVE**:
-        // Si el elemento raíz del controlador (this.el) aún no existe,
-        // significa que no se ha renderizado. Salimos y esperamos al siguiente ciclo.
-        if (!this.el) {
-            return;
-        }
-
+        // Buscamos el contenedor DENTRO del elemento de este componente (this.el)
         const container = this.el.querySelector('#chatbot_toggle_container');
 
-        if (!this.model.root || !this.model.root.data) {
-             return;
-        }
-
-        if (!container || this.model.root.resModel !== 'discuss.channel') {
-            if (container) {
-                container.innerHTML = "";
-            }
+        // Si no encontramos el contenedor o el chat no es un canal, no hacemos nada.
+        if (!container || this.props.thread?.type !== 'channel') {
+            if (container) container.innerHTML = ""; // Limpiamos por si acaso
             return;
         }
-        
-        const channelId = this.model.root.resId;
+
+        const channelId = this.props.thread.id;
         if (!channelId) {
             container.innerHTML = "";
             return;
         }
 
+        // Muestra un spinner mientras carga
         container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
 
+        // Hacemos la llamada RPC para saber el estado del chatbot
         const result = await this.env.services.rpc({
             model: 'discuss.channel',
             method: 'get_chatbot_status',
@@ -52,6 +49,7 @@ patch(FormController.prototype, {
         const currentContainer = this.el.querySelector('#chatbot_toggle_container');
         if (!currentContainer) return;
 
+        // Construimos el botón basado en la respuesta
         const isPaused = result.status === 'paused';
         const button = document.createElement("button");
         button.className = `btn btn-sm ${isPaused ? "btn-success" : "btn-warning"}`;
@@ -65,6 +63,7 @@ patch(FormController.prototype, {
         currentContainer.appendChild(button);
     },
 
+    // La lógica para el clic es la misma que ya tenías
     _onToggleChatbotClick(wasPaused, channelId) {
         const container = this.el.querySelector('#chatbot_toggle_container');
         if (container) {
@@ -77,6 +76,10 @@ patch(FormController.prototype, {
             model: 'discuss.channel',
             method: methodToCall,
             args: [channelId],
+        }).then(() => {
+            // Forzamos una actualización para que el botón se vuelva a renderizar
+            // con el nuevo estado.
+            this._renderChatbotButton();
         });
     },
 });
