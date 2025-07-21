@@ -1,55 +1,46 @@
 /** @odoo-module */
 
 import { patch } from "@web/core/utils/patch";
-// 🎯 ¡Importante! Importamos el componente correcto: ThreadHeader
-import { ThreadHeader } from "@mail/core/common/thread_header"; 
+// 🎯 Importamos el nuevo componente 'Discuss' de Odoo 18
+import { Discuss } from "@mail/core/common/discuss";
 import { onMounted, onPatched } from "@odoo/owl";
 
-// Guardamos el setup original del componente que vamos a parchear
-const originalSetup = ThreadHeader.prototype.setup;
-    
-patch(ThreadHeader.prototype, {
+patch(Discuss.prototype, {
     setup() {
-        // Llamamos al setup original primero
-        originalSetup.apply(this, arguments);
-
-        // Los hooks onMounted y onPatched aseguran que nuestro botón se renderice
-        // al cargar y al actualizar el componente.
+        // Llamamos al setup original
+        super.setup(...arguments);
+        // Usamos los hooks para renderizar nuestro botón
         onMounted(() => this._renderChatbotButton());
         onPatched(() => this._renderChatbotButton());
     },
 
     async _renderChatbotButton() {
-        // Buscamos el contenedor DENTRO del elemento de este componente (this.el)
+        // La lógica de búsqueda y renderizado es la misma
         const container = this.el.querySelector('#chatbot_toggle_container');
 
-        // Si no encontramos el contenedor o el chat no es un canal, no hacemos nada.
-        if (!container || this.props.thread?.type !== 'channel') {
-            if (container) container.innerHTML = ""; // Limpiamos por si acaso
+        // La forma de acceder al thread puede haber cambiado. 'this.thread' es lo más probable.
+        if (!container || this.thread?.type !== 'channel') {
+            if (container) container.innerHTML = "";
             return;
         }
 
-        const channelId = this.props.thread.id;
+        const channelId = this.thread.id;
         if (!channelId) {
-            container.innerHTML = "";
+            if (container) container.innerHTML = "";
             return;
         }
 
-        // Muestra un spinner mientras carga
         container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
 
-        // Hacemos la llamada RPC para saber el estado del chatbot
         const result = await this.env.services.rpc({
             model: 'discuss.channel',
             method: 'get_chatbot_status',
             args: [channelId],
         });
         
-        // Es posible que el contenedor ya no exista si el usuario navegó rápido
         const currentContainer = this.el.querySelector('#chatbot_toggle_container');
         if (!currentContainer) return;
 
-        // Construimos el botón basado en la respuesta
         const isPaused = result.status === 'paused';
         const button = document.createElement("button");
         button.className = `btn btn-sm ${isPaused ? "btn-success" : "btn-warning"}`;
@@ -63,8 +54,8 @@ patch(ThreadHeader.prototype, {
         currentContainer.appendChild(button);
     },
 
-    // La lógica para el clic es la misma que ya tenías
     _onToggleChatbotClick(wasPaused, channelId) {
+        // Esta función no necesita cambios
         const container = this.el.querySelector('#chatbot_toggle_container');
         if (container) {
             container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
@@ -77,8 +68,6 @@ patch(ThreadHeader.prototype, {
             method: methodToCall,
             args: [channelId],
         }).then(() => {
-            // Forzamos una actualización para que el botón se vuelva a renderizar
-            // con el nuevo estado.
             this._renderChatbotButton();
         });
     },
