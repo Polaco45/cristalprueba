@@ -1,8 +1,7 @@
-/** @odoo-module */
-
+/** @odoo-module **/
 import { patch } from "@web/core/utils/patch";
-// 🎯 Importamos el componente 'Discuss' en lugar de 'FormController'
-import { Discuss } from "@mail/core/common/discuss";
+// 🎯 Correct import:
+import { Discuss } from "@mail/components/discuss/discuss";
 import { onMounted, onPatched } from "@odoo/owl";
 
 // Parcheamos el componente correcto
