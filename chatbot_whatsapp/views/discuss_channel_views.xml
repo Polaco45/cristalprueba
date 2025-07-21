@@ -1,18 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
   <data>
+    <!-- 1) Cambié el inherit_id por el External ID real de la vista de canal -->
     <record id="view_discuss_channel_form_chatbot_inherit" model="ir.ui.view">
-        <field name="name">discuss.channel.form.chatbot.inherit</field>
-        <field name="model">discuss.channel</field>
-        <field name="inherit_id" ref="mail.discuss_channel_view_form"/>
-        <field name="arch" type="xml">
-            <xpath expr="/html/body/div[2]/div/div[2]/div[2]/div[1]" position="before">
-            <header>
-                <div id="chatbot_toggle_container" class="o_thread_header_button"/>
-            </header>
-            </xpath>
-        </field>
+      <field name="name">discuss.channel.form.chatbot.inherit</field>
+      <field name="model">discuss.channel</field>
+      <!-- fíjate en la lista de vistas técnicas si tu External ID cambia -->
+      <field name="inherit_id" ref="mail.view_discuss_channel"/>
+      <field name="arch" type="xml">
+        <!-- 2) Inserto el header dentro de <form> antes de sheet -->
+        <xpath expr="//form" position="inside">
+          <header>
+            <div id="chatbot_toggle_container" class="o_thread_header_button"></div>
+          </header>
+        </xpath>
+      </field>
     </record>
   </data>
 </odoo>
-
