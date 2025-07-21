@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="chatbot_whatsapp.ThreadHeader" t-inherit="mail.Thread.Header" t-inherit-mode="extension" owl="1">
+        <xpath expr="//div[hasclass('o_mail_thread_header_buttons')]" position="before">
+            <span class="ms-2 me-auto fw-bold">
+                Hola Mundo
+            </span>
+        </xpath>
+    </t>
+
+</templates>

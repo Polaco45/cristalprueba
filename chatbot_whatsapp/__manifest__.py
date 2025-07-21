@@ -26,8 +26,8 @@
 
     'assets': {
         'web.assets_backend': [
-            'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
-            'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
+            'chatbot_whatsapp/static/src/js/systray_icon.js',
+            'chatbot_whatsapp/static/src/xml/systray_icon.xml',
         ],
     },
     'installable': True,
