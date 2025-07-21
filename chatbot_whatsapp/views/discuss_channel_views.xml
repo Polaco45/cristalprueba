@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <template id="view_discuss_channel_header_chatbot_inherit" inherit_id="mail.ThreadHeader" name="discuss.channel.header.chatbot.inherit">
-        <xpath expr="//div[hasclass('o-mail-ThreadHeader-details')]" position="inside">
-            <div id="chatbot_toggle_container" class="ms-3"/>
-        </xpath>
-    </template>
+  <data>
+    <record id="view_discuss_channel_form_chatbot_inherit" model="ir.ui.view">
+        <field name="name">discuss.channel.form.chatbot.inherit</field>
+        <field name="model">discuss.channel</field>
+        <field name="inherit_id" ref="mail.discuss_channel_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/sheet" position="before">
+            <header>
+                <div id="chatbot_toggle_container" class="o_thread_header_button"/>
+                <h2> Hola </h2>
+            </header>
+            </xpath>
+        </field>
+    </record>
+  </data>
 </odoo>
