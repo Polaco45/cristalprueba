@@ -1,32 +1,42 @@
 /** @odoo-module */
 
 import { patch } from "@web/core/utils/patch";
-// 🎯 Importamos el nuevo componente 'Discuss' de Odoo 18
-import { Discuss } from "@mail/core/common/discuss";
+import { FormController } from "@web/views/form/form_controller";
 import { onMounted, onPatched } from "@odoo/owl";
 
-patch(Discuss.prototype, {
+const originalSetup = FormController.prototype.setup;
+
+patch(FormController.prototype, {
     setup() {
-        // Llamamos al setup original
-        super.setup(...arguments);
-        // Usamos los hooks para renderizar nuestro botón
+        originalSetup.apply(this, arguments);
         onMounted(() => this._renderChatbotButton());
         onPatched(() => this._renderChatbotButton());
     },
 
     async _renderChatbotButton() {
-        // La lógica de búsqueda y renderizado es la misma
-        const container = this.el.querySelector('#chatbot_toggle_container');
-
-        // La forma de acceder al thread puede haber cambiado. 'this.thread' es lo más probable.
-        if (!container || this.thread?.type !== 'channel') {
-            if (container) container.innerHTML = "";
+        // ✅ **LA CORRECCIÓN CLAVE**:
+        // Si el elemento raíz del controlador (this.el) aún no existe,
+        // significa que no se ha renderizado. Salimos y esperamos al siguiente ciclo.
+        if (!this.el) {
             return;
         }
 
-        const channelId = this.thread.id;
+        const container = this.el.querySelector('#chatbot_toggle_container');
+
+        if (!this.model.root || !this.model.root.data) {
+             return;
+        }
+
+        if (!container || this.model.root.resModel !== 'discuss.channel') {
+            if (container) {
+                container.innerHTML = "";
+            }
+            return;
+        }
+        
+        const channelId = this.model.root.resId;
         if (!channelId) {
-            if (container) container.innerHTML = "";
+            container.innerHTML = "";
             return;
         }
 
@@ -38,6 +48,7 @@ patch(Discuss.prototype, {
             args: [channelId],
         });
         
+        // Es posible que el contenedor ya no exista si el usuario navegó rápido
         const currentContainer = this.el.querySelector('#chatbot_toggle_container');
         if (!currentContainer) return;
 
@@ -55,7 +66,6 @@ patch(Discuss.prototype, {
     },
 
     _onToggleChatbotClick(wasPaused, channelId) {
-        // Esta función no necesita cambios
         const container = this.el.querySelector('#chatbot_toggle_container');
         if (container) {
             container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
@@ -67,8 +77,6 @@ patch(Discuss.prototype, {
             model: 'discuss.channel',
             method: methodToCall,
             args: [channelId],
-        }).then(() => {
-            this._renderChatbotButton();
         });
     },
 });
