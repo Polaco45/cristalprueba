@@ -1,55 +1,75 @@
-/** @odoo-module **/
+/** @odoo-module */
 
 import { patch } from "@web/core/utils/patch";
-import { ThreadTopbar } from "@mail/components/thread_topbar/thread_topbar";
-import { useService } from "@web/core/utils/hooks";
+// 🎯 Importamos el componente 'Discuss' en lugar de 'FormController'
+import { Discuss } from "@mail/core/common/discuss";
+import { onMounted, onPatched } from "@odoo/owl";
 
-patch(ThreadTopbar.prototype, {
+// Parcheamos el componente correcto
+patch(Discuss.prototype, {
     setup() {
-        super.setup();
-        this.rpc = useService("rpc");
+        // La sintaxis de setup es ligeramente diferente en componentes OWL puros
+        super.setup(...arguments);
+        onMounted(() => this._renderChatbotButton());
+        onPatched(() => this._renderChatbotButton());
     },
 
-    // Este getter añade tu botón al array de botones que ya pinta el topbar
-    get extraButtons() {
-        const base = super.extraButtons || [];
-        return [
-            ...base,
-            {
-                key: "chatbot_toggle",
-                icon: "fa fa-robot",
-                title: "Pausar/Reanudar Chatbot",
-                className: "btn btn-sm btn-secondary",
-                onClick: () => this._toggleChatbot(),
-            }
-        ];
+    async _renderChatbotButton() {
+        if (!this.el) return;
+
+        const container = this.el.querySelector('#chatbot_toggle_container');
+        
+        // La forma de obtener el canal activo es a través de this.thread
+        if (!container || this.thread?.type !== 'channel') {
+            if (container) container.innerHTML = "";
+            return;
+        }
+
+        const channelId = this.thread.id;
+        if (!channelId) {
+            if (container) container.innerHTML = "";
+            return;
+        }
+
+        container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
+
+        const result = await this.env.services.rpc({
+            model: 'discuss.channel',
+            method: 'get_chatbot_status',
+            args: [channelId],
+        });
+        
+        // El resto de la lógica es prácticamente idéntica
+        const currentContainer = this.el.querySelector('#chatbot_toggle_container');
+        if (!currentContainer) return;
+
+        const isPaused = result.status === 'paused';
+        const button = document.createElement("button");
+        button.className = `btn btn-sm ${isPaused ? "btn-success" : "btn-warning"}`;
+        button.innerHTML = `<i class="fa ${isPaused ? "fa-play" : "fa-pause"} me-1"></i> ${isPaused ? "Reanudar Chatbot" : "Pausar Chatbot"}`;
+
+        button.addEventListener("click", () => {
+            this._onToggleChatbotClick(isPaused, channelId);
+        });
+        
+        currentContainer.innerHTML = "";
+        currentContainer.appendChild(button);
     },
 
-    async _toggleChatbot() {
-        const channelId = this.thread?.id;
-        if (!channelId) return;
-        // 1) pido estado
-        const { status } = await this.rpc({
-            model: "discuss.channel",
-            method: "get_chatbot_status",
+    _onToggleChatbotClick(wasPaused, channelId) {
+        const container = this.el.querySelector('#chatbot_toggle_container');
+        if (container) {
+            container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
+        }
+
+        const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
+
+        this.env.services.rpc({
+            model: 'discuss.channel',
+            method: methodToCall,
             args: [channelId],
+        }).then(() => {
+            this._renderChatbotButton();
         });
-        // 2) decido método
-        const method = status === "paused"
-            ? "action_resume_chatbot"
-            : "action_pause_chatbot";
-        // 3) ejecuto
-        await this.rpc({
-            model: "discuss.channel",
-            method,
-            args: [channelId],
-        });
-        // 4) opcional: feedback
-        this.env.services.notification.add(
-            status === "paused"
-                ? "Chatbot reanudado"
-                : "Chatbot pausado",
-            { type: "success" }
-        );
     },
 });
