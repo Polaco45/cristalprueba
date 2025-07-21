@@ -6,7 +6,7 @@
         <field name="model">discuss.channel</field>
         <field name="inherit_id" ref="mail.discuss_channel_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//form/sheet" position="before">
+            <xpath expr="/html/body/div[2]/div/div[2]/div[2]/div[1]" position="before">
             <header>
                 <div id="chatbot_toggle_container" class="o_thread_header_button"/>
             </header>
@@ -15,3 +15,4 @@
     </record>
   </data>
 </odoo>
+
