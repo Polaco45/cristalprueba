@@ -22,7 +22,6 @@
     'data': [
         'security/ir.model.access.csv',
         'data/cron_jobs.xml',
-        'views/discuss_channel_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
