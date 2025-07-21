@@ -1,74 +1,79 @@
 /** @odoo-module **/
 import { patch } from "@web/core/utils/patch";
-// 🎯 Correct import:
-import { Discuss } from "@mail/core/public_web/discuss";
-import { onMounted, onPatched } from "@odoo/owl";
+import { ThreadContainer } from "@mail/core/common/thread_container"; // Importación correcta para Odoo 18
+import { onMounted, onPatched, onWillUpdateProps, useState } from "@odoo/owl";
+import { useService } from "@web/core/utils/hooks";
+import { _t } from "@web/core/l10n/translation";
 
-// Parcheamos el componente correcto
-patch(Discuss.prototype, {
+patch(ThreadContainer.prototype, {
     setup() {
-        // La sintaxis de setup es ligeramente diferente en componentes OWL puros
         super.setup(...arguments);
-        onMounted(() => this._renderChatbotButton());
-        onPatched(() => this._renderChatbotButton());
+        this.rpc = useService("rpc");
+        this.state = useState({
+            chatbotStatus: "unknown",
+            isLoading: true,
+        });
+
+        // Hooks para asegurar que el botón se renderice y actualice correctamente
+        onMounted(() => this._fetchChatbotStatus());
+        onPatched(() => this._fetchChatbotStatus());
+        onWillUpdateProps(async (nextProps) => {
+            // Si cambiamos de canal, volvemos a buscar el estado
+            if (this.props.thread?.id !== nextProps.thread?.id) {
+                await this._fetchChatbotStatus(nextProps);
+            }
+        });
     },
 
-    async _renderChatbotButton() {
-        if (!this.el) return;
+    // Nueva función para saber si debemos mostrar el botón
+    shouldShowChatbotButton() {
+        return this.props.thread?.type === 'channel' && this.props.thread?.id;
+    },
 
-        const container = this.el.querySelector('#chatbot_toggle_container');
-        
-        // La forma de obtener el canal activo es a través de this.thread
-        if (!container || this.thread?.type !== 'channel') {
-            if (container) container.innerHTML = "";
+    // Función para obtener el estado del bot
+    async _fetchChatbotStatus(props) {
+        const thread = props ? props.thread : this.props.thread;
+        if (!thread || thread.type !== 'channel' || !thread.id) {
+            this.state.chatbotStatus = "unknown";
             return;
         }
 
-        const channelId = this.thread.id;
-        if (!channelId) {
-            if (container) container.innerHTML = "";
-            return;
+        this.state.isLoading = true;
+        try {
+            const result = await this.rpc({
+                model: 'discuss.channel',
+                method: 'get_chatbot_status',
+                args: [thread.id],
+            });
+            this.state.chatbotStatus = result.status;
+        } catch (error) {
+            console.error("Chatbot: Error fetching status.", error);
+            this.state.chatbotStatus = "error";
+        } finally {
+            this.state.isLoading = false;
         }
-
-        container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
-
-        const result = await this.env.services.rpc({
-            model: 'discuss.channel',
-            method: 'get_chatbot_status',
-            args: [channelId],
-        });
-        
-        // El resto de la lógica es prácticamente idéntica
-        const currentContainer = this.el.querySelector('#chatbot_toggle_container');
-        if (!currentContainer) return;
-
-        const isPaused = result.status === 'paused';
-        const button = document.createElement("button");
-        button.className = `btn btn-sm ${isPaused ? "btn-success" : "btn-warning"}`;
-        button.innerHTML = `<i class="fa ${isPaused ? "fa-play" : "fa-pause"} me-1"></i> ${isPaused ? "Reanudar Chatbot" : "Pausar Chatbot"}`;
-
-        button.addEventListener("click", () => {
-            this._onToggleChatbotClick(isPaused, channelId);
-        });
-        
-        currentContainer.innerHTML = "";
-        currentContainer.appendChild(button);
     },
 
-    _onToggleChatbotClick(wasPaused, channelId) {
-        const container = this.el.querySelector('#chatbot_toggle_container');
-        if (container) {
-            container.innerHTML = '<i class="fa fa-spinner fa-spin"/>';
-        }
+    // Función para manejar el clic en el botón
+    async _onToggleChatbotClick() {
+        if (!this.props.thread || !this.props.thread.id) return;
 
+        this.state.isLoading = true;
+        const wasPaused = this.state.chatbotStatus === 'paused';
         const methodToCall = wasPaused ? 'action_resume_chatbot' : 'action_pause_chatbot';
 
-        this.env.services.rpc({
-            model: 'discuss.channel',
-            method: methodToCall,
-            args: [channelId],
-        }).then(() => {
-            this._renderChatbotButton();
-        });
+        try {
+            await this.rpc({
+                model: 'discuss.channel',
+                method: methodToCall,
+                args: [this.props.thread.id],
+            });
+            // Refrescamos el estado después de la acción
+            await this._fetchChatbotStatus();
+        } catch (error) {
+            console.error("Chatbot: Error toggling status.", error);
+            this.state.chatbotStatus = "error";
+            this.state.isLoading = false;
+        }
     },
 });
