@@ -1,17 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<odoo>
-  <data>
-    <!-- Heredamos el QWeb template de la cabecera de Discuss -->
-    <template id="mail_discuss_header_hola_mundo"
-              inherit_id="mail.DiscussHeader"
-              name="Añadir Hola Mundo en header">
-      <!-- Localizamos el contenedor de iconos / botones -->
-      <xpath expr="//div[contains(@class, 'o-mail-Discuss-headerActions')]" position="inside">
-        <!-- Aquí agregamos nuestro texto estático -->
-        <span class="o_mail_discuss_hola_mundo ms-2 me-2" t-att-title="'Hola Mundo'">
-          Hola Mundo
-        </span>
-      </xpath>
-    </template>
-  </data>
-</odoo>
+<templates xml:space="preserve">
+
+    <t t-name="chatbot_whatsapp.ChatbotSystrayIcon" owl="1">
+        <div class="o_menu_item" t-on-click="_onClick" role="button" title="Prueba Chatbot">
+            <i class="fa fa-bug fa-fw"/>
+            <span class="ms-1">
+                Hola Mundo
+            </span>
+        </div>
+    </t>
+
+</templates>
