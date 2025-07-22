@@ -15,7 +15,6 @@
     'depends': [
         'base',
         'mail',    
-        'conversations',
         'sale',
         'account',
         'whatsapp'
