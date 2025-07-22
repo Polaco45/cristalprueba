@@ -121,14 +121,12 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Ignorar mensajes generados por el bot en este flujo para evitar bucles
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
         bot_partner_id = self.env.ref('base.user_admin').partner_id.id
-        
-        # Lista para los mensajes que no son comandos
         processed_vals_list = []
+        command_processed = False
 
         for vals in vals_list:
             author_id = vals.get('author_id')
@@ -141,87 +139,81 @@ class MailMessage(models.Model):
                 continue
 
             author_partner = self.env['res.partner'].browse(author_id)
-            if author_partner.id == bot_partner_id:
+            if author_partner.id == bot_partner_id or not author_partner.user_ids:
                 processed_vals_list.append(vals)
                 continue
 
+            # Es un empleado, procesar lógica de comandos o intervención
             is_command = False
-            # --- LÓGICA PARA COMANDOS /on y /off ---
-            if author_partner.user_ids: # Es un empleado
-                plain_body = clean_html(body).strip()
-                channel = self.env['discuss.channel'].browse(res_id)
+            plain_body = clean_html(body).strip()
+            channel = self.env['discuss.channel'].browse(res_id)
 
-                if channel.channel_type == 'whatsapp':
-                    # --- Identificar al cliente en el canal ---
-                    partner_to_manage = self.env['res.partner']
-                    if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
-                        customer_phone = normalize_phone(channel.whatsapp_number)
-                        if customer_phone:
-                            partner_to_manage = self.env['res.partner'].sudo().search([
-                                '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
-                            ], limit=1)
+            if channel.channel_type == 'whatsapp':
+                # --- Identificar al cliente (partner) en el canal ---
+                partner_to_manage = self.env['res.partner']
+                if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
+                    customer_phone = normalize_phone(channel.whatsapp_number)
+                    if customer_phone:
+                        partner_to_manage = self.env['res.partner'].sudo().search([
+                            '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
+                        ], limit=1)
+                
+                if not partner_to_manage:
+                    customer_partners = channel.channel_partner_ids.filtered(
+                        lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
+                    )
+                    if len(customer_partners) == 1:
+                        partner_to_manage = customer_partners
+
+                if partner_to_manage:
+                    memory = self.env['chatbot.whatsapp.memory'].sudo().search(
+                        [('partner_id', '=', partner_to_manage.id)], limit=1
+                    )
+                    if not memory:
+                        memory = self.env['chatbot.whatsapp.memory'].sudo().create({
+                            'partner_id': partner_to_manage.id
+                        })
+
+                    # --- LÓGICA PARA COMANDOS /on y /off ---
+                    if plain_body == '/off':
+                        memory.sudo().write({
+                            'human_takeover': True,
+                            'takeover_until': False,
+                        })
+                        _logger.info(f"🤖 Chatbot DESACTIVADO para {partner_to_manage.name} por {author_partner.name}")
+                        is_command = True
+                        command_processed = True
                     
-                    if not partner_to_manage:
-                        customer_partners = channel.channel_partner_ids.filtered(
-                            lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
-                        )
-                        if len(customer_partners) == 1:
-                            partner_to_manage = customer_partners
+                    elif plain_body == '/on':
+                        memory.sudo().write({
+                            'human_takeover': False,
+                            'takeover_until': False,
+                        })
+                        _logger.info(f"🤖 Chatbot ACTIVADO para {partner_to_manage.name} por {author_partner.name}")
+                        is_command = True
+                        command_processed = True
                     
-                    if partner_to_manage:
-                        memory = self.env['chatbot.whatsapp.memory'].sudo().search(
-                            [('partner_id', '=', partner_to_manage.id)], limit=1
-                        )
-                        if not memory:
-                             memory = self.env['chatbot.whatsapp.memory'].sudo().create({
-                                'partner_id': partner_to_manage.id
-                            })
-                        
-                        if plain_body == '/off':
-                            memory.sudo().write({
-                                'human_takeover': True,
-                                'takeover_until': False,
-                            })
-                            _logger.info(f"🤖 Chatbot DESACTIVADO para {partner_to_manage.name} por {author_partner.name}")
-                            is_command = True
-                        
-                        elif plain_body == '/on':
-                            memory.sudo().write({
-                                'human_takeover': False,
-                                'takeover_until': False,
-                            })
-                            _logger.info(f"🤖 Chatbot ACTIVADO para {partner_to_manage.name} por {author_partner.name}")
-                            is_command = True
-            
+                    # --- Lógica original de intervención humana (si no es un comando) ---
+                    if not is_command:
+                        takeover_duration_hours = 1
+                        memory.sudo().write({
+                            'human_takeover': True,
+                            'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
+                            'flow_state': False, # Opcional: reiniciar el flujo
+                        })
+                        _logger.info(f"🤫 Pausando chatbot para {partner_to_manage.name} por intervención de {author_partner.name}")
+
             if not is_command:
-                # --- Lógica original de intervención humana ---
-                if author_partner.user_ids:
-                    channel = self.env['discuss.channel'].browse(res_id)
-                    if channel.channel_type == 'whatsapp':
-                        # (El resto de la lógica de human_takeover se mantiene igual)
-                        partner_to_pause = self.env['res.partner']
-
-                        if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
-                            customer_phone = normalize_phone(channel.whatsapp_number)
-                            if customer_phone:
-                                partner_to_pause = self.env['res.partner'].sudo().search([
-                                    '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
-                                ], limit=1)
-                        # ... (resto de la lógica para encontrar partner_to_pause)
-
-                        if partner_to_pause:
-                            memory = self.env['chatbot.whatsapp.memory'].sudo().search(
-                                [('partner_id', '=', partner_to_pause.id)], limit=1
-                            )
-                            if memory:
-                                takeover_duration_hours = 1
-                                memory.sudo().write({
-                                    'human_takeover': True,
-                                    'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                                    'flow_state': False,
-                                })
                 processed_vals_list.append(vals)
 
+        # --- Devolver el resultado correcto ---
         if processed_vals_list:
             return super(MailMessage, self).create(processed_vals_list)
-        return self.env['mail.message']
+        
+        # Si solo se procesó un comando y la lista está vacía, devuelve un registro vacío
+        # para evitar el `UnboundLocalError`
+        if command_processed:
+            return self.env['mail.message']
+
+        # Fallback por si vals_list estaba vacío desde el principio
+        return super(MailMessage, self).create(vals_list)
