@@ -14,17 +14,22 @@
     'license': 'LGPL-3',
     'depends': [
         'base',
-        'mail',    
+        'mail',      
         'sale',
         'account',
-        'web',
-        'whatsapp',
+        'whatsapp'
     ],
     'data': [
         'security/ir.model.access.csv',
         'data/cron_jobs.xml',
-        'views/templates.xml',
     ],
+
+    'assets': {
+        'web.assets_backend': [
+            'chatbot_whatsapp/static/src/js/systray_icon.js',
+            'chatbot_whatsapp/static/src/xml/systray_icon.xml',
+        ],
+    },
     'installable': True,
     'application': False,
     'auto_install': False,
