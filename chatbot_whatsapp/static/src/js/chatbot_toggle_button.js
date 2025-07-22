@@ -1,24 +1,32 @@
 /** @odoo-module **/
 
+// CHIVATO 1: ¿Se está cargando este archivo?
+console.log("✅ [Chatbot] Archivo discuss_extend.js CARGADO.");
+
 import { ThreadView } from "@mail/views/thread_view/thread_view";
 import { patch } from "@web/core/utils/patch";
 
-// Usamos 'patch' para añadir funcionalidad al componente original de Odoo
+// CHIVATO 2: ¿Llega el código hasta aquí?
+console.log("⏳ [Chatbot] Intentando aplicar parche a ThreadView...");
+
+// La palabra 'debugger' pausará la ejecución del navegador aquí.
+// Si las herramientas de desarrollador están abiertas, el código se detendrá
+// y podrás ver si hay algún problema. Si no se detiene, el archivo ni siquiera se ejecuta.
+debugger;
+
 patch(ThreadView.prototype, 'chatbot_whatsapp.ThreadView', {
 
     /**
-     * Esta es la función que se llama desde el t-on-click en el XML.
-     * Tienes acceso a toda la información del chat a través de 'this.thread'.
+     * Nuestra nueva función que será llamada por el botón.
      */
     onClickCustomButton() {
-        alert("¡Botón del Chatbot presionado!");
-        
-        // Ejemplo: puedes acceder al ID del hilo (channel) actual
-        const threadId = this.thread.id;
-        console.log(`El ID de este hilo de WhatsApp es: ${threadId}`);
-        
-        // Aquí pondrías la lógica de tu chatbot...
-        // Por ejemplo, llamar a un método del servidor con el ID del hilo.
+        // CHIVATO 3: ¿Se ejecuta la función al hacer clic?
+        alert("¡CLIC DETECTADO!");
+        console.log("🔥 [Chatbot] ¡El botón funciona! La función onClickCustomButton se ha ejecutado.");
+        console.log("Datos del hilo actual:", this.thread);
     },
 
 });
+
+// CHIVATO 4: ¿Se completó la definición del parche sin errores?
+console.log("👍 [Chatbot] Parche para ThreadView definido con éxito.");
