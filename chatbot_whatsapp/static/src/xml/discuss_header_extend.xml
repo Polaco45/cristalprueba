@@ -1,11 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<templates>
-    <t t-name="chatbot_whatsapp.ExtendThreadView" t-inherit="mail.ThreadView" t-inherit-mode="extension">
-        <xpath expr="//div[hasclass('o-mail-Discuss-headerActions')]" position="inside">
-            <button class="o_ThreadView_action btn btn-link" title="Prueba Chatbot"
-                    aria-label="Prueba Chatbot" t-on-click="() => this.onClickCustomButton()">
-                <i class="fa fa-bug fa-fw" role="img" aria-label="Ícono de Chatbot"/>
-            </button>
+<templates xml:space="preserve">
+    <t t-name="chatbot_whatsapp.ChatbotToggleButton" t-inherit="mail.ThreadContainer" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('o_ThreadView_topbar')]//div[hasclass('o_ThreadViewTopbar_actions')]" position="prepend">
+            <div t-if="shouldShowChatbotButton()" class="me-2 d-flex align-items-center">
+                <t t-if="state.isLoading">
+                    <i class="fa fa-spinner fa-spin"/>
+                </t>
+                <t t-else="">
+                    <button class="btn btn-sm"
+                            t-att-class="{
+                                'btn-success': state.chatbotStatus === 'paused',
+                                'btn-warning': state.chatbotStatus === 'active',
+                                'btn-danger': state.chatbotStatus === 'error'
+                            }"
+                            t-on-click.prevent="_onToggleChatbotClick"
+                            t-att-disabled="state.chatbotStatus === 'error'">
+                        <i class="fa me-1"
+                           t-att-class="{
+                               'fa-play': state.chatbotStatus === 'paused',
+                               'fa-pause': state.chatbotStatus === 'active',
+                               'fa-exclamation-triangle': state.chatbotStatus === 'error'
+                           }"/>
+                        <t t-if="state.chatbotStatus === 'paused'">Reanudar Chatbot</t>
+                        <t t-if="state.chatbotStatus === 'active'">Pausar Chatbot</t>
+                        <t t-if="state.chatbotStatus === 'error'">Error</t>
+                    </button>
+                </t>
+            </div>
         </xpath>
     </t>
 </templates>

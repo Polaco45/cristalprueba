@@ -17,18 +17,19 @@
         'mail',      
         'sale',
         'account',
-        'web',
         'whatsapp'
     ],
     'data': [
         'security/ir.model.access.csv',
         'data/cron_jobs.xml',
     ],
-
     'assets': {
-        'web.assets_backend': [
-            'chatbot_whatsapp/static/src/js/systray_icon.js',
-            'chatbot_whatsapp/static/src/xml/channel_header.xml',
+        # for everything in the mail/thread/discuss view:
+        'web.assets_qweb': [
+           'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
+        ],
+        'mail.assets_messaging': [
+            'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
         ],
     },
     'installable': True,
