@@ -15,6 +15,7 @@
     'depends': [
         'base',
         'mail',      
+        'web',
         'sale',
         'account',
         'whatsapp'
