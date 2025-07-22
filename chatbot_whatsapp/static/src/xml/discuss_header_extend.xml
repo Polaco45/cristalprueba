@@ -1,13 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates>
-
     <t t-name="chatbot_whatsapp.ExtendThreadView" t-inherit="mail.ThreadView" t-inherit-mode="extension">
         <xpath expr="//div[hasclass('o-mail-Discuss-headerActions')]" position="inside">
             <button class="o_ThreadView_action btn btn-link" title="Prueba Chatbot"
-                    aria-label="Prueba Chatbot" t-on-click="() => this.threadView.onClickCustomButton()">
+                    aria-label="Prueba Chatbot" t-on-click="() => this.onClickCustomButton()">
                 <i class="fa fa-bug fa-fw" role="img" aria-label="Ícono de Chatbot"/>
             </button>
         </xpath>
     </t>
-
 </templates>

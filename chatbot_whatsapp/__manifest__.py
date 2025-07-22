@@ -26,8 +26,8 @@
     'assets': {
         # for everything in the mail/thread/discuss view:
         'web.assets_backend': [
-            'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
-            'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
+            'static/src/js/chatbot_toggle_button.js',
+            'static/src/xml/discuss_header_extend.xml',
         ],
     },
     'installable': True,
