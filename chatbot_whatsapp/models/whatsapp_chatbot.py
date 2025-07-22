@@ -122,7 +122,7 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # Ignorar mensajes generados por el bot para evitar bucles
+        # Ignorar mensajes generados por el bot en este flujo para evitar bucles
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
@@ -132,72 +132,61 @@ class MailMessage(models.Model):
             author_id = vals.get('author_id')
             model = vals.get('model')
             res_id = vals.get('res_id')
-            body = clean_html(vals.get('body', '')).strip()
 
-            if not (model == 'discuss.channel' and author_id and res_id and body):
+            if not (model == 'discuss.channel' and author_id and res_id):
                 continue
 
             author_partner = self.env['res.partner'].browse(author_id)
-            if author_partner.id == bot_partner_id or not author_partner.user_ids:
+            if author_partner.id == bot_partner_id:
                 continue
 
-            channel = self.env['discuss.channel'].browse(res_id)
-            if channel.channel_type != 'whatsapp':
-                continue
+            if author_partner.user_ids:
+                channel = self.env['discuss.channel'].browse(res_id)
+                if channel.channel_type == 'whatsapp':
+                    partner_to_pause = self.env['res.partner']
 
-            # --- NUEVA LÓGICA PARA COMANDOS /on y /off ---
-            # Identificar al partner cliente del canal
-            customer_partner = channel.channel_partner_ids.filtered(
-                lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
-            )
-            if not customer_partner:
-                _logger.warning(f"No se pudo identificar al partner cliente en el canal {channel.id}")
-                continue
-            
-            customer_partner = customer_partner[0]
+                    if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
+                        customer_phone = normalize_phone(channel.whatsapp_number)
+                        if customer_phone:
+                            partner_to_pause = self.env['res.partner'].sudo().search([
+                                '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
+                            ], limit=1)
+                            _logger.info(f"Cliente identificado por número de canal WA: {customer_phone} -> {partner_to_pause.name}")
 
-            memory = self.env['chatbot.whatsapp.memory'].sudo().search(
-                [('partner_id', '=', customer_partner.id)], limit=1
-            )
-            if not memory:
-                _logger.info(f"El cliente '{customer_partner.name}' no tiene memoria de chatbot para modificar.")
-                continue
+                    if not partner_to_pause:
+                        _logger.info("No se encontró cliente por número de canal, intentando por miembros del canal.")
+                        customer_partners = channel.channel_partner_ids.filtered(
+                            lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
+                        )
+                        if len(customer_partners) == 1:
+                            partner_to_pause = customer_partners
+                            
+                    if partner_to_pause:
+                        memory = self.env['chatbot.whatsapp.memory'].sudo().search(
+                            [('partner_id', '=', partner_to_pause.id)], limit=1
+                        )
+                        if memory:
+                            # CAMBIO A 1 HORA
+                            takeover_duration_hours = 1
+                            log_action = "Pausando"
+                            if memory.human_takeover:
+                                log_action = "Reiniciando pausa para"
 
-            # Comprobar si es un comando
-            if body.lower() == '/off':
-                _logger.info(f"🤖 Comando /off recibido. Desactivando chatbot para {customer_partner.name}.")
-                memory.sudo().write({
-                    'human_takeover': True,
-                    'takeover_until': datetime.now() + timedelta(days=3650) # Desactivado por 10 años
-                })
-                # IMPORTANTE: No llamamos a super() para que el mensaje no se envíe
-                return self.env['mail.message'] # Devolvemos un recordset vacío
-            
-            elif body.lower() == '/on':
-                _logger.info(f"🤖 Comando /on recibido. Reactivando chatbot para {customer_partner.name}.")
-                memory.sudo().write({
-                    'human_takeover': False,
-                    'takeover_until': False,
-                })
-                # IMPORTANTE: No llamamos a super()
-                return self.env['mail.message'] # Devolvemos un recordset vacío
-            
-            # --- FIN DE LA NUEVA LÓGICA ---
-
-            # Lógica original para pausar el bot temporalmente con cualquier mensaje del empleado
-            takeover_duration_hours = 1
-            log_action = "Pausando"
-            if memory.human_takeover:
-                log_action = "Reiniciando pausa para"
-
-            _logger.info(
-                f"👤 Intervención humana de '{author_partner.name}' detectada. "
-                f"{log_action} chatbot del cliente '{customer_partner.name}' por {takeover_duration_hours} hora(s)."
-            )
-            memory.sudo().write({
-                'human_takeover': True,
-                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                'flow_state': False, # Resetea cualquier flujo activo
-            })
+                            _logger.info(
+                                f"👤 Intervención humana de '{author_partner.name}' detectada. "
+                                f"{log_action} chatbot del cliente '{partner_to_pause.name}' por {takeover_duration_hours} hora(s)."
+                            )
+                            memory.sudo().write({
+                                'human_takeover': True,
+                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
+                                'flow_state': False,
+                            })
+                        else:
+                            _logger.info(f"Cliente '{partner_to_pause.name}' no tiene memoria de chatbot para pausar.")
+                    else:
+                        _logger.warning(
+                            f"Intervención humana de '{author_partner.name}' en canal WA {channel.id}, "
+                            f"pero NO se pudo identificar al partner cliente para pausar."
+                        )
 
         return super(MailMessage, self).create(vals_list)
