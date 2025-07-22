@@ -1,5 +1,5 @@
 console.log("PRUEBA_CANARIO_FINAL_JULIO_21");
-odoo.define('chatbot_whatsapp.toggle_button', function () {
+odoo.define('chatbot_whatsapp.chatbot_toggle_button1', function () {
     'use strict';
 
     // Este console.log nos confirmará que el archivo correcto se está ejecutando.
