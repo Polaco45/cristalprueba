@@ -10,7 +10,7 @@
     """,
     'author': "Felipe Martínez",
     'website': "https://felipemartinezcv.com",
-    'category': 'Discuss',
+    'category': 'Tools',
     'license': 'LGPL-3',
     'depends': [
         'base',
