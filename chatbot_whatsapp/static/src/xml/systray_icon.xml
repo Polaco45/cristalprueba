@@ -1,13 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<templates xml:space="preserve">
-
-    <t t-name="chatbot_whatsapp.ChatbotSystrayIcon" owl="1">
-        <div class="o_menu_item" t-on-click="_onClick" role="button" title="Prueba Chatbot">
-            <i class="fa fa-bug fa-fw"/>
-            <span class="ms-1">
-                Hola Mundo
-            </span>
-        </div>
-    </t>
-
-</templates>
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <template id="sms_add_hola_mundo" inherit_id="mail.channel_header" t-inherit-mode="extension">
+      <xpath expr="//div[contains(@class,'o-mail-Discuss-headerActions')]" position="inside">
+        <span class="o_mail_discuss_hola_mundo ms-2" t-att-title="'Hola Mundo'">
+          Hola Mundo
+        </span>
+      </xpath>
+    </template>
+  </data>
+</odoo>
