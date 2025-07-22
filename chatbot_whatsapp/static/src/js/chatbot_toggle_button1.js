@@ -1,3 +1,4 @@
+console.log("PRUEBA_CANARIO_FINAL_JULIO_21");
 odoo.define('chatbot_whatsapp.toggle_button', function () {
     'use strict';
 
