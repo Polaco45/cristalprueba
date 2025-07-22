@@ -1,63 +1,39 @@
 // chatbot_whatsapp/static/src/js/chatbot_toggle_button.js
-
 odoo.define('chatbot_whatsapp.toggle_button', function (require) {
     "use strict";
 
-    console.log("✅ [Chatbot] Archivo chatbot_toggle_button.js cargado con odoo.define.");
+    // YA NO REQUERIMOS NADA DE @mail, evitando el error.
+    const { Component, hooks } = require("@odoo/owl");
+    const { useService } = require("@web/core/utils/hooks");
 
-    const { patch } = require("@web/core/utils/patch");
-    // La siguiente línea puede fallar si el módulo 'mail' no está listo.
-    // odoo.define se asegura de que espere.
-    const { ThreadView } = require('@mail/views/thread_view/thread_view');
-    const { onPatched, onMounted } = require("@odoo/owl");
+    // Usaremos un componente genérico y lo montaremos en un intervalo.
+    // Es menos elegante que el parche, pero mucho más resistente a errores de dependencia.
+    
+    // Función que intenta añadir el botón
+    function tryToAddButton() {
+        const targetContainer = document.querySelector('.o-mail-Discuss-headerActions');
+        const buttonExists = document.querySelector('.o_chatbot_button');
 
-    patch(ThreadView.prototype, 'chatbot_whatsapp.ThreadView.ToggleButton', {
-    
-        setup() {
-            this._super(...arguments);
-            console.log("⏳ [Chatbot] setup del parche ejecutado.");
+        // Si el contenedor existe y el botón aún no...
+        if (targetContainer && !buttonExists) {
+            console.log("🔥 [Chatbot Alternativo] Contenedor encontrado. Inyectando botón.");
 
-            onPatched(() => {
-                this.addChatbotButton();
-            });
-    
-            onMounted(() => {
-                this.addChatbotButton();
-            });
-        },
-    
-        addChatbotButton() {
-            const buttonSelector = '.o_chatbot_button';
-            const targetContainerSelector = '.o-mail-Discuss-headerActions';
-    
-            if (this.el.querySelector(buttonSelector)) {
-                return;
-            }
-    
-            const targetContainer = this.el.querySelector(targetContainerSelector);
+            const chatbotButton = document.createElement('button');
+            chatbotButton.className = 'o_ThreadView_action btn btn-link o_chatbot_button';
+            chatbotButton.title = 'Prueba Chatbot';
+            chatbotButton.innerHTML = '<i class="fa fa-bug fa-fw" role="img"></i>';
+
+            chatbotButton.onclick = () => {
+                alert("¡CLIC DETECTADO (Método Alternativo)!");
+                // Aquí necesitaríamos una forma de obtener el 'threadId' si es necesario,
+                // lo cual puede ser más complejo sin el contexto del componente.
+            };
             
-            if (targetContainer) {
-                console.log("🔥 [Chatbot] Contenedor encontrado. Creando botón...");
-                
-                const chatbotButton = document.createElement('button');
-                chatbotButton.className = 'o_ThreadView_action btn btn-link o_chatbot_button';
-                chatbotButton.title = 'Prueba Chatbot';
-                chatbotButton.setAttribute('aria-label', 'Prueba Chatbot');
-                
-                const icon = document.createElement('i');
-                icon.className = 'fa fa-bug fa-fw';
-                icon.setAttribute('role', 'img');
-                chatbotButton.appendChild(icon);
-    
-                chatbotButton.addEventListener('click', this.onClickCustomButton.bind(this));
-    
-                targetContainer.prepend(chatbotButton);
-            }
-        },
-    
-        onClickCustomButton() {
-            alert("¡CLIC DETECTADO!");
-            console.log("Datos del hilo actual:", this.thread);
-        },
-    });
+            targetContainer.prepend(chatbotButton);
+        }
+    }
+
+    // Usamos un intervalo para buscar el contenedor periódicamente.
+    // Esto asegura que encontraremos el div dinámico cuando aparezca.
+    setInterval(tryToAddButton, 1000); // Revisa cada segundo
 });
