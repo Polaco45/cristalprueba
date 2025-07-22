@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="custom_systray_hola_mundo" inherit_id="web.SystemTray.content" name="Hola Mundo en Systray">
+        
+        <xpath expr="//div[hasclass('o_notification_systray')]" position="before">
+            <div class="o_systray_item">
+                <span class="ps-2 pe-2 fw-bold">Hola Mundo</span>
+            </div>
+        </xpath>
+
+    </template>
+</odoo>
