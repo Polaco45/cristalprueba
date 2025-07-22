@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<templates xml:space="preserve">
-
-    <t t-inherit="web.NavBar.systray" t-inherit-mode="extension" patch="True">
-
-        <xpath expr="." position="inside">
-            <div class="o_hola_mundo_systray_item d-flex align-items-center px-2">
-                <span class="fw-bold">Hola Mundo</span>
-            </div>
-        </xpath>
-
-    </t>
-
-</templates>
+<odoo>
+  <data>
+    <!-- Heredamos el QWeb template de la cabecera de Discuss -->
+    <template id="mail_discuss_header_hola_mundo"
+              inherit_id="mail.DiscussHeader"
+              name="Añadir Hola Mundo en header">
+      <!-- Localizamos el contenedor de iconos / botones -->
+      <xpath expr="//div[contains(@class, 'o-mail-Discuss-headerActions')]" position="inside">
+        <!-- Aquí agregamos nuestro texto estático -->
+        <span class="o_mail_discuss_hola_mundo ms-2 me-2" t-att-title="'Hola Mundo'">
+          Hola Mundo
+        </span>
+      </xpath>
+    </template>
+  </data>
+</odoo>

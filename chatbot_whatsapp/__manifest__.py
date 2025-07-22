@@ -17,7 +17,8 @@
         'mail',    
         'sale',
         'account',
-        'whatsapp'
+        'web',
+        'whatsapp',
     ],
     'data': [
         'security/ir.model.access.csv',
