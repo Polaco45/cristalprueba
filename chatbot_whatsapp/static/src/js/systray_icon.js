@@ -5,7 +5,7 @@ import { Component } from "@odoo/owl";
 
 // 1. Definimos nuestro nuevo Componente de OWL para el ícono
 class ChatbotSystrayIcon extends Component {
-    static template = "chatbot_whatsapp.ThreadHeader"; // Apunta al XML que crearemos
+    static template = "chatbot_whatsapp.ChatbotSystrayIcon"; // Apunta al XML que crearemos
 
     _onClick() {
         // Por ahora, una simple alerta para confirmar que funciona
