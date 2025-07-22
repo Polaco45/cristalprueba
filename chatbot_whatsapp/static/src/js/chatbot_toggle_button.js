@@ -1,66 +1,24 @@
 /** @odoo-module **/
 
-import { Component, onWillUpdateProps, onMounted, useState } from "@odoo/owl";
-import { useService } from "@web/core/utils/hooks";
-import { registry } from "@web/core/registry";
+import { ThreadView } from "@mail/views/thread_view/thread_view";
+import { patch } from "@web/core/utils/patch";
 
-class ChatbotToggleButton extends Component {
-    static template = "chatbot_whatsapp.ChatbotToggleButton";
-    static props = {
-        thread: { type: Object },
-        class: { type: String, optional: true },
-    };
+// Usamos 'patch' para añadir funcionalidad al componente original de Odoo
+patch(ThreadView.prototype, 'chatbot_whatsapp.ThreadView', {
 
-    setup() {
-        this.rpc = useService("rpc");
-        this.state = useState({ status: "loading" }); // loading, active, paused, error, hidden
-
-        onMounted(() => this.fetchStatus(this.props.thread));
-        onWillUpdateProps(async (nextProps) => {
-            if (this.props.thread.id !== nextProps.thread.id) {
-                await this.fetchStatus(nextProps.thread);
-            }
-        });
-    }
-
-    async fetchStatus(thread) {
-        // Solo mostramos el botón en canales de WhatsApp
-        if (thread?.type !== 'channel' || !thread.id) {
-            this.state.status = "hidden";
-            return;
-        }
+    /**
+     * Esta es la función que se llama desde el t-on-click en el XML.
+     * Tienes acceso a toda la información del chat a través de 'this.thread'.
+     */
+    onClickCustomButton() {
+        alert("¡Botón del Chatbot presionado!");
         
-        this.state.status = "loading";
-        try {
-            const result = await this.rpc({
-                model: 'discuss.channel',
-                method: 'get_chatbot_status',
-                args: [thread.id],
-            });
-            this.state.status = result.status; // Espera 'active' o 'paused'
-        } catch (e) {
-            console.error("Error al obtener estado del chatbot:", e);
-            this.state.status = "error";
-        }
-    }
+        // Ejemplo: puedes acceder al ID del hilo (channel) actual
+        const threadId = this.thread.id;
+        console.log(`El ID de este hilo de WhatsApp es: ${threadId}`);
+        
+        // Aquí pondrías la lógica de tu chatbot...
+        // Por ejemplo, llamar a un método del servidor con el ID del hilo.
+    },
 
-    async onToggleClick() {
-        const threadId = this.props.thread.id;
-        const method = this.state.status === 'paused' ? 'action_resume_chatbot' : 'action_pause_chatbot';
-        this.state.status = "loading";
-        try {
-            await this.rpc({
-                model: 'discuss.channel',
-                method: method,
-                args: [threadId],
-            });
-            await this.fetchStatus(this.props.thread); // Refresca el estado
-        } catch (e) {
-             console.error("Error al cambiar estado del chatbot:", e);
-             this.state.status = "error";
-        }
-    }
-}
-
-// Registramos el componente para que Odoo lo reconozca
-registry.category("components").add("ChatbotToggleButton", ChatbotToggleButton);
+});
