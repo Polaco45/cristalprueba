@@ -17,6 +17,7 @@
         'mail',      
         'sale',
         'account',
+        'web',
         'whatsapp'
     ],
     'data': [
