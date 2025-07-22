@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
-    <t t-name="hola_mundo_nav.HolaMundoSystray" t-inherit="web.NavBar.systray" t-inherit-mode="extension" patch="True">
+    <t t-inherit="web.NavBar.systray" t-inherit-mode="extension" patch="True">
 
         <xpath expr="." position="inside">
             <div class="o_hola_mundo_systray_item d-flex align-items-center px-2">
