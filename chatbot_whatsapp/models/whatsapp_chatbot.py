@@ -121,30 +121,28 @@ class MailMessage(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # Evitar bucles si el mensaje ya viene del bot
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
         bot_partner_id = self.env.ref('base.user_admin').partner_id.id
-        processed_vals_list = []
-        command_processed = False
-
+        
+        # Recorrer todos los mensajes que se están creando
         for vals in vals_list:
             author_id = vals.get('author_id')
             model = vals.get('model')
             res_id = vals.get('res_id')
             body = vals.get('body', '')
 
+            # Continuar solo si es un mensaje de un empleado en un canal de chat
             if not (model == 'discuss.channel' and author_id and res_id):
-                processed_vals_list.append(vals)
                 continue
 
             author_partner = self.env['res.partner'].browse(author_id)
             if author_partner.id == bot_partner_id or not author_partner.user_ids:
-                processed_vals_list.append(vals)
                 continue
 
-            # Es un empleado, procesar lógica de comandos o intervención
-            is_command = False
+            # Es un mensaje de un empleado, verificar si es en un canal de WhatsApp
             plain_body = clean_html(body).strip()
             channel = self.env['discuss.channel'].browse(res_id)
 
@@ -174,46 +172,37 @@ class MailMessage(models.Model):
                             'partner_id': partner_to_manage.id
                         })
 
+                    is_command = False
                     # --- LÓGICA PARA COMANDOS /on y /off ---
-                    if plain_body == '/off':
-                        memory.sudo().write({
-                            'human_takeover': True,
-                            'takeover_until': False,
-                        })
+                    if plain_body.lower() == '/off':
+                        memory.sudo().write({'human_takeover': True, 'takeover_until': False})
                         _logger.info(f"🤖 Chatbot DESACTIVADO para {partner_to_manage.name} por {author_partner.name}")
+                        # Transformar en nota interna
+                        vals['body'] = "<em>Comando '/off' procesado. El chatbot está ahora <strong>desactivado</strong>.</em>"
+                        vals['message_type'] = 'notification'
+                        vals['subtype_id'] = self.env.ref('mail.mt_note').id
                         is_command = True
-                        command_processed = True
                     
-                    elif plain_body == '/on':
-                        memory.sudo().write({
-                            'human_takeover': False,
-                            'takeover_until': False,
-                        })
+                    elif plain_body.lower() == '/on':
+                        memory.sudo().write({'human_takeover': False, 'takeover_until': False})
                         _logger.info(f"🤖 Chatbot ACTIVADO para {partner_to_manage.name} por {author_partner.name}")
+                        # Transformar en nota interna
+                        vals['body'] = "<em>Comando '/on' procesado. El chatbot está ahora <strong>activado</strong>.</em>"
+                        vals['message_type'] = 'notification'
+                        vals['subtype_id'] = self.env.ref('mail.mt_note').id
                         is_command = True
-                        command_processed = True
                     
-                    # --- Lógica original de intervención humana (si no es un comando) ---
+                    # --- Lógica de intervención humana automática (si no es un comando) ---
                     if not is_command:
-                        takeover_duration_hours = 1
-                        memory.sudo().write({
-                            'human_takeover': True,
-                            'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                            'flow_state': False, # Opcional: reiniciar el flujo
-                        })
-                        _logger.info(f"🤫 Pausando chatbot para {partner_to_manage.name} por intervención de {author_partner.name}")
+                        # Solo pausar si el bot no está ya desactivado permanentemente con /off
+                        # La condición `memory.takeover_until` permite que un mensaje de un humano reinicie el contador de 1 hora.
+                        if not memory.human_takeover or memory.takeover_until:
+                            takeover_duration_hours = 1
+                            memory.sudo().write({
+                                'human_takeover': True,
+                                'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
+                            })
+                            _logger.info(f"🤫 Pausando chatbot para {partner_to_manage.name} por 1 hora debido a intervención de {author_partner.name}")
 
-            if not is_command:
-                processed_vals_list.append(vals)
-
-        # --- Devolver el resultado correcto ---
-        if processed_vals_list:
-            return super(MailMessage, self).create(processed_vals_list)
-        
-        # Si solo se procesó un comando y la lista está vacía, devuelve un registro vacío
-        # para evitar el `UnboundLocalError`
-        if command_processed:
-            return self.env['mail.message']
-
-        # Fallback por si vals_list estaba vacío desde el principio
+        # Crear todos los mensajes (originales o modificados)
         return super(MailMessage, self).create(vals_list)
