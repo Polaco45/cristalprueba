@@ -1,12 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <template id="custom_systray_hola_mundo" inherit_id="web.SystemTray.content" name="Hola Mundo en Systray">
-        
-        <xpath expr="//div[hasclass('o_notification_systray')]" position="before">
-            <div class="o_systray_item">
-                <span class="ps-2 pe-2 fw-bold">Hola Mundo</span>
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="hola_mundo_nav.HolaMundoSystray" t-inherit="web.NavBar.systray" t-inherit-mode="extension" patch="True">
+
+        <xpath expr="." position="inside">
+            <div class="o_hola_mundo_systray_item d-flex align-items-center px-2">
+                <span class="fw-bold">Hola Mundo</span>
             </div>
         </xpath>
 
-    </template>
-</odoo>
+    </t>
+
+</templates>
