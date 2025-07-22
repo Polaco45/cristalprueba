@@ -14,7 +14,8 @@
     'license': 'LGPL-3',
     'depends': [
         'base',
-        'mail',      
+        'mail',    
+        'discuss',
         'sale',
         'account',
         'whatsapp'
@@ -26,8 +27,8 @@
     'assets': {
         # for everything in the mail/thread/discuss view:
         'web.assets_backend': [
-            'static/src/js/chatbot_toggle_button.js',
-            'static/src/xml/discuss_header_extend.xml',
+            'chatbot_whatsapp/static/src/js/chatbot_toggle_button.js',
+            # 'chatbot_whatsapp/static/src/xml/discuss_header_extend.xml',
         ],
     },
     'installable': True,
