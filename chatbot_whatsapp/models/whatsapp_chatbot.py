@@ -119,107 +119,99 @@ class WhatsAppMessage(models.Model):
 class MailMessage(models.Model):
     _inherit = 'mail.message'
 
-    def _find_customer_partner(self, channel):
-        """
-        Helper para encontrar el partner que es cliente en un canal de WhatsApp.
-        """
-        # Intenta primero por el número de WhatsApp almacenado en el canal
-        if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
-            customer_phone = normalize_phone(channel.whatsapp_number)
-            if customer_phone:
-                partner = self.env['res.partner'].sudo().search([
-                    '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
-                ], limit=1)
-                if partner:
-                    return partner
-        
-        # Como fallback, busca en los miembros del canal
-        customer_partners = channel.channel_partner_ids.filtered(
-            lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
-        )
-        if len(customer_partners) == 1:
-            return customer_partners
-            
-        return self.env['res.partner']
-
     @api.model_create_multi
     def create(self, vals_list):
+        # Ignorar mensajes que ya vienen del bot para evitar bucles
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
-        bot_partner_id = self.env.ref('base.user_admin').partner_id.id
+        # Obtenemos el ID del subtipo 'nota' para usarlo más adelante
+        note_subtype_id = self.env.ref('mail.mt_note').id
         
-        vals_to_create = []
-        commands_to_process = []
+        # Creamos una nueva lista para los valores que sí se van a crear
+        processed_vals_list = []
 
-        # 1. Separar comandos de mensajes normales
         for vals in vals_list:
             author_id = vals.get('author_id')
             model = vals.get('model')
+            res_id = vals.get('res_id')
             body = vals.get('body', '')
 
-            if not (model == 'discuss.channel' and author_id and body):
-                vals_to_create.append(vals)
+            # Si no es un mensaje de un canal de Odoo, lo procesamos normalmente
+            if not (model == 'discuss.channel' and author_id and res_id):
+                processed_vals_list.append(vals)
                 continue
 
             author_partner = self.env['res.partner'].browse(author_id)
-            if author_partner.id == bot_partner_id or not author_partner.user_ids:
-                vals_to_create.append(vals)
+            
+            # Si el autor no es un usuario del sistema (empleado), lo procesamos normalmente
+            if not author_partner.user_ids:
+                processed_vals_list.append(vals)
                 continue
             
-            plain_body = clean_html(body).strip()
-            if plain_body.startswith('/'):
-                commands_to_process.append(vals)
-            else:
-                vals_to_create.append(vals)
-
-        # 2. Procesar los comandos sin crear mensajes
-        for vals in commands_to_process:
-            is_a_known_command = False
-            author_partner = self.env['res.partner'].browse(vals.get('author_id'))
-            channel = self.env['discuss.channel'].browse(vals.get('res_id'))
-            plain_body = clean_html(vals.get('body', '')).strip()
+            # A partir de aquí, sabemos que el autor es un empleado
+            plain_body = clean_html(body).strip().lower() # Convertimos a minúscula para ser más flexibles
+            channel = self.env['discuss.channel'].browse(res_id)
+            is_command = False
 
             if channel.channel_type == 'whatsapp':
-                partner_to_manage = self._find_customer_partner(channel)
+                # --- 1. Identificar al cliente (partner) en el canal ---
+                partner_to_manage = self.env['res.partner']
+                if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
+                    customer_phone = normalize_phone(channel.whatsapp_number)
+                    if customer_phone:
+                        partner_to_manage = self.env['res.partner'].sudo().search([
+                            '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
+                        ], limit=1)
+                
+                if not partner_to_manage:
+                    customer_partners = channel.channel_partner_ids.filtered(
+                        lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
+                    )
+                    if len(customer_partners) == 1:
+                        partner_to_manage = customer_partners
+
+                # --- 2. Si encontramos un cliente, procesamos la lógica ---
                 if partner_to_manage:
-                    memory, _ = self.env['chatbot.whatsapp.memory'].sudo().find_or_create(partner_to_manage.id)
-                    
+                    memory = self.env['chatbot.whatsapp.memory'].sudo().search([('partner_id', '=', partner_to_manage.id)], limit=1)
+                    if not memory:
+                        memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner_to_manage.id})
+
+                    # --- Lógica de Comandos /on y /off ---
                     if plain_body == '/off':
                         memory.sudo().write({'human_takeover': True, 'takeover_until': False})
-                        _logger.info(f"🤖 Chatbot DESACTIVADO para {partner_to_manage.name} por {author_partner.name}")
-                        is_a_known_command = True
+                        log_msg = f"🤖 Chatbot DESACTIVADO para {partner_to_manage.name} por {author_partner.name}"
+                        _logger.info(log_msg)
+                        
+                        # Transformamos el mensaje en una nota interna
+                        vals['body'] = log_msg
+                        vals['subtype_id'] = note_subtype_id
+                        vals['message_type'] = 'comment' # Clave para que sea una nota
+                        is_command = True
                     
                     elif plain_body == '/on':
                         memory.sudo().write({'human_takeover': False, 'takeover_until': False})
-                        _logger.info(f"🤖 Chatbot ACTIVADO para {partner_to_manage.name} por {author_partner.name}")
-                        is_a_known_command = True
-            
-            if not is_a_known_command:
-                vals_to_create.append(vals)
+                        log_msg = f"🤖 Chatbot ACTIVADO para {partner_to_manage.name} por {author_partner.name}"
+                        _logger.info(log_msg)
 
-        # 3. Procesar mensajes normales de empleados para la intervención humana
-        for vals in vals_to_create:
-            author_id = vals.get('author_id')
-            model = vals.get('model')
-            if model == 'discuss.channel' and author_id:
-                author_partner = self.env['res.partner'].browse(author_id)
-                if author_partner.user_ids:
-                    channel = self.env['discuss.channel'].browse(vals.get('res_id'))
-                    if channel.channel_type == 'whatsapp':
-                        partner_to_pause = self._find_customer_partner(channel)
-                        if partner_to_pause:
-                            memory, _ = self.env['chatbot.whatsapp.memory'].sudo().find_or_create(partner_to_pause.id)
-                            if not memory.human_takeover:
-                                memory.sudo().write({
-                                    'human_takeover': True,
-                                    'takeover_until': datetime.now() + timedelta(hours=1),
-                                    'flow_state': False,
-                                })
-                                _logger.info(f"🤫 Pausando chatbot para {partner_to_pause.name} por intervención de {author_partner.name}")
+                        # Transformamos el mensaje en una nota interna
+                        vals['body'] = log_msg
+                        vals['subtype_id'] = note_subtype_id
+                        vals['message_type'] = 'comment'
+                        is_command = True
 
-        # 4. Crear solo los mensajes que no son comandos
-        if not vals_to_create:
-            return self.env['mail.message']
-        
-        return super(MailMessage, self).create(vals_to_create)
+                    # --- Lógica de intervención humana si NO es un comando ---
+                    if not is_command:
+                        if not memory.human_takeover or (memory.takeover_until and memory.takeover_until < datetime.now()):
+                             _logger.info(f"🤫 Pausando chatbot para {partner_to_manage.name} por intervención de {author_partner.name}")
+                             memory.sudo().write({
+                                'human_takeover': True,
+                                'takeover_until': datetime.now() + timedelta(hours=1),
+                                'flow_state': False,
+                            })
+
+            # Añadimos los 'vals' (modificados o no) a la lista final
+            processed_vals_list.append(vals)
+
+        # Finalmente, llamamos a la función original una sola vez con la lista procesada
+        return super(MailMessage, self).create(processed_vals_list)
