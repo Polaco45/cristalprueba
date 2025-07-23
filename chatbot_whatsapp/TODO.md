@@ -87,7 +87,9 @@
 * Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
     - Timer
     * Comando: Tipo /off o /on. Que no le llegue al usuario es decir, interceptarlo antes de mandarlo. 
-* Borrar logica del boton ya que cambiamos de enfoque
+        - Comando "/on" funciona
+        * Comando "/off" NO funciona
+
 
 * QA, ROMPER COSAS y DETALLES
 
