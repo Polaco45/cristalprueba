@@ -84,11 +84,11 @@
 
 - Cuando ofrezca variantes de un producto, diga que si no le mostramos la que queria, puede buscarla en la web.
 
-* Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
+- Como hacer para derivar al cliente con empleado y que la IA deje de responder. (Para la cotizacion o lo que sea)
     - Timer
-    * Comando: Tipo /off o /on. Que no le llegue al usuario es decir, interceptarlo antes de mandarlo. 
+    - Comando: Tipo /off o /on. Que no le llegue al usuario es decir, interceptarlo antes de mandarlo. 
         - Comando "/on" funciona
-        * Comando "/off" NO funciona
+        - Comando "/off" NO funciona
 
 
 * QA, ROMPER COSAS y DETALLES
@@ -120,3 +120,8 @@
 * Recomendar productos relacionados luego de que se haya agregado algo al carrito
 
 * Mostrar ofertas
+
+* FIX:
+    Comprobar stock en la suma de los productos en el carrito
+
+* Handlear cuando el empleado se olvida de settear /on
