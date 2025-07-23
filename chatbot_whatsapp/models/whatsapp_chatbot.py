@@ -119,101 +119,107 @@ class WhatsAppMessage(models.Model):
 class MailMessage(models.Model):
     _inherit = 'mail.message'
 
+    def _find_customer_partner(self, channel):
+        """
+        Helper para encontrar el partner que es cliente en un canal de WhatsApp.
+        """
+        # Intenta primero por el número de WhatsApp almacenado en el canal
+        if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
+            customer_phone = normalize_phone(channel.whatsapp_number)
+            if customer_phone:
+                partner = self.env['res.partner'].sudo().search([
+                    '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
+                ], limit=1)
+                if partner:
+                    return partner
+        
+        # Como fallback, busca en los miembros del canal
+        customer_partners = channel.channel_partner_ids.filtered(
+            lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
+        )
+        if len(customer_partners) == 1:
+            return customer_partners
+            
+        return self.env['res.partner']
+
     @api.model_create_multi
     def create(self, vals_list):
         if self.env.context.get('from_wa_bot'):
             return super().create(vals_list)
 
         bot_partner_id = self.env.ref('base.user_admin').partner_id.id
-        processed_vals_list = []
-        command_processed = False
+        
+        vals_to_create = []
+        commands_to_process = []
 
+        # 1. Separar comandos de mensajes normales
         for vals in vals_list:
             author_id = vals.get('author_id')
             model = vals.get('model')
-            res_id = vals.get('res_id')
             body = vals.get('body', '')
 
-            if not (model == 'discuss.channel' and author_id and res_id):
-                processed_vals_list.append(vals)
+            if not (model == 'discuss.channel' and author_id and body):
+                vals_to_create.append(vals)
                 continue
 
             author_partner = self.env['res.partner'].browse(author_id)
             if author_partner.id == bot_partner_id or not author_partner.user_ids:
-                processed_vals_list.append(vals)
+                vals_to_create.append(vals)
                 continue
-
-            # Es un empleado, procesar lógica de comandos o intervención
-            is_command = False
+            
             plain_body = clean_html(body).strip()
-            channel = self.env['discuss.channel'].browse(res_id)
+            if plain_body.startswith('/'):
+                commands_to_process.append(vals)
+            else:
+                vals_to_create.append(vals)
+
+        # 2. Procesar los comandos sin crear mensajes
+        for vals in commands_to_process:
+            is_a_known_command = False
+            author_partner = self.env['res.partner'].browse(vals.get('author_id'))
+            channel = self.env['discuss.channel'].browse(vals.get('res_id'))
+            plain_body = clean_html(vals.get('body', '')).strip()
 
             if channel.channel_type == 'whatsapp':
-                # --- Identificar al cliente (partner) en el canal ---
-                partner_to_manage = self.env['res.partner']
-                if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
-                    customer_phone = normalize_phone(channel.whatsapp_number)
-                    if customer_phone:
-                        partner_to_manage = self.env['res.partner'].sudo().search([
-                            '|', ('phone', '=', customer_phone), ('mobile', '=', customer_phone)
-                        ], limit=1)
-                
-                if not partner_to_manage:
-                    customer_partners = channel.channel_partner_ids.filtered(
-                        lambda p: not p.user_ids and p.id != self.env.ref('base.partner_root').id
-                    )
-                    if len(customer_partners) == 1:
-                        partner_to_manage = customer_partners
-
+                partner_to_manage = self._find_customer_partner(channel)
                 if partner_to_manage:
-                    memory = self.env['chatbot.whatsapp.memory'].sudo().search(
-                        [('partner_id', '=', partner_to_manage.id)], limit=1
-                    )
-                    if not memory:
-                        memory = self.env['chatbot.whatsapp.memory'].sudo().create({
-                            'partner_id': partner_to_manage.id
-                        })
-
-                    # --- LÓGICA PARA COMANDOS /on y /off ---
+                    memory, _ = self.env['chatbot.whatsapp.memory'].sudo().find_or_create(partner_to_manage.id)
+                    
                     if plain_body == '/off':
-                        memory.sudo().write({
-                            'human_takeover': True,
-                            'takeover_until': False,
-                        })
+                        memory.sudo().write({'human_takeover': True, 'takeover_until': False})
                         _logger.info(f"🤖 Chatbot DESACTIVADO para {partner_to_manage.name} por {author_partner.name}")
-                        is_command = True
-                        command_processed = True
+                        is_a_known_command = True
                     
                     elif plain_body == '/on':
-                        memory.sudo().write({
-                            'human_takeover': False,
-                            'takeover_until': False,
-                        })
+                        memory.sudo().write({'human_takeover': False, 'takeover_until': False})
                         _logger.info(f"🤖 Chatbot ACTIVADO para {partner_to_manage.name} por {author_partner.name}")
-                        is_command = True
-                        command_processed = True
-                    
-                    # --- Lógica original de intervención humana (si no es un comando) ---
-                    if not is_command:
-                        takeover_duration_hours = 1
-                        memory.sudo().write({
-                            'human_takeover': True,
-                            'takeover_until': datetime.now() + timedelta(hours=takeover_duration_hours),
-                            'flow_state': False, # Opcional: reiniciar el flujo
-                        })
-                        _logger.info(f"🤫 Pausando chatbot para {partner_to_manage.name} por intervención de {author_partner.name}")
+                        is_a_known_command = True
+            
+            if not is_a_known_command:
+                vals_to_create.append(vals)
 
-            if not is_command:
-                processed_vals_list.append(vals)
+        # 3. Procesar mensajes normales de empleados para la intervención humana
+        for vals in vals_to_create:
+            author_id = vals.get('author_id')
+            model = vals.get('model')
+            if model == 'discuss.channel' and author_id:
+                author_partner = self.env['res.partner'].browse(author_id)
+                if author_partner.user_ids:
+                    channel = self.env['discuss.channel'].browse(vals.get('res_id'))
+                    if channel.channel_type == 'whatsapp':
+                        partner_to_pause = self._find_customer_partner(channel)
+                        if partner_to_pause:
+                            memory, _ = self.env['chatbot.whatsapp.memory'].sudo().find_or_create(partner_to_pause.id)
+                            if not memory.human_takeover:
+                                memory.sudo().write({
+                                    'human_takeover': True,
+                                    'takeover_until': datetime.now() + timedelta(hours=1),
+                                    'flow_state': False,
+                                })
+                                _logger.info(f"🤫 Pausando chatbot para {partner_to_pause.name} por intervención de {author_partner.name}")
 
-        # --- Devolver el resultado correcto ---
-        if processed_vals_list:
-            return super(MailMessage, self).create(processed_vals_list)
-        
-        # Si solo se procesó un comando y la lista está vacía, devuelve un registro vacío
-        # para evitar el `UnboundLocalError`
-        if command_processed:
+        # 4. Crear solo los mensajes que no son comandos
+        if not vals_to_create:
             return self.env['mail.message']
-
-        # Fallback por si vals_list estaba vacío desde el principio
-        return super(MailMessage, self).create(vals_list)
+        
+        return super(MailMessage, self).create(vals_to_create)
