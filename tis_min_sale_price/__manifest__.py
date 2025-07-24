@@ -4,7 +4,7 @@
 
 {
     'name': 'Website Minimum Sale Price',
-    'version': '18.0.1.0.3',
+    'version': '18.0.1.0.4',
     'category': 'website',
     'summary': 'Manage your website minimum sale price',
     'sequence': 1,

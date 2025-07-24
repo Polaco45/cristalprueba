@@ -1,7 +1,27 @@
 /** @odoo-module **/
 import wSaleUtils from "@website_sale/js/website_sale_utils";
+import { _t } from "@web/core/l10n/translation";
 
 var updateCartNavBar = wSaleUtils.updateCartNavBar;
+
+// Helper to correctly parse localized currency strings
+function parseCurrency(str) {
+    if (!str) return 0.0;
+    let cleaned = str.replace(/[^\d.,-]/g, '');
+
+    if (cleaned.indexOf(',') > cleaned.indexOf('.')) {
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+        cleaned = cleaned.replace(/,/g, '');
+    }
+
+    return parseFloat(cleaned);
+}
+
+// Format number into $xxx.xx
+function formatAmount(num) {
+    return '$' + num.toFixed(2);
+}
 
 wSaleUtils.updateCartNavBar = function (data) {
     // Call the original function
@@ -12,13 +32,11 @@ wSaleUtils.updateCartNavBar = function (data) {
     tempDiv.innerHTML = data['website_sale.total'] || '';
 
     var totalTagEl = tempDiv.querySelector('strong.monetary_field.text-end.p-0');
-    var amountTotalTag = totalTagEl ? totalTagEl.textContent.replace(/[^\d.-]/g, '') : '0.0';
-    var order_total = parseFloat(amountTotalTag);
+    var order_total = totalTagEl ? parseCurrency(totalTagEl.textContent) : 0.0;
 
     var cartTotalSubtotalTd = tempDiv.querySelector('td#cart_total_subtotal');
     var amountUntaxedSpan = cartTotalSubtotalTd?.parentElement?.querySelector('td#cart_total_subtotal + td .oe_currency_value');
-    var amount_untaxed_tag = amountUntaxedSpan ? amountUntaxedSpan.textContent.replace(/[^\d.-]/g, '') : '0.0';
-    var amount_untaxed = parseFloat(amount_untaxed_tag);
+    var amount_untaxed = amountUntaxedSpan ? parseCurrency(amountUntaxedSpan.textContent) : 0.0;
 
     // Min sale amount
     var myDivText = $('#min_sale_amt').text();
@@ -27,23 +45,18 @@ wSaleUtils.updateCartNavBar = function (data) {
     // Tax type
     var tax_info = $('#tax_information').text().trim();
 
-    // Helper for alert
-    function formatAmount(num) {
-        return '$' + num.toFixed(2);
-    }
-
     // Logic based on tax setting
     if (tax_info === 'tax_excluded') {
         if (amount_untaxed >= min_sale_amount) {
             $('#min_sale_amt_alert').html(`
                 <div class="alert alert-success float-end d-none d-xl-inline-block text-decoration-none" role="alert">
-                    You have reached the minimum purchase amount!
+                    ${_t("You have reached the minimum purchase amount!")}
                 </div>
             `);
             $('a[name="website_sale_main_button"]').replaceWith(`<a role="button" name="website_sale_main_button"
-                class="#{_cta_classes} btn btn-primary #{not website_sale_order._is_cart_ready() and 'disabled'} w-100 w-lg-auto ms-lg-auto}"
+                class="btn btn-primary"
                 href="/shop/checkout?express=1">
-                <span class="">Checkout</span>
+                <span class="">${_t("Checkout")}</span>
                 <i class="fa fa-angle-right ms-2 fw-light"/>
             </a>`);
         } else {
@@ -54,9 +67,9 @@ wSaleUtils.updateCartNavBar = function (data) {
                 </div>
             `);
             $('a[name="website_sale_main_button"]').replaceWith(`<a role="button" name="website_sale_main_button"
-                class="#{_cta_classes} btn btn-primary #{not website_sale_order._is_cart_ready() and 'disabled'} w-100 w-lg-auto ms-lg-auto}"
+                class="btn btn-primary"
                 href="/shop/cart">
-                <span class="">Checkout</span>
+                <span class="">${_t("Checkout")}</span>
                 <i class="fa fa-angle-right ms-2 fw-light"/>
             </a>`);
         }
@@ -66,13 +79,13 @@ wSaleUtils.updateCartNavBar = function (data) {
         if (order_total >= min_sale_amount) {
             $('#min_sale_amt_alert').html(`
                 <div class="alert alert-success float-end d-none d-xl-inline-block text-decoration-none" role="alert">
-                    You have reached the minimum purchase amount!
+                    ${_t("You have reached the minimum purchase amount!")}
                 </div>
             `);
             $('a[name="website_sale_main_button"]').replaceWith(`<a role="button" name="website_sale_main_button"
-                class="#{_cta_classes} btn btn-primary #{not website_sale_order._is_cart_ready() and 'disabled'} w-100 w-lg-auto ms-lg-auto}"
+                class="btn btn-primary"
                 href="/shop/checkout?express=1">
-                <span class="">Checkout</span>
+                <span class="">${_t("Checkout")}</span>
                 <i class="fa fa-angle-right ms-2 fw-light"/>
             </a>`);
         } else {
@@ -83,9 +96,9 @@ wSaleUtils.updateCartNavBar = function (data) {
                 </div>
             `);
             $('a[name="website_sale_main_button"]').replaceWith(`<a role="button" name="website_sale_main_button"
-                class="#{_cta_classes} btn btn-primary #{not website_sale_order._is_cart_ready() and 'disabled'} #{_form_send_navigation and 'w-100 w-lg-auto ms-lg-auto' or 'w-100'}"
+                class="btn btn-primary"
                 href="/shop/cart">
-                <span class="">Checkout</span>
+                <span class="">${_t("Checkout")}</span>
                 <i class="fa fa-angle-right ms-2 fw-light"/>
             </a>`);
         }
