@@ -16,22 +16,34 @@ def clean_html(text):
     return re.sub(HTML_TAGS, "", text or "").strip()
 
 def is_cotizado(partner):
+    """
+    Verifica si un partner tiene alguna orden de venta en estados específicos
+    o alguna orden de punto de venta.
+    """
     if not partner:
         return False
 
     SaleOrder = partner.env['sale.order'].sudo()
     PosOrder = partner.env['pos.order'].sudo()
 
-    cotizaciones = SaleOrder.search_count([
+    # Lista de estados que se consideran como "cotizado"
+    estados_validos = ['draft', 'sent', 'sale', 'cancel']
+
+    # Se busca cualquier orden de venta que coincida con los estados de la lista
+    cotizaciones_count = SaleOrder.search_count([
         ('partner_id', '=', partner.id),
-        ('state', '=', 'draft')  # solo presupuestos (no confirmados)
+        ('state', 'in', estados_validos)
     ])
     
-    ventas_pos = PosOrder.search_count([
+    # Se buscan las ventas en el punto de venta (POS)
+    ventas_pos_count = PosOrder.search_count([
         ('partner_id', '=', partner.id)
     ])
 
-    _logger.info("📌 Evaluando cotización — Partner: %s | Cotizaciones: %s | POS: %s",
-                 partner.name, cotizaciones, ventas_pos)
+    _logger.info(
+        "📌 Evaluando cotización — Partner: %s | Órdenes de Venta: %s | Órdenes de POS: %s",
+        partner.name, cotizaciones_count, ventas_pos_count
+    )
 
-    return cotizaciones > 0 or ventas_pos > 0
+    # El cliente se considera cotizado si tiene al menos una orden de venta o una orden de POS
+    return cotizaciones_count > 0 or ventas_pos_count > 0
