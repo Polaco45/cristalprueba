@@ -44,23 +44,13 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         return missing
 
     @api.model
-    def process_onboarding_flow(self, env, record, phone, plain_body, memory_model):
-        partner = env['res.partner'].sudo().search([
-            '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
-        ], limit=1)
-        
-        if not partner:
-            partner = env['res.partner'].sudo().create({'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone})
-        
-        memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
-        if not memory:
-            memory = memory_model.create({'partner_id': partner.id})
+    def process_onboarding_flow(self, env, partner, memory, plain_body): # <-- PARÁMETROS ACTUALIZADOS
+        # --- LÍNEAS ELIMINADAS ---
+        # Ya no buscamos ni creamos el partner/memory aquí. Los recibimos directamente.
 
         current_flow = memory.flow_state
         
         # 1. Si estamos en un flujo de onboarding, lo procesamos.
-        # --- CORRECCIÓN ---
-        # Verificamos contra la lista explícita de flujos de onboarding.
         if current_flow in ONBOARDING_FLOWS:
             if current_flow == 'esperando_nombre_nuevo_cliente':
                 partner.write({'name': plain_body.strip()})
@@ -106,10 +96,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 )
         
         # 4. Si NO falta nada y ESTÁBAMOS en un flujo de onboarding, significa que acabamos de terminar.
-        # --- CORRECCIÓN ---
-        # Verificamos contra la lista explícita de flujos de onboarding.
         if not missing_data and current_flow in ONBOARDING_FLOWS:
-            memory.unlink() 
+            # En lugar de memory.unlink(), reseteamos el estado para evitar errores.
+            memory.write({'flow_state': False})
             return True, "¡Ahora sí, gracias! Ya tenemos todos tus datos. ¿En qué te puedo ayudar?"
 
         return False, ""

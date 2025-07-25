@@ -89,7 +89,7 @@ class WhatsAppMessage(models.Model):
 
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
             handled, response_msg = onboarding_handler.process_onboarding_flow(
-                self.env, record, phone, plain, self.env['chatbot.whatsapp.memory'].sudo()
+                self.env, partner, memory, plain
             )
             if handled:
                 _logger.info("🔄 Flujo de onboarding interceptado")
