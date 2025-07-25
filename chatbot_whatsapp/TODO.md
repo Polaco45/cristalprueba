@@ -92,7 +92,7 @@
 
 ✅ Que tenga cotizacion u orden de venta para tomarlo como cotizado.
 
-📝 Limpiar numero de telefono en el onboarding y en general. 
+✅ Limpiar numero de telefono en el onboarding y en general. 
 
 📝 QA, ROMPER COSAS y DETALLES
 
