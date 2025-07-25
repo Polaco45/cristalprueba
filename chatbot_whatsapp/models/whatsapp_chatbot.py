@@ -27,9 +27,10 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            # Buscar o crear partner por número
+            # Búsqueda flexible que coincide con los últimos dígitos del número
+            search_term = '%' + phone
             partner = self.env['res.partner'].sudo().search([
-                '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
+                '|', ('phone', 'ilike', search_term), ('mobile', 'ilike', search_term)
             ], limit=1)
             if not partner:
                 partner = self.env['res.partner'].sudo().create({
