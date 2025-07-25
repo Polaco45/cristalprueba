@@ -27,16 +27,10 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            _logger.info(f"Buscando partner con el número normalizado: {phone}")
-            partner_data = self.env['res.partner'].sudo().name_search(name=phone, operator='ilike', limit=1)
-
-            if partner_data:
-                partner_id = partner_data[0][0]
-                partner = self.env['res.partner'].sudo().browse(partner_id)
-                _logger.info(f"✅ Partner encontrado vía name_search: {partner.name} (ID: {partner.id})")
-            else:
-                partner = None
-                _logger.info(f"🤷‍♂️ No se encontró un partner existente para {phone}. Se creará uno nuevo.")
+            # Buscar o crear partner por número
+            partner = self.env['res.partner'].sudo().search([
+                '|', ('phone', 'ilike', phone), ('mobile', 'ilike', phone)
+            ], limit=1)
             if not partner:
                 partner = self.env['res.partner'].sudo().create({
                     'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone
