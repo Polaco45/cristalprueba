@@ -27,16 +27,23 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            # Búsqueda flexible que coincide con los últimos dígitos del número
-            search_term = '%' + phone
-            partner = self.env['res.partner'].sudo().search([
-                '|', ('phone', 'ilike', search_term), ('mobile', 'ilike', search_term)
-            ], limit=1)
-            if not partner:
+            # Lógica usando name_search (la misma que usa la UI de Odoo)
+            name_search_result = self.env['res.partner']\
+                .with_user(self.env.uid)\
+                .name_search(phone, operator='ilike', limit=1)
+
+            if name_search_result:
+                # name_search devuelve una lista de tuplas (id, display_name)
+                partner_id = name_search_result[0][0]
+                partner = self.env['res.partner'].browse(partner_id)
+            else:
                 partner = self.env['res.partner'].sudo().create({
-                    'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone
+                    'name':    f"WhatsApp: {phone}",
+                    'phone':   phone,
+                    'mobile':  phone,
                 })
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
+
 
             # Cargar o crear memoria de chatbot
             memory = self.env['chatbot.whatsapp.memory'].sudo().search(
@@ -67,8 +74,6 @@ class WhatsAppMessage(models.Model):
                     'human_takeover': False,
                     'takeover_until': False
                 })
-
-            # --- El resto del flujo continúa como antes ---
             
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
