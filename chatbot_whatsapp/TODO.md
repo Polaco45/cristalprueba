@@ -120,6 +120,8 @@
 
 📝 Consultas sobre medios de pago
 
+📝 Cambio de informacion personal (email, nombre, etc)
+
 📝 Recomendar productos relacionados luego de que se haya agregado algo al carrito
 
 📝 Mostrar ofertas

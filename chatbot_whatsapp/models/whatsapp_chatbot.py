@@ -26,30 +26,41 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone_number_from_wa):
                 continue
 
-            # --- LÓGICA DE BÚSQUEDA DE PARTNER MEJORADA ---
+            # --- LÓGICA DE BÚSQUEDA DE PARTNER CORREGIDA Y MÁS ROBUSTA ---
             # 1. Normalizamos el número entrante a su formato canónico de 10 dígitos.
             canonical_phone = normalize_phone(phone_number_from_wa)
             partner = self.env['res.partner']
 
             if canonical_phone:
-                # 2. Buscamos partners que puedan coincidir usando 'like' para reducir la búsqueda.
-                search_snippet = canonical_phone[-8:] # Usamos los últimos 8 dígitos
-                candidate_partners = self.env['res.partner'].sudo().search([
+                # 2. Búsqueda directa por el número normalizado (la forma más eficiente y rápida).
+                # Esto funciona si el número en Odoo está guardado sin formato.
+                partner = self.env['res.partner'].sudo().search([
                     '|',
-                    ('phone', 'like', f'%{search_snippet}'),
-                    ('mobile', 'like', f'%{search_snippet}')
-                ], limit=15)
+                    ('phone', '=', canonical_phone),
+                    ('mobile', '=', canonical_phone)
+                ], limit=1)
 
-                # 3. Iteramos sobre los candidatos y normalizamos sus números para encontrar la coincidencia exacta.
-                for candidate in candidate_partners:
-                    normalized_candidate_phone = normalize_phone(candidate.phone or "")
-                    normalized_candidate_mobile = normalize_phone(candidate.mobile or "")
-                    if canonical_phone == normalized_candidate_phone or canonical_phone == normalized_candidate_mobile:
-                        partner = candidate
-                        _logger.info(f"👤 Partner encontrado por número normalizado: {partner.name}")
-                        break
+                # 3. Si la búsqueda directa falla, usamos un método más amplio.
+                if not partner:
+                    # Usamos los últimos 4 dígitos. Es el fragmento más seguro para buscar,
+                    # ya que es menos probable que contenga espacios o guiones.
+                    search_snippet = canonical_phone[-4:]
+                    candidate_partners = self.env['res.partner'].sudo().search([
+                        '|',
+                        ('phone', 'like', f'%{search_snippet}'),
+                        ('mobile', 'like', f'%{search_snippet}')
+                    ], limit=25) # Aumentamos el límite por si hay varias coincidencias
+
+                    # 4. Iteramos sobre los candidatos y normalizamos sus números para encontrar la coincidencia exacta.
+                    for candidate in candidate_partners:
+                        normalized_candidate_phone = normalize_phone(candidate.phone or "")
+                        normalized_candidate_mobile = normalize_phone(candidate.mobile or "")
+                        if canonical_phone == normalized_candidate_phone or canonical_phone == normalized_candidate_mobile:
+                            partner = candidate
+                            _logger.info(f"👤 Partner encontrado por número normalizado (búsqueda amplia): {partner.name}")
+                            break # Salimos del bucle en cuanto encontramos la primera coincidencia
             
-            # 4. Si después de la búsqueda no se encontró un partner, se crea uno nuevo.
+            # 5. Si después de ambas búsquedas no se encontró un partner, se crea uno nuevo.
             if not partner and canonical_phone:
                 partner = self.env['res.partner'].sudo().create({
                     'name': f"WhatsApp: {canonical_phone}",
