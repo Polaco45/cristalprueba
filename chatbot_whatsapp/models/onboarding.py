@@ -6,7 +6,6 @@ from ..config.config import messages_config
 
 _logger = logging.getLogger(__name__)
 
-# --- CORRECCIÓN ---
 # Definimos explícitamente qué flujos pertenecen al onboarding
 ONBOARDING_FLOWS = [
     'esperando_nombre_nuevo_cliente',
@@ -44,13 +43,14 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         return missing
 
     @api.model
-    def process_onboarding_flow(self, env, partner, memory, plain_body): # <-- PARÁMETROS ACTUALIZADOS
-        # --- LÍNEAS ELIMINADAS ---
-        # Ya no buscamos ni creamos el partner/memory aquí. Los recibimos directamente.
-
+    # --- CAMBIO CLAVE: El método ahora recibe el partner y la memory ya resueltos ---
+    def process_onboarding_flow(self, env, record, partner, plain_body, memory):
+        
+        # Ya no necesitamos buscar el partner ni la memoria, los recibimos directamente.
         current_flow = memory.flow_state
         
         # 1. Si estamos en un flujo de onboarding, lo procesamos.
+        # Verificamos contra la lista explícita de flujos de onboarding.
         if current_flow in ONBOARDING_FLOWS:
             if current_flow == 'esperando_nombre_nuevo_cliente':
                 partner.write({'name': plain_body.strip()})
@@ -96,9 +96,12 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 )
         
         # 4. Si NO falta nada y ESTÁBAMOS en un flujo de onboarding, significa que acabamos de terminar.
+        # Verificamos contra la lista explícita de flujos de onboarding.
         if not missing_data and current_flow in ONBOARDING_FLOWS:
-            # En lugar de memory.unlink(), reseteamos el estado para evitar errores.
-            memory.write({'flow_state': False})
+            # En lugar de borrar la memoria, podríamos simplemente limpiar el estado
+            # memory.write({'flow_state': False, 'last_intent_detected': False})
+            # O la borramos si preferimos que se cree de cero la próxima vez
+            memory.unlink() 
             return True, "¡Ahora sí, gracias! Ya tenemos todos tus datos. ¿En qué te puedo ayudar?"
 
         return False, ""
