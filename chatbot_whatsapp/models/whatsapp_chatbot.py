@@ -27,20 +27,19 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            # Lógica usando name_search (la misma que usa la UI de Odoo)
-            name_search_result = self.env['res.partner']\
-                .with_user(self.env.uid)\
-                .name_search(phone, operator='ilike', limit=1)
-
-            if name_search_result:
-                # name_search devuelve una lista de tuplas (id, display_name)
-                partner_id = name_search_result[0][0]
-                partner = self.env['res.partner'].browse(partner_id)
+            partner_tuples = self.env['res.partner'].sudo().name_search(
+                name=phone,
+                args=[],          
+                operator='ilike',
+                limit=1
+            )
+            if partner_tuples:
+                partner = self.env['res.partner'].browse(partner_tuples[0][0])
             else:
                 partner = self.env['res.partner'].sudo().create({
-                    'name':    f"WhatsApp: {phone}",
-                    'phone':   phone,
-                    'mobile':  phone,
+                    'name':   f"WhatsApp: {phone}",
+                    'phone':  phone,
+                    'mobile': phone,
                 })
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
 
