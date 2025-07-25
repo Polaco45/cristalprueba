@@ -4,13 +4,36 @@ import logging
 _logger = logging.getLogger(__name__)
 HTML_TAGS = re.compile(r"<[^>]+>")
 
-def normalize_phone(phone):
-    phone_norm = phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
-    if phone_norm.startswith('549'):
-        phone_norm = phone_norm[3:]
-    elif phone_norm.startswith('54'):
-        phone_norm = phone_norm[2:]
-    return phone_norm
+def normalize_phone(phone_number):
+    """
+    Limpia y normaliza un número de teléfono de Argentina a un formato estándar de 10 dígitos.
+    - Elimina todos los caracteres no numéricos.
+    - Maneja prefijos comunes como '+54', '54', '9', '15' y '0'.
+    El objetivo es obtener siempre el formato de 10 dígitos (código de área + número).
+    Ej: '+54 9 358 123-4567' -> '3581234567'
+    """
+    if not phone_number:
+        return ""
+    
+    # 1. Conservar solo los dígitos
+    cleaned_phone = re.sub(r'\D', '', str(phone_number))
+    
+    # 2. Si empieza con el código de país '54', lo quitamos para analizar el resto
+    if cleaned_phone.startswith('54'):
+        cleaned_phone = cleaned_phone[2:]
+        
+    # 3. Si después del código de país viene un '9' (celular), lo quitamos
+    if cleaned_phone.startswith('9'):
+        cleaned_phone = cleaned_phone[1:]
+        
+    # 4. Si el número local empieza con '15' o '0', lo quitamos
+    if cleaned_phone.startswith('15'):
+         cleaned_phone = cleaned_phone[2:]
+    elif cleaned_phone.startswith('0'):
+         cleaned_phone = cleaned_phone[1:]
+
+    # Devolvemos el número. Si es más largo de 10 (ej. BsAs), nos quedamos con los últimos 10.
+    return cleaned_phone[-10:] if len(cleaned_phone) > 10 else cleaned_phone
 
 def clean_html(text):
     return re.sub(HTML_TAGS, "", text or "").strip()
