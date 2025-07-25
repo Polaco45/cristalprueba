@@ -1,6 +1,8 @@
+# whatsapp_chatbot.py
 # -*- coding: utf-8 -*-
 from odoo import models, api
-from ..utils.utils import clean_html, normalize_phone, is_cotizado
+# Se importan las nuevas funciones
+from ..utils.utils import clean_html, normalize_phone, is_cotizado, find_partner_by_phone
 from .onboarding import WhatsAppOnboardingHandler
 from .chatbot_processor import ChatbotProcessor
 from ..config.config import messages_config
@@ -8,7 +10,6 @@ import logging
 from datetime import datetime, timedelta
 
 _logger = logging.getLogger(__name__)
-
 
 class WhatsAppMessage(models.Model):
     _inherit = 'whatsapp.message'
@@ -18,28 +19,27 @@ class WhatsAppMessage(models.Model):
         records = super().create(vals_list)
 
         for record in records:
-            # Solo procesamos mensajes entrantes
             if record.state not in ('received', 'inbound'):
                 continue
 
             plain = clean_html(record.body or "").strip()
-            phone = normalize_phone(record.mobile_number or record.phone or "")
-            if not (plain and phone):
+            phone_raw = record.mobile_number or record.phone or ""
+            if not (plain and phone_raw):
                 continue
+
+            # --- LÓGICA DE BÚSQUEDA DE PARTNER MEJORADA ---
+            # Se utiliza la nueva función de búsqueda robusta.
+            partner = find_partner_by_phone(self.env, phone_raw)
             
-            # --- CAMBIO CLAVE: Usar name_search para encontrar el partner ---
-            partner = self.env['res.partner'].sudo()
-            partner_found = partner.name_search(name=phone, operator='ilike', limit=1)
-            
-            if partner_found:
-                partner = partner.browse(partner_found[0][0])
-                _logger.info(f"👤 Partner encontrado mediante name_search: {partner.name} ({phone})")
-            else:
-                # Si no se encuentra, se crea uno nuevo
-                partner = partner.create({
-                    'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone
+            if not partner:
+                # Si no se encuentra, se crea uno nuevo con el número normalizado.
+                phone_for_creation = normalize_phone(phone_raw)
+                partner = self.env['res.partner'].sudo().create({
+                    'name': f"WhatsApp: {phone_for_creation}",
+                    'phone': phone_for_creation,
+                    'mobile': phone_for_creation
                 })
-                _logger.info(f"👤 Creado nuevo partner para {phone}")
+                _logger.info(f"👤 Creado nuevo partner para {phone_for_creation}")
 
             # Cargar o crear memoria de chatbot
             memory = self.env['chatbot.whatsapp.memory'].sudo().search(
@@ -50,20 +50,17 @@ class WhatsAppMessage(models.Model):
                     'partner_id': partner.id
                 })
 
-            # --- LÓGICA CORREGIDA DE PAUSA Y REACTIVACIÓN ---
+            # --- LÓGICA DE PAUSA Y REACTIVACIÓN ---
             now = datetime.now()
 
-            # NUEVO: Si está en takeover INDEFINIDO (por comando /off) -> ignorar mensaje.
             if memory.human_takeover and not memory.takeover_until:
                 _logger.info(f"🤫 Chatbot DESACTIVADO INDEFINIDAMENTE para {partner.name}. Mensaje ignorado.")
                 continue
 
-            # Si está en takeover TEMPORAL (por intervención de empleado) y aún no venció → ignorar.
             if memory.human_takeover and memory.takeover_until and memory.takeover_until > now:
                 _logger.info(f"🤫 Chatbot en pausa temporal para {partner.name}. Mensaje ignorado.")
                 continue
 
-            # Si estaba en takeover TEMPORAL pero la fecha de pausa ya pasó → reactivar.
             if memory.human_takeover and memory.takeover_until and memory.takeover_until <= now:
                 _logger.info(f"🔁 Reactivando chatbot para {partner.name}, pausa temporal vencida.")
                 memory.sudo().write({
@@ -71,9 +68,7 @@ class WhatsAppMessage(models.Model):
                     'takeover_until': False
                 })
 
-            # --- El resto del flujo continúa como antes ---
-            
-            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name} ({phone})")
+            _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name} ({phone_raw})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
 
             def _send_text(to_record, text_to_send):
@@ -94,9 +89,9 @@ class WhatsAppMessage(models.Model):
 
             # 1) Flujo de onboarding
             onboarding_handler = self.env['chatbot.whatsapp.onboarding_handler']
-            # Pasamos el partner ya encontrado para evitar buscarlo de nuevo
+            # Se pasa el objeto 'partner' directamente para evitar una nueva búsqueda.
             handled, response_msg = onboarding_handler.process_onboarding_flow(
-                self.env, record, partner, plain_body, memory
+                self.env, record, partner, plain, self.env['chatbot.whatsapp.memory'].sudo()
             )
             if handled:
                 _logger.info("🔄 Flujo de onboarding interceptado")
@@ -126,7 +121,6 @@ class WhatsAppMessage(models.Model):
 
         return records
 
-
 class MailMessage(models.Model):
     _inherit = 'mail.message'
 
@@ -153,20 +147,15 @@ class MailMessage(models.Model):
                 processed_vals_list.append(vals)
                 continue
             
-            # El autor es un empleado, se procesa la lógica.
             plain_body = clean_html(body).strip().lower()
             channel = self.env['discuss.channel'].browse(res_id)
             is_command = False
 
             if channel.channel_type == 'whatsapp':
+                # La búsqueda del partner en el canal ahora usa la lógica robusta
                 partner_to_manage = self.env['res.partner']
                 if hasattr(channel, 'whatsapp_number') and channel.whatsapp_number:
-                    customer_phone = normalize_phone(channel.whatsapp_number)
-                    if customer_phone:
-                        # --- CAMBIO CLAVE: Usar name_search también aquí ---
-                        partner_found = self.env['res.partner'].sudo().name_search(name=customer_phone, operator='ilike', limit=1)
-                        if partner_found:
-                            partner_to_manage = self.env['res.partner'].sudo().browse(partner_found[0][0])
+                    partner_to_manage = find_partner_by_phone(self.env, channel.whatsapp_number)
                 
                 if not partner_to_manage:
                     customer_partners = channel.channel_partner_ids.filtered(
@@ -180,7 +169,6 @@ class MailMessage(models.Model):
                     if not memory:
                         memory = self.env['chatbot.whatsapp.memory'].sudo().create({'partner_id': partner_to_manage.id})
 
-                    # --- Lógica de Comandos: Transformar en Nota Interna ---
                     if plain_body == '/off':
                         memory.sudo().write({'human_takeover': True, 'takeover_until': False})
                         log_msg = f"🤖 Chatbot DESACTIVADO INDEFINIDAMENTE para {partner_to_manage.name}."
@@ -201,7 +189,6 @@ class MailMessage(models.Model):
                         vals['message_type'] = 'comment'
                         is_command = True
 
-                    # --- Lógica de intervención humana si NO es un comando ---
                     if not is_command:
                         _logger.info(f"🤫 Pausando chatbot para {partner_to_manage.name} por intervención de {author_partner.name}")
                         memory.sudo().write({

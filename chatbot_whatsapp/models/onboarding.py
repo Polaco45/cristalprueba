@@ -1,3 +1,4 @@
+# onboarding.py
 from odoo import models, api
 import re
 import logging
@@ -6,7 +7,6 @@ from ..config.config import messages_config
 
 _logger = logging.getLogger(__name__)
 
-# Definimos explícitamente qué flujos pertenecen al onboarding
 ONBOARDING_FLOWS = [
     'esperando_nombre_nuevo_cliente',
     'esperando_email_nuevo_cliente',
@@ -43,14 +43,22 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         return missing
 
     @api.model
-    # --- CAMBIO CLAVE: El método ahora recibe el partner y la memory ya resueltos ---
-    def process_onboarding_flow(self, env, record, partner, plain_body, memory):
-        
-        # Ya no necesitamos buscar el partner ni la memoria, los recibimos directamente.
+    def process_onboarding_flow(self, env, record, partner, plain_body, memory_model):
+        """
+        Procesa el flujo de onboarding. Ahora recibe el 'partner' directamente.
+        """
+        # Ya no se busca ni se crea el partner aquí, se recibe como argumento.
+        if not partner:
+            _logger.warning("El flujo de onboarding fue llamado sin un partner válido.")
+            return False, ""
+
+        memory = memory_model.search([('partner_id', '=', partner.id)], limit=1)
+        if not memory:
+            memory = memory_model.create({'partner_id': partner.id})
+
         current_flow = memory.flow_state
         
         # 1. Si estamos en un flujo de onboarding, lo procesamos.
-        # Verificamos contra la lista explícita de flujos de onboarding.
         if current_flow in ONBOARDING_FLOWS:
             if current_flow == 'esperando_nombre_nuevo_cliente':
                 partner.write({'name': plain_body.strip()})
@@ -65,7 +73,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 if not tag_name:
                     return True, "Opción no válida. Por favor, responde con 1, 2 o 3."
                 
-                tag = env['res.partner.category'].sudo().search([('name', '=', tag_name)], limit=1) or env['res.partner.category'].sudo().create({'name': tag_name})
+                tag = env['res.partner.category'].sudo().search([('name', '=', tag_name)], limit=1) or \
+                      env['res.partner.category'].sudo().create({'name': tag_name})
                 partner.write({'category_id': [(6, 0, [tag.id])]})
                 
                 if "Consumidor Final" not in tag_name:
@@ -96,12 +105,9 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                 )
         
         # 4. Si NO falta nada y ESTÁBAMOS en un flujo de onboarding, significa que acabamos de terminar.
-        # Verificamos contra la lista explícita de flujos de onboarding.
         if not missing_data and current_flow in ONBOARDING_FLOWS:
-            # En lugar de borrar la memoria, podríamos simplemente limpiar el estado
-            # memory.write({'flow_state': False, 'last_intent_detected': False})
-            # O la borramos si preferimos que se cree de cero la próxima vez
-            memory.unlink() 
+            # Se elimina la memoria para resetear el estado del partner
+            memory.unlink()
             return True, "¡Ahora sí, gracias! Ya tenemos todos tus datos. ¿En qué te puedo ayudar?"
 
         return False, ""
@@ -118,7 +124,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         }
         if partner.category_id:
             tag_name = partner.category_id[0].name
-            crm_tag = env['crm.tag'].sudo().search([('name', '=', tag_name)], limit=1) or env['crm.tag'].sudo().create({'name': tag_name})
+            crm_tag = env['crm.tag'].sudo().search([('name', '=', tag_name)], limit=1) or \
+                      env['crm.tag'].sudo().create({'name': tag_name})
             lead_vals['tag_ids'] = [(6, 0, [crm_tag.id])]
 
         lead = env['crm.lead'].sudo().create(lead_vals)
