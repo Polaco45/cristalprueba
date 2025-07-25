@@ -26,54 +26,44 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone_number_from_wa):
                 continue
 
-            # --- LÓGICA DE BÚSQUEDA DE PARTNER CORREGIDA Y MÁS ROBUSTA ---
-            # 1. Normalizamos el número entrante a su formato canónico de 10 dígitos.
+            # --- LÓGICA DE BÚSQUEDA EXHAUSTIVA (100% PRECISA) ---
             canonical_phone = normalize_phone(phone_number_from_wa)
             partner = self.env['res.partner']
 
             if canonical_phone:
-                # 2. Búsqueda directa por el número normalizado (la forma más eficiente y rápida).
-                # Esto funciona si el número en Odoo está guardado sin formato.
-                partner = self.env['res.partner'].sudo().search([
-                    '|',
-                    ('phone', '=', canonical_phone),
-                    ('mobile', '=', canonical_phone)
-                ], limit=1)
-
-                # 3. Si la búsqueda directa falla, usamos un método más amplio.
-                if not partner:
-                    # Usamos los últimos 4 dígitos. Es el fragmento más seguro para buscar,
-                    # ya que es menos probable que contenga espacios o guiones.
-                    search_snippet = canonical_phone[-4:]
-                    candidate_partners = self.env['res.partner'].sudo().search([
-                        '|',
-                        ('phone', 'like', f'%{search_snippet}'),
-                        ('mobile', 'like', f'%{search_snippet}')
-                    ], limit=25) # Aumentamos el límite por si hay varias coincidencias
-
-                    # 4. Iteramos sobre los candidatos y normalizamos sus números para encontrar la coincidencia exacta.
-                    for candidate in candidate_partners:
-                        normalized_candidate_phone = normalize_phone(candidate.phone or "")
-                        normalized_candidate_mobile = normalize_phone(candidate.mobile or "")
-                        if canonical_phone == normalized_candidate_phone or canonical_phone == normalized_candidate_mobile:
-                            partner = candidate
-                            _logger.info(f"👤 Partner encontrado por número normalizado (búsqueda amplia): {partner.name}")
-                            break # Salimos del bucle en cuanto encontramos la primera coincidencia
+                # 1. Se cargan todos los partners que tengan un teléfono o celular informado.
+                # Esto optimiza un poco al no traer partners sin número.
+                all_partners_with_phone = self.env['res.partner'].sudo().search([
+                    '|', ('phone', '!=', False), ('mobile', '!=', False)
+                ])
+                _logger.info(f"Iniciando búsqueda exhaustiva en {len(all_partners_with_phone)} partners para el número {canonical_phone}")
+                
+                # 2. Se itera sobre cada partner para normalizar y comparar.
+                found_partner = False
+                for p in all_partners_with_phone:
+                    p_phone_normalized = normalize_phone(p.phone or "")
+                    p_mobile_normalized = normalize_phone(p.mobile or "")
+                    
+                    if canonical_phone == p_phone_normalized or canonical_phone == p_mobile_normalized:
+                        partner = p
+                        _logger.info(f"✅ Coincidencia encontrada por búsqueda exhaustiva: {partner.name} (ID: {partner.id})")
+                        found_partner = True
+                        break # Se detiene el bucle al encontrar la primera coincidencia
             
-            # 5. Si después de ambas búsquedas no se encontró un partner, se crea uno nuevo.
-            if not partner and canonical_phone:
-                partner = self.env['res.partner'].sudo().create({
-                    'name': f"WhatsApp: {canonical_phone}",
-                    'phone': canonical_phone,
-                    'mobile': canonical_phone
-                })
-                _logger.info(f"👤 Creado nuevo partner para {canonical_phone}")
+                # 3. Si, después de revisar todos, no se encontró, se crea un nuevo partner.
+                if not found_partner:
+                    partner = self.env['res.partner'].sudo().create({
+                        'name': f"WhatsApp: {canonical_phone}",
+                        'phone': canonical_phone,
+                        'mobile': canonical_phone
+                    })
+                    _logger.info(f"👤 No se encontró partner. Creado nuevo: {canonical_phone}")
 
             if not partner:
                 _logger.warning(f"No se pudo encontrar o crear un partner para el número {phone_number_from_wa}")
                 continue
 
-            # --- El resto del flujo continúa desde aquí ---
+            # --- El resto del flujo continúa sin cambios ---
             memory = self.env['chatbot.whatsapp.memory'].sudo().search(
                 [('partner_id', '=', partner.id)], limit=1
             )
@@ -94,10 +84,7 @@ class WhatsAppMessage(models.Model):
 
             if memory.human_takeover and memory.takeover_until and memory.takeover_until <= now:
                 _logger.info(f"🔁 Reactivando chatbot para {partner.name}, pausa temporal vencida.")
-                memory.sudo().write({
-                    'human_takeover': False,
-                    'takeover_until': False
-                })
+                memory.sudo().write({'human_takeover': False, 'takeover_until': False})
 
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name} ({canonical_phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
