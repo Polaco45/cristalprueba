@@ -47,7 +47,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
         """
         Procesa el flujo de onboarding. Ahora recibe el 'partner' directamente.
         """
-        # Ya no se busca ni se crea el partner aquí, se recibe como argumento.
         if not partner:
             _logger.warning("El flujo de onboarding fue llamado sin un partner válido.")
             return False, ""
@@ -58,7 +57,6 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
         current_flow = memory.flow_state
         
-        # 1. Si estamos en un flujo de onboarding, lo procesamos.
         if current_flow in ONBOARDING_FLOWS:
             if current_flow == 'esperando_nombre_nuevo_cliente':
                 partner.write({'name': plain_body.strip()})
@@ -82,10 +80,8 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             
             memory.write({'flow_state': False})
 
-        # 2. Verificamos si AÚN falta algo.
         missing_data = self._check_missing_data(partner)
         
-        # 3. Si falta algo, FORZAMOS el siguiente paso del onboarding.
         if missing_data:
             next_step = missing_data[0]
             if next_step == 'nombre':
@@ -104,9 +100,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     "3 - Mayorista"
                 )
         
-        # 4. Si NO falta nada y ESTÁBAMOS en un flujo de onboarding, significa que acabamos de terminar.
         if not missing_data and current_flow in ONBOARDING_FLOWS:
-            # Se elimina la memoria para resetear el estado del partner
             memory.unlink()
             return True, "¡Ahora sí, gracias! Ya tenemos todos tus datos. ¿En qué te puedo ayudar?"
 
@@ -114,6 +108,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
 
     def _create_crm_lead(self, env, partner):
         """Crea una oportunidad (lead) en el CRM para el partner."""
+        # ... (código sin cambios)
         if env['crm.lead'].sudo().search_count([('partner_id', '=', partner.id)]):
             _logger.info(f"El partner '{partner.name}' ya tiene una oportunidad en el CRM.")
             return

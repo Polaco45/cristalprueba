@@ -5,60 +5,27 @@ import logging
 _logger = logging.getLogger(__name__)
 HTML_TAGS = re.compile(r"<[^>]+>")
 
-def sanitize_phone(phone):
-    """Elimina todos los caracteres que no sean dígitos de un número de teléfono."""
-    return re.sub(r'\D', '', phone or '')
+def sanitize_for_search(phone):
+    """
+    Sanitiza un número de teléfono al formato E.164 para buscar en el campo
+    'phone_sanitized' de Odoo. Ej: '+54 9 358...' -> '+549358...'
+    """
+    if not phone:
+        return ''
+    # Mantiene solo los dígitos y antepone un '+'
+    return '+' + re.sub(r'\D', '', phone or '')
 
-def normalize_phone(phone):
+def get_local_number(phone):
     """
-    Normaliza un número de teléfono a un formato local estándar para Argentina,
-    eliminando el código de país y el '9' de los móviles.
-    Ejemplo: '+54 9 358 123-4567' -> '3581234567'
+    Obtiene la representación local de un número de Argentina, sin código de país ni '9'.
+    Se usa para mostrar nombres amigables. Ej: '+549358...' -> '358...'
     """
-    sanitized = sanitize_phone(phone)
+    sanitized = re.sub(r'\D', '', phone or '')
     if sanitized.startswith('549'):
-        # Quita el código de país '54' y el prefijo móvil '9'
         return sanitized[3:]
     if sanitized.startswith('54'):
-        # Quita solo el código de país '54'
         return sanitized[2:]
     return sanitized
-
-def find_partner_by_phone(env, phone_number):
-    """
-    Encuentra un partner por número de teléfono, ignorando formato, espacios y prefijos.
-    Esta es la lógica central para prevenir la creación de contactos duplicados.
-
-    :param env: El entorno de Odoo.
-    :param phone_number: El número de teléfono entrante (sin procesar).
-    :return: Un recordset de res.partner (puede estar vacío si no se encuentra).
-    """
-    if not phone_number:
-        return env['res.partner']
-
-    # 1. Normaliza el número entrante a su forma base (ej: '3584840089').
-    normalized_in_phone = normalize_phone(phone_number)
-    if not normalized_in_phone:
-        return env['res.partner']
-
-    _logger.info(f"🔍 Búsqueda de partner. Entrada: '{phone_number}', Normalizado: '{normalized_in_phone}'.")
-
-    # 2. Busca partners candidatos usando los últimos 8 dígitos para optimizar.
-    search_term = normalized_in_phone[-8:]
-    domain = ['|', ('phone', 'ilike', search_term), ('mobile', 'ilike', search_term)]
-    candidate_partners = env['res.partner'].sudo().search(domain)
-
-    # 3. Itera sobre los candidatos y compara sus números normalizados.
-    for partner in candidate_partners:
-        db_phone_normalized = normalize_phone(partner.phone)
-        db_mobile_normalized = normalize_phone(partner.mobile)
-
-        if normalized_in_phone == db_phone_normalized or normalized_in_phone == db_mobile_normalized:
-            _logger.info(f"✅ Partner encontrado: '{partner.name}' (ID: {partner.id}) coincide.")
-            return partner # Devuelve el primer partner que coincida
-
-    _logger.info(f"🚫 No se encontró un partner existente para '{normalized_in_phone}'.")
-    return env['res.partner'] # Devuelve un recordset vacío si no hay coincidencias
 
 def clean_html(text):
     """Limpia las etiquetas HTML de un texto."""
