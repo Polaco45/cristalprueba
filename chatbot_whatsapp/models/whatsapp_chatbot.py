@@ -27,27 +27,21 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            # --- LÓGICA DE BÚSQUEDA CORREGIDA ---
-            partner_model = self.env['res.partner'].sudo()
-            partner = self.env['res.partner'] # Empezamos con un recordset vacío
-            
-            # Usamos name_search para una búsqueda más potente, como la UI de Odoo
-            search_results = partner_model.name_search(name=phone, operator='ilike', limit=1)
-            
-            if search_results:
-                partner_id = search_results[0][0]
-                partner = partner_model.browse(partner_id)
-                _logger.info(f"✅ Partner encontrado vía name_search para {phone}: {partner.name} (ID: {partner.id})")
-            
+            _logger.info(f"Buscando partner con el número normalizado: {phone}")
+            partner_data = self.env['res.partner'].sudo().name_search(name=phone, operator='ilike', limit=1)
+
+            if partner_data:
+                partner_id = partner_data[0][0]
+                partner = self.env['res.partner'].sudo().browse(partner_id)
+                _logger.info(f"✅ Partner encontrado vía name_search: {partner.name} (ID: {partner.id})")
+            else:
+                partner = None
+                _logger.info(f"🤷‍♂️ No se encontró un partner existente para {phone}. Se creará uno nuevo.")
             if not partner:
-                # Si name_search no encontró nada, creamos el partner
-                partner = partner_model.create({
-                    'name': f"WhatsApp: {phone}",
-                    'phone': phone,
-                    'mobile': phone
+                partner = self.env['res.partner'].sudo().create({
+                    'name': f"WhatsApp: {phone}", 'phone': phone, 'mobile': phone
                 })
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
-            # --- FIN DE LA LÓGICA CORREGIDA ---
 
             # Cargar o crear memoria de chatbot
             memory = self.env['chatbot.whatsapp.memory'].sudo().search(
@@ -78,6 +72,8 @@ class WhatsAppMessage(models.Model):
                     'human_takeover': False,
                     'takeover_until': False
                 })
+
+            # --- El resto del flujo continúa como antes ---
             
             _logger.info(f"📨 Mensaje nuevo: '{plain}' de {partner.name} ({phone})")
             _logger.info(f"🧠 Memoria activa: flow={memory.flow_state}, intent={memory.last_intent_detected}, cart={memory.pending_order_lines}")
