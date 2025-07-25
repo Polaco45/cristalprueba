@@ -27,22 +27,27 @@ class WhatsAppMessage(models.Model):
             if not (plain and phone):
                 continue
 
-            partner_tuples = self.env['res.partner'].sudo().name_search(
-                name=phone,
-                args=[],          
-                operator='ilike',
-                limit=1
-            )
-            if partner_tuples:
-                partner = self.env['res.partner'].browse(partner_tuples[0][0])
-            else:
-                partner = self.env['res.partner'].sudo().create({
-                    'name':   f"WhatsApp: {phone}",
-                    'phone':  phone,
-                    'mobile': phone,
+            # --- LÓGICA DE BÚSQUEDA CORREGIDA ---
+            partner_model = self.env['res.partner'].sudo()
+            partner = self.env['res.partner'] # Empezamos con un recordset vacío
+            
+            # Usamos name_search para una búsqueda más potente, como la UI de Odoo
+            search_results = partner_model.name_search(name=phone, operator='ilike', limit=1)
+            
+            if search_results:
+                partner_id = search_results[0][0]
+                partner = partner_model.browse(partner_id)
+                _logger.info(f"✅ Partner encontrado vía name_search para {phone}: {partner.name} (ID: {partner.id})")
+            
+            if not partner:
+                # Si name_search no encontró nada, creamos el partner
+                partner = partner_model.create({
+                    'name': f"WhatsApp: {phone}",
+                    'phone': phone,
+                    'mobile': phone
                 })
                 _logger.info(f"👤 Creado nuevo partner para {phone}")
-
+            # --- FIN DE LA LÓGICA CORREGIDA ---
 
             # Cargar o crear memoria de chatbot
             memory = self.env['chatbot.whatsapp.memory'].sudo().search(
