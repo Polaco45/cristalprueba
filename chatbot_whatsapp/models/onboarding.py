@@ -54,15 +54,11 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
             
         current_flow = memory.flow_state
 
-        # --- LÓGICA MEJORADA PARA PROTEGER A CONTACTOS EXISTENTES ---
-        # Se verifica si el contacto es nuevo (nombre por defecto) o si ya estaba en un flujo.
-        # Si ya tiene un nombre propio, se omite la validación de datos.
         is_new_contact = 'WhatsApp:' in (partner.name or '')
         if not is_new_contact and not current_flow:
             _logger.info(f"👍 Partner '{partner.name}' es un contacto existente. Omitiendo validación de onboarding.")
-            return False, "" # No se maneja el mensaje aquí, pasa al flujo normal.
+            return False, "" 
 
-        # --- El resto de la lógica solo se ejecuta para contactos nuevos o en proceso ---
         if current_flow in ONBOARDING_FLOWS:
             if current_flow == 'esperando_nombre_nuevo_cliente':
                 partner.write({'name': plain_body.strip()})
@@ -85,8 +81,7 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     self._create_crm_lead(env, partner)
             
             memory.write({'flow_state': False})
-            # Se re-evalúa el flujo por si falta otro dato
-            current_flow = False 
+            current_flow = False # Reseteamos para que se re-evalúe si falta otro dato
 
         missing_data = self._check_missing_data(partner)
         
@@ -108,8 +103,10 @@ class WhatsAppOnboardingHandler(models.AbstractModel):
                     "3 - Mayorista"
                 )
         
-        # Si ya no faltan datos y estábamos en un flujo, damos el mensaje de cierre.
-        if not missing_data and memory.id and (current_flow or is_new_contact):
+        # --- LÍNEA CORREGIDA ---
+        # Ahora, solo se borra la memoria y se da el mensaje de "gracias" si
+        # el flujo que acaba de terminar ESTÁ en la lista de flujos de onboarding.
+        if not missing_data and memory.id and memory.read(['flow_state'])[0]['flow_state'] in ONBOARDING_FLOWS:
             memory.unlink()
             return True, "¡Ahora sí, gracias! Ya tenemos todos tus datos. ¿En qué te puedo ayudar?"
 
