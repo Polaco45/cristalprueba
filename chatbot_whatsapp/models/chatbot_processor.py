@@ -458,21 +458,47 @@ class ChatbotProcessor:
 
 
     def _handle_flow_esperando_cantidad_producto(self):
-        try:
+        """
+        Maneja la entrada de cantidad del usuario, usando IA para interpretar
+        lenguaje natural (ej: "uno", "un par").
+        """
+        qty = 0
+        # Primero, intenta una conversión directa si el usuario escribe un número
+        if self.plain_text.isdigit():
             qty = int(self.plain_text)
-            if qty <= 0:
-                return self._send_text(messages_config['invalid_quantity'])
+        else:
+            # Si no es un dígito, usa IA para interpretar el texto
+            _logger.info(f"🔢 La cantidad '{self.plain_text}' no es un dígito. Usando IA para interpretar.")
+            try:
+                api_key = self.env['ir.config_parameter'].sudo().get_param('openai.api_key')
+                openai.api_key = api_key
+                extraction_prompt = prompts_config['quantity_extraction_prompt']
+                
+                resp = openai.ChatCompletion.create(
+                    model="gpt-4o-mini", # Usamos un modelo rápido para esta tarea simple
+                    messages=[
+                        {"role": "system", "content": extraction_prompt},
+                        {"role": "user", "content": self.plain_text}
+                    ],
+                    temperature=0
+                )
+                qty_str = resp.choices[0].message.content.strip()
+                qty = int(qty_str)
+            except (ValueError, openai.error.OpenAIError) as e:
+                _logger.error(f"❌ Error convirtiendo cantidad con IA: {e}")
+                return self._send_text(messages_config['invalid_quantity_format'])
 
-            variant = self.env['product.product'].sudo().browse(self.memory.last_variant_id.id)
-            avail = variant.qty_available or 0
+        if qty <= 0:
+            return self._send_text(messages_config['invalid_quantity'])
 
-            if qty > avail:
-                self.memory.write({'flow_state': 'esperando_confirmacion_stock', 'last_qty_suggested': int(avail)})
-                return self._send_text(messages_config['insufficient_stock'].format(avail=int(avail), name=variant.display_name))
-            else:
-                return self._add_item_and_decide_next_step(variant.id, qty, variant.display_name)
-        except ValueError:
-            return self._send_text(messages_config['invalid_quantity_format'])
+        variant = self.env['product.product'].sudo().browse(self.memory.last_variant_id.id)
+        avail = variant.qty_available or 0
+
+        if qty > avail:
+            self.memory.write({'flow_state': 'esperando_confirmacion_stock', 'last_qty_suggested': int(avail)})
+            return self._send_text(messages_config['insufficient_stock'].format(avail=int(avail), name=variant.display_name))
+        else:
+            return self._add_item_and_decide_next_step(variant.id, qty, variant.display_name)
 
     def _handle_flow_esperando_confirmacion_stock(self):
         choice = self.plain_text.lower().strip()
@@ -504,7 +530,7 @@ class ChatbotProcessor:
             )
             msg = resp.choices[0].message
         except Exception as e:
-            _logger.error(f"❌ Error en la llamada a OpenAI: {e}")
+            _logger.error(f"❌ Error en la llamada a OpenAI para extraer productos: {e}")
             return self._send_text(messages_config['error_processing'])
 
         if not msg.get('function_call'):
@@ -513,27 +539,34 @@ class ChatbotProcessor:
         args = json.loads(msg.function_call.arguments)
         products_to_add = args.get('products', [])
 
-        # --- LÓGICA MODIFICADA ---
         if not products_to_add:
-            _logger.info("🛒 Intención 'crear_pedido' sin productos. Pidiendo al usuario que especifique con IA.")
+            _logger.info("🛒 Intención 'crear_pedido' sin productos. Usando IA para preguntar qué desea.")
             try:
-                # Se usa el nuevo prompt para generar una pregunta dinámica
                 ask_prompt = prompts_config['ask_for_products_prompt']
                 
+                # Se obtiene el historial de la conversación para dar contexto
+                history = self.env['whatsapp.message'].sudo().search([
+                    ('mobile_number', '=', self.record.mobile_number), ('id', '<=', self.record.id)
+                ], order='id desc', limit=3)
+                
+                # Se arma el payload para OpenAI, incluyendo el historial
+                messages = [{"role": "system", "content": ask_prompt}]
+                for h_msg in reversed(history):
+                    role = "user" if h_msg.state in ("received", "inbound") else "assistant"
+                    messages.append({"role": role, "content": clean_html(h_msg.body or "")})
+
                 resp_ask = openai.ChatCompletion.create(
                     model=general_config['openai']['model'],
-                    messages=[{"role": "system", "content": ask_prompt}],
-                    temperature=0.7 # Un poco de creatividad para variar la respuesta
+                    messages=messages, # Se envía el historial completo
+                    temperature=0.7
                 )
                 ai_response = resp_ask.choices[0].message.content.strip()
                 return self._send_text(ai_response)
                 
             except Exception as e:
                 _logger.error(f"❌ Error generando la pregunta por productos con IA: {e}")
-                # Si falla la IA, se usa el mensaje predefinido como respaldo
                 return self._send_text(messages_config['product_not_found_gpt'])
 
-        # --- El flujo original continúa si SÍ se encontraron productos ---
         _logger.info(f"🛒 Productos detectados por IA para encolar: {products_to_add}")
         self.memory.write({
             'flow_state': False,
