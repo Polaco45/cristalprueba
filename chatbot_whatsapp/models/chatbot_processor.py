@@ -512,9 +512,28 @@ class ChatbotProcessor:
 
         args = json.loads(msg.function_call.arguments)
         products_to_add = args.get('products', [])
-        if not products_to_add:
-            return self._send_text(messages_config['product_not_found_gpt'])
 
+        # --- LÓGICA MODIFICADA ---
+        if not products_to_add:
+            _logger.info("🛒 Intención 'crear_pedido' sin productos. Pidiendo al usuario que especifique con IA.")
+            try:
+                # Se usa el nuevo prompt para generar una pregunta dinámica
+                ask_prompt = prompts_config['ask_for_products_prompt']
+                
+                resp_ask = openai.ChatCompletion.create(
+                    model=general_config['openai']['model'],
+                    messages=[{"role": "system", "content": ask_prompt}],
+                    temperature=0.7 # Un poco de creatividad para variar la respuesta
+                )
+                ai_response = resp_ask.choices[0].message.content.strip()
+                return self._send_text(ai_response)
+                
+            except Exception as e:
+                _logger.error(f"❌ Error generando la pregunta por productos con IA: {e}")
+                # Si falla la IA, se usa el mensaje predefinido como respaldo
+                return self._send_text(messages_config['product_not_found_gpt'])
+
+        # --- El flujo original continúa si SÍ se encontraron productos ---
         _logger.info(f"🛒 Productos detectados por IA para encolar: {products_to_add}")
         self.memory.write({
             'flow_state': False,
