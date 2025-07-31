@@ -9,6 +9,14 @@ patch(PaymentScreen.prototype, {
     setup() {
         super.setup(...arguments);
         onMounted(() => {
+            // 1) Dejar "Factura" chequeado por defecto al entrar en la pantalla
+            const order = this.currentOrder || this.pos.get_order?.();
+            if (order && order.to_invoice !== true) {
+                order.set_to_invoice(true);
+                this.render(); // refrescar UI
+            }
+
+            // Mantener tu selección de diario por defecto
             if (this.is_check_default_journal()) {
                 this.apply_default_journal();
             }
@@ -27,29 +35,24 @@ patch(PaymentScreen.prototype, {
         }
     },
 
-    // Función para manejar el clic de selección de diarios
+    // Selección de diarios (no forzar desmarcar factura)
     click_diarios(journal_id) {
         const order = this.currentOrder;
-
         this.render();
 
         if (order.get_invoice_journal_id() !== journal_id) {
             order.set_invoice_journal_id(journal_id);
         } else {
+            // Antes: quitabas el diario y desmarcabas factura
+            // Ahora: solo quitamos el diario seleccionado (si querés)
             order.set_invoice_journal_id(false);
-            order.set_to_invoice(false);
+            // NO tocar order.set_to_invoice(false);
         }
     },
 
-    // Activar factura si se selecciona el método de pago con ID 9
+    // 2) No cambiar el flag de factura según el método de pago
     addNewPaymentLine(paymentMethod) {
-        super.addNewPaymentLine(...arguments);
-        const order = this.currentOrder;
-
-        if (paymentMethod && paymentMethod.id === 9) {
-            order.set_to_invoice(true);
-        } else {
-            order.set_to_invoice(false);
-        }
+        // Antes: si id !== 9, desmarcabas factura. Eso se elimina.
+        return super.addNewPaymentLine(...arguments);
     },
 });
