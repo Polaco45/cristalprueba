@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--    website sale view-->
+    <template id="cart_inherited_min_sale_price" inherit_id="website_sale.cart">
+        <xpath expr="//div[@class='col']" position="after">
+            <div id="min_sale_amt" style="display: none;">
+                <t t-esc="minimum_sale_price"/>
+            </div>
+            <div id="amt_total" style="display: none;">
+                <t t-esc="website_sale_order.amount_total"/>
+            </div>
+            <div id="tax_information" style="display: none;">
+                <t t-esc="tax_info"/>
+            </div>
+            <t t-if="tax_info == 'tax_excluded'">
+                <div class="col-lg-12" id="min_sale_amt_alert">
+                    <a class="alert alert-danger float-end d-none d-xl-inline-block text-decoration-none"
+                       t-if="website_sale_order and website_sale_order.website_order_line and website_sale_order.amount_untaxed &lt; minimum_sale_price"
+                       role="alert">
+                        Please add more product to proceed!
+                    </a>
+                    <t t-if="website_sale_order and website_sale_order.currency_id">
+                        <t t-set="currency" t-value="website_sale_order.currency_id"/>
+                        <t t-set="amount" t-value="website_sale_order.amount_total"/>
+                        <t t-set="minor_amount" t-value="int(website_sale_order.amount_total * 100)"/>
+                        <t t-set="reference_prefix" t-value="'SO'"/>
+                        <t t-set="partner_id" t-value="website_sale_order.partner_id.id"/>
+                        <t t-set="merchant_name" t-value="request.env.company.name"/>
+                        <t t-call="payment.express_checkout"/>
+                    </t>
+                </div>
+            </t>
+            <t t-if="tax_info == 'tax_included'">
+                <div class="col-lg-12" id="min_sale_amt_alert">
+                    <a class="alert alert-danger float-end d-none d-xl-inline-block text-decoration-none"
+                       t-if="website_sale_order and website_sale_order.website_order_line and website_sale_order.amount_total &lt; minimum_sale_price"
+                       role="alert">
+                        Please add more product to proceed!
+                    </a>
+                    <t t-if="website_sale_order and website_sale_order.currency_id">
+                        <t t-set="currency" t-value="website_sale_order.currency_id"/>
+                        <t t-set="amount" t-value="website_sale_order.amount_total"/>
+                        <t t-set="minor_amount" t-value="int(website_sale_order.amount_total * 100)"/>
+                        <t t-set="reference_prefix" t-value="'SO'"/>
+                        <t t-set="partner_id" t-value="website_sale_order.partner_id.id"/>
+                        <t t-set="merchant_name" t-value="request.env.company.name"/>
+                        <t t-call="payment.express_checkout"/>
+                    </t>
+                </div>
+            </t>
+        </xpath>
+    </template>
+    <!-- Extra Info Template -->
+    <template id="extra_info_inherited_min_sale_price" inherit_id="website_sale.extra_info">
+        <xpath expr="//t[@t-call='website_sale.checkout_layout']" position="before">
+            <!--            Inherits the extra info template to add minimum sale price and tax information.-->
+            <!--        Displays an alert if the order amount is below the minimum sale price based on tax inclusion.-->
+            <div id="tax_information" style="display: none;">
+                <t t-set="tax_info"
+                   t-value="request.env['ir.config_parameter'].sudo().get_param('tis_min_sale_price.tax_type')"/>
+                <t t-esc="tax_info"/>
+                <t t-esc="minimum_sale_price"/>
+            </div>
+            <div id="min_sale_amt" style="display: none;">
+                <t t-set="minimum_sale_price"
+                   t-value="request.env['ir.config_parameter'].sudo().get_param('tis_min_sale_price.min_sale_price')"/>
+                <t t-esc="minimum_sale_price"/>
+            </div>
+            <t t-if="tax_info == 'tax_excluded'">
+                <div class="col-lg-12" id="min_sale_amt_alert">
+                    <a class="alert alert-danger float-end d-none d-xl-inline-block text-decoration-none"
+                       t-if="website_sale_order and website_sale_order.website_order_line and website_sale_order.amount_untaxed &lt; float(minimum_sale_price)"
+                       role="alert">
+                        Please add more product to proceed!
+                    </a>
+                </div>
+            </t>
+            <t t-if="tax_info == 'tax_included'">
+                <div class="col-lg-12" id="min_sale_amt_alert">
+                    <a class="alert alert-danger float-end d-none d-xl-inline-block text-decoration-none"
+                       t-if="website_sale_order and website_sale_order.website_order_line and website_sale_order.amount_total &lt; float(minimum_sale_price)"
+                       role="alert">
+                        Please add more product to proceed!
+                    </a>
+                </div>
+            </t>
+        </xpath>
+    </template>
+    <!-- Payment Template -->
+    <template id="payment_inherited_min_sale_price" inherit_id="website_sale.payment">
+        <!--
+       Inherits the payment template to add minimum sale price and tax information.
+       Displays an alert if the order amount is below the minimum sale price based on tax inclusion.
+       -->
+        <xpath expr="//div[@name='website_sale_non_free_cart'] | //t[@name='website_sale_non_free_cart'] | //t[@t-if='website_sale_order.amount_total']"
+               position="after">
+            <div id="tax_information" style="display: none;">
+                <t t-set="tax_info"
+                   t-value="request.env['ir.config_parameter'].sudo().get_param('tis_min_sale_price.tax_type')"/>
+                <t t-esc="tax_info"/>
+                <t t-esc="minimum_sale_price"/>
+            </div>
+            <div id="min_sale_amt" style="display: none;">
+                <t t-set="minimum_sale_price"
+                   t-value="request.env['ir.config_parameter'].sudo().get_param('tis_min_sale_price.min_sale_price')"/>
+                <t t-esc="minimum_sale_price"/>
+            </div>
+            <t t-if="tax_info == 'tax_excluded'">
+                <div class="col-lg-12" id="min_sale_amt_alert">
+                    <a class="alert alert-danger float-end d-none d-xl-inline-block text-decoration-none"
+                       t-if="website_sale_order and website_sale_order.website_order_line and website_sale_order.amount_untaxed &lt; float(minimum_sale_price)"
+                       role="alert">
+                        Please add more product to proceed!
+                    </a>
+                </div>
+            </t>
+            <t t-if="tax_info == 'tax_included'">
+                <div class="col-lg-12" id="min_sale_amt_alert">
+                    <a class="alert alert-danger float-end d-none d-xl-inline-block text-decoration-none"
+                       t-if="website_sale_order and website_sale_order.website_order_line and website_sale_order.amount_total &lt; float(minimum_sale_price)"
+                       role="alert">
+                        Please add more product to proceed!
+                    </a>
+                </div>
+            </t>
+        </xpath>
+    </template>
+</odoo>

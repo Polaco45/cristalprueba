@@ -1,0 +1,135 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* tis_min_sale_price
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-07-26 10:08+0000\n"
+"PO-Revision-Date: 2025-07-26 10:08+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Back to cart"
+msgstr "Volver al carrito"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Checkout"
+msgstr "Pagar"
+
+#. module: tis_min_sale_price
+#: model:ir.model,name:tis_min_sale_price.model_res_config_settings
+msgid "Config Settings"
+msgstr "Ajustes de configuración"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Confirm"
+msgstr "Confirmar"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Continue checkout"
+msgstr "Continuar pagando"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Continue shopping"
+msgstr "Continuar comprando"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Extra Info"
+msgstr "Información adicional"
+
+#. module: tis_min_sale_price
+#: model:ir.model.fields,field_description:tis_min_sale_price.field_res_config_settings__min_sale_price
+#: model:ir.model.fields,field_description:tis_min_sale_price.field_website__min_sale_price
+#: model_terms:ir.ui.view,arch_db:tis_min_sale_price.res_config_settings_view_form
+msgid "Minimum Sale Price"
+msgstr "Precio Mínimo de Venta"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Payment"
+msgstr "Pago"
+
+#. module: tis_min_sale_price
+#: model_terms:ir.ui.view,arch_db:tis_min_sale_price.cart_inherited_min_sale_price
+#: model_terms:ir.ui.view,arch_db:tis_min_sale_price.extra_info_inherited_min_sale_price
+#: model_terms:ir.ui.view,arch_db:tis_min_sale_price.payment_inherited_min_sale_price
+msgid "Please add more product to proceed!"
+msgstr "¡Agregue más producto para continuar!"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Return to shipping"
+msgstr "Volver al envío"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Review Order"
+msgstr "Revisar orden"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Shipping"
+msgstr "Envío"
+
+#. module: tis_min_sale_price
+#. odoo-python
+#: code:addons/tis_min_sale_price/models/website.py:0
+msgid "Sign In"
+msgstr "Iniciar sesión"
+
+#. module: tis_min_sale_price
+#: model:ir.model.fields.selection,name:tis_min_sale_price.selection__website__tax_type__tax_excluded
+msgid "Tax Excluded"
+msgstr "Impuestos excluidos"
+
+#. module: tis_min_sale_price
+#: model:ir.model.fields.selection,name:tis_min_sale_price.selection__website__tax_type__tax_included
+msgid "Tax Included"
+msgstr "Impuesto incluido"
+
+#. module: tis_min_sale_price
+#: model:ir.model.fields,field_description:tis_min_sale_price.field_res_config_settings__tax_type
+#: model:ir.model.fields,field_description:tis_min_sale_price.field_website__tax_type
+msgid "Tax Type"
+msgstr "Tipo de impuesto"
+
+#. module: tis_min_sale_price
+#. odoo-javascript
+#: code:addons/tis_min_sale_price/static/src/js/website_sale_new.js:0
+msgid "The minimum amount is %s — add %s to reach this amount."
+msgstr "La cantidad mínima es %s — agregue %s para alcanzar esta cantidad."
+
+#. module: tis_min_sale_price
+#: model:ir.model,name:tis_min_sale_price.model_website
+#: model:ir.model.fields,field_description:tis_min_sale_price.field_res_config_settings__website_id
+msgid "Website"
+msgstr "Sitio web"
+
+#. module: tis_min_sale_price
+#. odoo-javascript
+#: code:addons/tis_min_sale_price/static/src/js/website_sale_new.js:0
+msgid "You have reached the minimum purchase amount!"
+msgstr "¡Has alcanzado el importe mínimo de compra!"
