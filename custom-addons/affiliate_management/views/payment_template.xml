@@ -1,0 +1,142 @@
+<odoo>
+  <data>
+    <template id="payment_tree" name="Affiliate Payments">
+      <t t-call="portal.portal_layout">
+        <t t-set="no_breadcrumbs" t-value="True" />
+        <t t-set="affiliate_breadcrumbs_searchbar" t-value="True" />
+
+        <t t-call="affiliate_management.affiliate_portal_searchbar">
+          <t t-set="title">Affiliate Payments</t>
+        </t>
+
+	    <div class="oe_structure" id="oe_structure_portal_affiliate_invoices_list" />
+        <t t-if="invoices" t-call="portal.portal_table">
+          <thead>
+            <tr class="active">
+              <th>Invoice Number </th>
+              <th>Amount</th>
+              <th>Date</th>
+              <th>State</th>
+            </tr>
+          </thead>
+          <t t-foreach="invoices" t-as="i">
+            <tr>
+              <td>
+                <a t-attf-href="/my/invoice/{{i.id}}?{{keep_query()}}">
+                  <t t-esc="i.name" />
+                </a>
+              </td>
+              <td>
+                <span t-field="i.amount_total" />
+              </td>
+              <td>
+                <span t-field="i.invoice_date" />
+              </td>
+              <td>
+                <span t-field="i.payment_state" />
+              </td>
+            </tr>
+          </t>
+        </t>
+        <p t-else="">There are currently no invoices for your account.</p>
+      </t>
+
+    </template>
+
+
+    <template id="payment_form" name="Payment Show">
+      <t t-call="portal.portal_layout">
+
+        <t t-set="no_breadcrumbs" t-value="True" />
+        <t t-set="affiliate_breadcrumbs_searchbar" t-value="True" />
+
+
+        <t t-call="affiliate_management.affiliate_portal_searchbar">
+          <t t-set="title">Affiliate Payment Details</t>
+        </t>
+
+        <div class='o_portal_wrap my-3'>
+          <div class="oe_structure" id="oe_structure_portal_affiliate_invoices_form" />
+          <div class="container">
+              <div class="mb8">
+                <strong>Date :</strong>
+                <span t-field="invoice.invoice_date" t-options='{"widget": "date"}' />
+              </div>
+
+              <div class="mb8">
+                <strong>Invoice State :</strong>
+                <span t-field="invoice.payment_state" />
+              </div>
+
+              <div class="divider my-4" style="border-bottom:2px solid black;opacity:30%">
+							</div>
+              <h3>Invoice <span t-field="invoice.name" /></h3>
+
+              <div class="table-responsive">
+                <table class="table table-hover o_my_status_table">
+                  <thead>
+                    <tr class="active">
+                      <th>Click To Check Details</th>
+                      <th>Item Name</th>
+                      <th>Item Type</th>
+                      <th>Conversion Date</th>
+                      <th>Commission Matrix</th>
+                      <th>Commission Value</th>
+                    </tr>
+                  </thead>
+                  <t t-foreach="invoice.aff_visit_id" t-as="i">
+                    <tr>
+                      <t t-if="i.sales_order_line_id">
+                        <td>
+                          <a t-attf-href="/my/order/{{i.id}}?{{keep_query()}}">
+                            <t t-esc="i.name" />
+                          </a>
+                        </td>
+                      </t>
+  
+                      <t t-if="not i.sales_order_line_id">
+                        <td>
+                          <a t-attf-href="/my/traffic/{{i.id}}?{{keep_query()}}">
+                            <t t-esc="i.name" />
+                          </a>
+                        </td>
+                      </t>
+  
+                      <td>
+                        <span t-field="i.type_name" />
+                      </td>
+                      <td>
+                        <span t-field="i.affiliate_type" />
+                      </td>
+                      <td>
+                        <span t-field="i.convert_date" />
+                      </td>
+                      <td>
+                        <span t-field="i.amt_type" />
+                      </td>
+                      <td>
+                        <span t-field="i.commission_amt" />
+                      </td>
+  
+                    </tr>
+                  </t>
+                </table>
+              </div>
+              <div class="divider my-2" style="border-bottom:2px solid black;opacity:30%">
+							</div>
+              <div class="row">
+                <span class="col-md-10 col-9 text-end">
+                  <strong>Total :</strong>
+                </span>
+                <span class="col-md-2 col-2 text-start">
+                  <span t-field="invoice.amount_total" />
+                </span>
+              </div>
+          </div>
+        </div>
+      </t>
+    </template>
+
+
+  </data>
+</odoo>

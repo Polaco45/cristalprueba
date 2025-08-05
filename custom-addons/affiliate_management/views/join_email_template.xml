@@ -1,0 +1,34 @@
+<odoo>
+  <data>
+
+    <record id="join_affiliate_email" model="mail.template">
+          <field name="name">Affiliate Request Connection</field>
+          <field name="model_id" ref="affiliate_management.model_affiliate_request"/>
+          <field name="email_from">"{{ object.partner_id.company_id.name or user.name}}" &lt;{{ (object.partner_id.company_id.email or user.email) }}&gt;</field>
+          <field name="email_to">{{ object.partner_id.email_formatted or object.name or '' }}</field>
+          <field name="subject"> Invitation to connect on Affiliate Program</field>
+          <field name="body_html" type="html">
+
+            <div style="padding:0px;width:600px;margin:auto;background:#FFFFFF repeat top /100%;color:#777777;">
+                <p>Dear <t t-out="object.partner_id.name or object.name or ''">Marc Demo</t>,</p>
+                <p>
+                    You have been invited to connect to Affiliate Program in order to get access to your Account please complete your sign up process.
+                </p>
+                <p>
+                    To accept the invitation, click on the following link:
+                </p>
+                <div style="text-align: center; margin-top: 16px;">
+                     <a t-attf-href="#{object.website_id.domain}/affiliate/signup?db={{ object.env.cr.dbname }}&amp;token={{ object.signup_token or 'testtoken'}}" style="padding: 5px 10px; font-size: 12px; line-height: 18px; color: #FFFFFF; border-color:#875A7B; text-decoration: none; display: inline-block; margin-bottom: 0px; font-weight: 400; text-align: center; vertical-align: middle; cursor: pointer; white-space: nowrap; background-image: none; background-color: #875A7B; border: 1px solid #875A7B; border-radius:3px">Accept invitation to Affiliate Program</a>
+                </div>
+                Best regards,<br/>
+                <t t-if="user.signature">
+                    <br/>
+                    <t t-out="user.signature or ''">--<br/>Mitchell Admin</t>
+                </t>
+            </div>
+
+          </field>
+      </record>
+
+  </data>
+</odoo>

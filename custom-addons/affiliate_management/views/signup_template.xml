@@ -1,0 +1,112 @@
+<odoo>
+
+<template id="register" name="Signup Form">
+
+
+
+        <t t-call="web.login_layout">
+
+          <p class="alert alert-danger" t-if="not token">
+                    You already got registered with this link.
+          </p>
+          <div class="oe_structure" id="oe_structure_portal_affiliate_signup_page" />
+
+            <form class="oe_signup_form" role="form" t-attf-action="/affiliate/register" method="post" >
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                <div class="mb-3">
+                    <label for="login" class="form-label">Email</label>
+                    <input type="text" name="login" t-att-value="login" id="login" class="form-control" required="required" autofocus="autofocus" autocapitalize="off" readonly='1'/>
+                </div>
+
+                <div class="mb-3">
+                    <label for="name" class="form-label">User Name</label>
+                    <input type="text" name="name" t-att-value="name" id="name" class="form-control" required="required" autofocus="autofocus" autocapitalize="off" />
+                </div>
+
+
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Enter Your Password</label>
+                    <input type="password" name="password" id="password" class="form-control" required="required" autocomplete="current-password" autofocus="autofocus"  maxlength="4096"/>
+                </div>
+
+                <div class="mb-3">
+                    <label for="confirm_password" class="form-label"> Confirm Password</label>
+                    <input type="password" name="confirm_password" id="confirm_password" class="form-control" required="required" autocomplete="current-password" autofocus="autofocus"  maxlength="4096"/>
+                </div>
+                <div class="mb-3">
+                    <label for="phone" class="form-label"> Enter Your Phone No.</label>
+                    <input type="text" name="phone" id="phone" class="form-control" required="required" autofocus="autofocus"  maxlength="10"/>
+                </div>
+
+                <div class="mb-3">
+                    <label for="comment" class="form-label">Comment:</label>
+                      <textarea name="comment" id="comment" class="form-control" rows="5" autofocus="autofocus"></textarea>
+                </div>
+                <input name="token" type="hidden" t-att-value="token"/>
+                <input name="is_affiliate" type="hidden" t-att-value="true"/>
+
+                        <p class="alert alert-danger" id="term_condition_error" style="display:none">
+                            Please indicate that you accept with the Terms and conditions.
+
+                        </p>
+                    <p class="alert alert-danger" t-if="error">
+                        <t t-esc="error"/>
+
+                    </p>
+                    <p class="alert alert-success" t-if="message">
+                        <t t-esc="message"/>
+
+
+                    </p>
+
+
+                <div class="form-check mb-3">
+                   <!--  <label><input type="checkbox" id="tc-signup-checkbox"/>
+                        I agree to all <a href="/affiliate/terms" id="term_condition_anchor">Term and Condition</a>
+                    </label> -->
+                      <input type="checkbox" id="tc-signup-checkbox" class="form-check-input"/>
+                      <label class="form-check-label" for="tc-signup-checkbox">
+                          I agree to all <a href='#' class="terms_link terms_condition" data-bs-toggle="modal" data-bs-target="#myModal1">
+                          Terms and Conditions
+                          </a>
+                      </label>
+
+                        <div id="myModal1" class="modal fade" role="dialog" tabindex="-1">
+                          <div class="modal-dialog">
+                            <!-- Modal content-->
+                            <div class="modal-content">
+                              <div class="modal-header" style="background-color:#CCCCCC; border-radius:5px;" >
+                                <h4 class="modal-title text-center"><em><u><strong>Terms and Conditions</strong></u></em></h4>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+
+                              </div>
+                              <div class="modal-body">
+                                <!-- <div class="terms"> -->
+                                <t t-if="not term_condition">
+                                  terms and conditions for affiliate program
+                                </t>
+                                <t t-if="term_condition">
+                                     
+                                     <t t-esc="term_condition"/>
+                                </t>
+                              <!-- </div> -->
+                              </div>
+                              <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+
+                <input type="hidden" name="redirect" t-att-value="redirect"/>
+                <div class="clearfix oe_signup_buttons">
+                    <button type="submit" class="btn btn-primary signup-btn">Register</button>
+                </div>
+            </form>
+        </t>
+    </template>
+  </odoo>

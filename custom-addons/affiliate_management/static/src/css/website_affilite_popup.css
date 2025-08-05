@@ -1,0 +1,75 @@
+.affiliate-btn {
+    position: fixed;
+    right: 0;
+    top: 45%;
+    cursor: pointer;
+    z-index: 10;
+    border: 1px solid black;
+    width: 38px;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px 0 0 10px;
+    color: #fff;
+    font-size: 16px;
+    border-right: 0;
+}
+
+.affiliate-btn div {
+    display: block;
+    pointer-events: auto;
+    transform: rotate(270deg);
+    color:white;
+    font-weight: bolder;
+    margin-right: 10px;
+}
+
+.affiliate-btn > div > p {
+    margin-bottom: -6px;
+}
+
+.affiliate-btn > div > p > i {
+    font-size: 20px;
+}
+
+.link-card-wrapper {
+    position: fixed;
+    right: 4.5%;
+    top: 25%;
+    background-color: #fff;
+    display:none;
+    transition: all 0.4s;
+    z-index: 5;
+}
+
+.link-card-header {
+    color: #fff;
+}
+
+.link-generate-form {
+    padding: 15px;
+}
+
+.shop-popup-wrapper {
+    max-width:400px; 
+}
+
+.link-generate-form input,
+.link-generate-form textarea,
+.link-generate-form button {
+    margin-bottom: 10px;
+}
+
+.link-generate-form textarea {
+    resize: none;
+}
+
+.copy-btn{
+    font-size: 0.9rem;
+}
+
+
+.copy-btn:focus {
+    box-shadow: none;
+}

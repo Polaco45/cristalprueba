@@ -1,0 +1,331 @@
+<odoo>
+  <data>
+
+    <!-- # tool 2 view -->
+    <template id="product_link" name="Product Link">
+      <t t-call="portal.portal_layout">
+        <t t-set="no_breadcrumbs" t-value="True" />
+        <t t-set="affiliate_breadcrumbs_searchbar" t-value="True" />
+
+        <t t-call="affiliate_management.affiliate_portal_searchbar">
+          <t t-set="title">Affiliate Product Link</t>
+        </t>
+
+        <div class='o_portal_wrap my-3'>
+					<div class="oe_structure" id="oe_structure_portal_affiliate_product_page" />
+          <div class="container">
+              <div style="text-align:center;padding-bottom:20px;">
+                <span class="step">1</span>
+                            <span class="step1-text"
+                  style="display:inline-block;border-bottom:1px solid black;padding-bottom:2px;">
+                Choose Product
+                </span> &#160;&#160; <span
+                  class="step">2</span>
+                            <span
+                  class="step1-text" style="color:grey;">
+                  Choose your Image
+                </span>
+                &#160;&#160; <span class="step">3</span>
+                            <span
+                  class="step1-text" style="color:grey;">
+                  Copy Generated Code
+                </span>
+                            <div
+                  style="font-size: 25px;text-align:center;padding-top: 30px;">Step 1: Choose
+                Product</div>
+                            <div style="text-align:center">
+                  Enter the Product and select a category of it below
+                </div>
+              </div>
+
+              <div class="container prod_search">
+                <form role="form" t-attf-action="/search/product" method="post">
+                  <div class="input-group">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+                    <input type="name" name="name" t-att-value="name" id="name"
+                      class="form-control" required="required" autofocus="autofocus"
+                      placeholder="eg. Ipad mini" style="width:440px;" />
+                    <select style="width:auto;" name="categories" class="form-select">
+                      <option selected="selected">All Categories</option>
+                      <t t-foreach="category" t-as="c">
+                        <option>
+                          <span t-field="c.name" />
+                        </option>
+                      </t>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Fetch</button>
+                  </div>
+                </form>
+              </div>
+              <br />
+              <t t-if="search_products">
+                <!-- ######################################### -->
+                <div id="products_grid" class="col">
+                  <div class="o_wsale_products_grid_table_wrapper">
+                    <table class="table table-borderless m-0" width="100%">
+                      <tbody>
+                        <tr t-foreach="bins" t-as="tr_product">
+                          <t t-foreach="tr_product" t-as="td_product">
+                            <t t-if="td_product">
+                              <t t-set="product" t-value="td_product['product']" />
+                              <t t-set="combination_info"
+                                t-value="product._get_combination_info(only_template=True, add_qty=add_qty or 1)" />
+                              <t t-set="product_image_big"
+                                t-value="td_product['x'] + td_product['y'] &gt; 2" />
+
+                              <td t-att-colspan="td_product['x'] != 1 and td_product['x']"
+                                t-att-rowspan="td_product['y'] != 1 and td_product['y']"
+                                t-attf-class="oe_product  #{ td_product['ribbon'] }">
+                                <div
+                                  t-attf-class="o_wsale_product_grid_wrapper o_wsale_product_grid_wrapper_#{td_product['y']}_#{td_product['y']}">
+                                  <div class="card oe_product_cart"
+                                    t-att-data-publish="product.website_published and 'on' or 'off'"
+                                    itemscope="itemscope" itemtype="http://schema.org/Product">
+                                    <div class="card-body p-1 oe_product_image">
+                                      <input type="hidden" name="csrf_token"
+                                        t-att-value="request.csrf_token()" />
+                                      <a
+                                        t-attf-href="/shop/product/{{td_product.get('product').id}}?{{keep_query()}}"
+                                        class="d-block h-100" itemprop="url">
+                                        <span
+                                          class="d-flex h-100 justify-content-center align-items-center"
+                                          t-field="product.image_1920"
+                                          t-options="{'widget': 'image', 'preview_image': 'image_1024' if product_image_big else 'image_256'}"
+                                        />
+                                      </a>
+                                    </div>
+                                    <div
+                                      t-attf-class="card-body p-0 o_wsale_product_information {{'card_large_product' if product_image_big else 'text-center'}}">
+                                      <div class="p-2 o_wsale_product_information_text">
+                                        <h6 class="o_wsale_products_item_title">
+                                          <a itemprop="name"
+                                            t-attf-href="/shop/product/{{td_product.get('product').id}}?{{keep_query()}}"
+                                            t-att-content="product.name" t-field="product.name" />
+                                        </h6>
+                                        <div class="product_price" itemprop="offers"
+                                          itemscope="itemscope"
+                                          itemtype="http://schema.org/Offer">
+                                          <del
+                                            t-attf-class="text-danger me-2 {{'' if combination_info['has_discounted_price'] else 'd-none'}}"
+                                            style="white-space: nowrap;"
+                                            t-esc="combination_info['list_price']"
+                                            t-options="{'widget': 'monetary', 'display_currency': website.currency_id}" />
+                                          <span t-if="combination_info['price']"
+                                            t-esc="combination_info['price']"
+                                            t-options="{'widget': 'monetary', 'display_currency': website.currency_id}" />
+                                          <span itemprop="price" style="display:none;"
+                                            t-esc="combination_info['price']" />
+                                          <span itemprop="priceCurrency" style="display:none;"
+                                            t-esc="website.currency_id.name" />
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div t-attf-class="card-body o_wsale_product_information">
+                                      <div class="row">
+                                        <div
+                                          class="col-md-6 text-center text-sm-start text-md-end">
+                                          <div>
+                                            <form role="form"
+                                              t-attf-action="/tool/generate_banner"
+                                              method="post">
+                                              <input type="hidden" name="csrf_token"
+                                                t-att-value="request.csrf_token()" />
+                                              <input type="hidden" name="product_id"
+                                                t-att-value="int(td_product.get('product').id)" />
+                                              <button type="submit"
+                                                class="btn btn-primary py-1 my-2">Generate
+                                                Banner
+                                              </button>
+                                            </form>
+                                          </div>
+                                        </div>
+                                        <div class="col-md-6 text-center text-sm-start">
+                                          <div class="copy button">
+                                            <input type="text" name="Element To Be Copied"
+                                              t-att-id="'copy-me_%s'%(td_product.get('product').id)"
+                                              t-att-value="'%s/shop/product/%s?db=%s&amp;aff_key=%s'%(base_url,int(td_product.get('product').id),db,partner_key)"
+                                              style="display:none" />
+                                            <button class="btn btn-primary py-1 my-2"
+                                              t-att-id="'copy-btn_%s'%(td_product.get('product').id)">Copy
+                                              to Clipboard</button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </t>
+                            <td t-if="not td_product" class="oe-height-2" />
+                          </t>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div t-if="pager" class="o_portal_pager text-center">
+                  <t t-call="website.pager" />
+                </div>
+              </t>
+              <t t-if="not search_products">
+                <div style='text-align:center'>
+                  No Item Search In this Category
+                </div>
+              </t>
+          </div>
+        </div>
+      </t>
+
+    </template>
+
+
+    <template id="generate_banner" name="Generate Banner">
+      <t t-call="portal.portal_layout">
+        <t t-set="no_breadcrumbs" t-value="True" />
+        <t t-set="affiliate_breadcrumbs_searchbar" t-value="True" />
+
+        <t t-call="affiliate_management.affiliate_portal_searchbar">
+          <t t-set="title">Affiliate Generate Banner</t>
+        </t>
+
+        <div class='o_portal_wrap my-3'>
+					<div class="oe_structure" id="oe_structure_portal_affiliate_baaner_choose_page" />
+          <div class="container">
+              <div style="text-align:center;padding-bottom:20px;">
+                    <span class="step" style="background: #584854;">&#10003;</span>
+                    <span class="step1-text" style="color:grey;">Choose Product</span>
+                      &#160;&#160;
+                    <span class="step">2</span>
+                    <span class="step1-text" style="display:inline-block;border-bottom:1px solid black;padding-bottom:2px;">
+                        Choose your Image
+                    </span>
+                      &#160;&#160;
+                    <span class="step">3</span>
+                    <span class="step1-text" style="color:grey;">
+                        Copy Generated Code
+                    </span>
+                    <div style="font-size: 25px;text-align:center;padding-top: 30px;">Step 2: Choose your Image</div>
+                    <div style="text-align:center">
+                        Select a image from the below and hit Apply
+                    </div>
+              </div>
+              <div class="row justify-content-center">
+                <div class="col-md-offset-1 col-md-3" style="padding-bottom: 20%;">
+                  <div class="form_container1 mt-5">
+                    <form role="form" t-attf-action="/tool/generate_button_link" method="post">
+                      <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+                      <input type="hidden" name="product_id" t-att-value="product.id" />
+                      <t t-foreach="banner_button" t-as="b">
+                        <input class="o_form_radio" type="radio" t-att-id="'button_%s'%(b.id)"
+                          name="choose_banner" t-att-value="'button_%s'%(b.id)" />
+                        <label class="o_form_label text-capitalize"
+                          t-att-for="'button_%s'%(b.id)">
+                          <t t-esc="b.name" />
+                        </label>
+                        <t t-if="b.bannner_width != 0 and b.banner_height != 0 ">(size <t
+                            t-esc="b.bannner_width" />*<t t-esc="b.banner_height" />)</t>
+                        <br />
+                      </t>
+                      <input class="o_form_radio_product" type="radio"
+                        t-att-id="'product_%s'%(product.id)" name="choose_banner"
+                        t-att-value="'product_%s'%(product.id)" checked="True" />
+                      <label class="o_form_label" t-att-for="product.id">
+                        <a t-attf-href="/shop/product/{{product.id}}?{{keep_query()}}">
+                          <t t-esc="product.name" />
+                        </a>
+                      </label>
+                      <br />
+                      <button type="submit" class="btn btn-primary" style="position: absolute;">
+                        Apply</button>
+                    </form>
+                  </div>
+                </div>
+                <div class="col-md-7">
+                  <div style="border:solid #584854;" class="mb-4">
+                    <div class="banner_image_box">
+                      <t t-foreach="banner_button" t-as="b">
+                        <img t-attf-src="data:image/jpg;base64,{{ b.image }}"
+                          class="button_image_generate_url my-4 mx-auto"
+                          t-att-id="'image_%s'%(b.id)" />
+                      </t>
+                      <div t-att-id="'product-text_%s'%(product.id)" style="font-size:30px;">
+                        <div style="text-align:center;text-decoration: underline;">
+                          <t t-esc="product.name" />
+                        </div>
+                        <div style="text-align: center;" class="mt-2">
+                          <img t-attf-src="data:image/jpg;base64,{{ product.image_1920 }}"
+                            class="product_image my-4" t-att-id="'image_%s'%(product.id)" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+          </div>
+        </div>
+      </t>
+
+    </template>
+
+
+    <template id="generate_button_link" name="Generate Button Link">
+      <t t-call="portal.portal_layout">
+        <t t-set="no_breadcrumbs" t-value="True"/>
+        <t t-set="affiliate_breadcrumbs_searchbar" t-value="True"/>
+
+        <t t-call="affiliate_management.affiliate_portal_searchbar">
+            <t t-set="title">Affiliate Generate Banner Button</t>
+        </t>
+
+        <div class='o_portal_wrap my-3'>
+					<div class="oe_structure" id="oe_structure_portal_affiliate_banner_copy_page" />
+            <div class="container">
+                <div style="text-align:center;padding-bottom:20px;">
+                    <span class="step" style="background: #584854;">&#10003;</span>
+                    <span class="step1-text" style="color:grey;">
+                        Choose Product
+                    </span>&#160;&#160;
+                    <span class="step" style="background:  #584854;">&#10003;</span>
+                    <span class="step1-text" style="color:grey;" >
+                        Choose your Image
+                    </span>&#160;&#160;
+                    <span class="step" id="step3">3</span>
+                    <span class="step1-text" style="display:inline-block;border-bottom:1px solid black;padding-bottom:2px;">
+                        Copy Generated Code
+                    </span>
+                    <div style="font-size: 25px;text-align:center;padding-top: 30px;">Step  3: Copy Generated Code</div>
+                    <div class="col-md-12" style="text-align:center">
+                        Copy the HTML code and paste it to your website source
+                    </div>
+                </div>
+                <div class="mt16">
+                    <div class="form-group" style="text-align:center">
+                        <div style="float:right;">
+                            <button id="banner_copy_button" class="btn btn-primary my-3">Copy</button>
+                        </div>
+                        <textarea class="form-control bg-white mb-2" rows="5" readonly="1" id="banner_html_code" style="resize: none;">
+                            <t t-if="button">
+                                <a t-attf-href="{{ base_url }}/shop/product/{{ product_id }}?db={{ db }}&amp;aff_key={{ partner_key }}">
+                                    <img t-attf-src="{{ base_url }}/web/image/affiliate.image/{{button.id}}/image?db={{ db }}" t-attf-style="width:{{button.bannner_width}}px;height:{{button.banner_height}}px" />
+                                </a>
+                            </t>
+                            <t t-if="is_product">
+                                <a t-attf-href="{{ base_url }}/shop/product/{{ product_id }}??db={{ db }}&amp;aff_key={{ partner_key }}">
+                                    <img t-attf-src="{{ base_url }}/web/image/product.template/{{product_id}}/image_1024?db={{ db }}" style="width:400px;height:200px" />
+                                </a>
+                            </t>
+                        </textarea>
+                        <h5>Copy the Html Code and paste it into your website</h5>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </t>
+
+    </template>
+
+  </data>
+</odoo>

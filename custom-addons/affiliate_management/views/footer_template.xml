@@ -1,0 +1,28 @@
+<odoo>
+
+    <template id="my_account_link" name="Link to frontend portal" inherit_id="website.footer_custom">
+        <xpath expr="//div[@id='footer']/section/div/div/div/ul" position="inside">
+            <t t-set="aff_program" t-value="env['affiliate.program'].sudo().search([('website_id', '=', request.website.id)])"/>
+            <t t-if="aff_program">
+                <li>
+                    <a href="/affiliate/">Affiliate</a>
+                </li>
+            </t>
+        </xpath>
+    </template>
+
+    <template id="my_affiliate_link" name="Link to My Affiliate Account"
+        inherit_id="portal.user_dropdown">
+        <xpath expr="//div[@id='o_logout_divider']" position="before">
+            <t t-set="aff_program" t-value="env['affiliate.program'].sudo().search([('website_id', '=', request.website.id)])"/>
+            <t t-if="aff_program and user_id.partner_id.is_affiliate and user_id.partner_id.res_affiliate_key">
+                <a class="dropdown-item" href="/my/affiliate" role="menuitem">
+                    <i class="fa fa-user-circle-o fa-fw me-1 small text-muted"></i> My Affiliate
+                </a>
+            </t>
+
+        </xpath>
+
+    </template>
+
+</odoo>

@@ -1,0 +1,28 @@
+<odoo>
+  <data>
+
+    <record id="reject_affiliate_email" model="mail.template">
+          <field name="name">Affiliate reject mail Connection</field>
+          <field name="model_id" ref="affiliate_management.model_affiliate_request"/>
+          <field name="email_from">"{{ object.partner_id.company_id.name or user.name }}" &lt;{{ (object.partner_id.company_id.email or user.email) }}&gt;</field>
+          <field name="email_to">{{ object.partner_id.email_formatted or object.name or '' }}</field>
+          <field name="subject"> Reject your request on Affiliate Program</field>
+          <field name="body_html" type="html">
+
+          <div style="padding:0px;width:600px;margin:auto;background: #FFFFFF repeat top /100%;color:#777777">
+              <p>Dear <t t-out="object.partner_id.name or object.name or ''">Marc Demo</t>,</p>
+              <p>
+                  Sorry your Affiliate Program request is rejected.
+              </p>
+              Best regards,<br/>
+              <t t-if="user.signature">
+                  <br/>
+                  <t t-out="user.signature or ''">--<br/>Mitchell Admin</t>
+              </t>
+          </div>
+
+          </field>
+      </record>
+
+  </data>
+</odoo>

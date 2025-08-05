@@ -1,0 +1,52 @@
+<odoo>
+
+    <data noupdate="1">
+        <record id="affiliate_program_1" model="affiliate.program">
+            <field name="name">Default Affiliate Program</field>
+            <field name="ppc_type">s</field>
+            <field name="amount_ppc_fixed">10</field>
+            <field name="matrix_type">f</field>
+            <field name="amount">10</field>
+            <field name="is_default_program">True</field>
+        </record>
+
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings','enable_ppc',True)" />
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings', 'enable_signup', True)" />
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings', 'enable_login', True)" />
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings', 'enable_forget_pwd', True)" />
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings', 'cookie_expire', 1)" />
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings', 'cookie_expire_period', 'days')" />
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings', 'payment_day', 7)" />
+
+        <function
+            model="ir.default" name="set"
+            eval="('res.config.settings', 'work_title','The process is very simple. Simply, signup/login to your affiliate portal, pick your affiliate link and place them into your website/blogs and watch your account balance grow as your visitors become our customers, as :'
+                    )" />
+
+        <function
+            model="ir.config_parameter" name="set_param"
+            eval="('auth_signup.allow_uninvited', True)" />
+
+    </data>
+</odoo>

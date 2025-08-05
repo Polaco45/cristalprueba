@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <template id="portal_my_affiliate_statistics" name="Affiliate Statistics">
+        <t t-call="portal.portal_layout">
+
+            <t t-set="no_breadcrumbs" t-value="True"/>
+            <t t-set="affiliate_breadcrumbs_searchbar" t-value="True"/>
+
+
+            <t t-call="affiliate_management.affiliate_portal_searchbar">
+                <t t-set="title">Affiliate Statistics</t>
+            </t>
+
+            <div class='o_portal_wrap my-3 aff_stats'>
+                <div class="oe_structure" id="oe_structure_portal_affiliate_statistics_page" />
+                <div class="row justify-content-center">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header bg-white d-flex justify-content-between py-3">
+                                <div class="my-auto">
+                                    <h4 class="card-title">Traffic Graph</h4>
+                                </div>
+                                <div>
+                                    <ul class="nav nav-pills stats-nav" id="stats-pills-tab" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="btn btn-primary active" id="pills-weekly-tab" data-bs-toggle="pill" data-bs-target="#stats-row" type="button" role="tab" aria-controls="stats-row" aria-selected="true">Weekly</button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="btn" id="pills-monthly-tab" data-bs-toggle="pill" data-bs-target="#stats-row" type="button" role="tab" aria-controls="stats-row" aria-selected="false">Monthly</button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <span t-esc="request.website.id" id="aff_website_id" style="display:none" />
+                                <div class="row my-3 justify-content-around mx-2" id="stats-row">
+                                    <div class="col-lg-11 col-12 mt-1 bg-white border pb-4">
+                                        <canvas id="trafficGraph"></canvas>
+                                    </div>
+                                    <hr class="my-4" />
+                                    <div class="col-lg-11 col-12 mb-3 bg-white border pb-4">
+                                        <canvas id="orderGraph"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

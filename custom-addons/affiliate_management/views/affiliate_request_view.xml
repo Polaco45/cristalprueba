@@ -1,0 +1,70 @@
+<odoo>
+	<data>
+		<record model="ir.ui.view" id="affiliate_request_view_form">
+			<field name="name">affiliate.request.form</field>
+			<field name="model">affiliate.request</field>
+			<field name="arch" type="xml">
+				<form create="false" edit="false">
+					<header>
+						<field name="state" widget="statusbar"
+							statusbar_visible="draft,register,cancel,aproove" />
+						<button name="action_aproove" string="Approve" type="object"
+							invisible="state == 'aproove' or state == 'draft'" />
+						<button name="action_cancel" string="Reject" type="object"
+							invisible="state == 'cancel' or state == 'draft'" />
+					</header>
+					<sheet>
+						<group>
+							<field name="name" />
+							<field name="partner_id" />
+							<field name="signup_token" />
+							<field name="user_id"/>
+                            <field name="website_id"/>
+						</group>
+					</sheet>
+				</form>
+			</field>
+		</record>
+
+		<record model="ir.ui.view" id="affiliate_request__view_tree">
+			<field name="name">affiliate.request.list</field>
+			<field name="model">affiliate.request</field>
+			<field name="arch" type="xml">
+				<list decoration-danger="state == 'cancel'" decoration-info="state == 'aproove'" decoration-muted="state == 'draft'" create="false">
+					<field name="name"/>
+					<field name="state" />
+				</list>
+			</field>
+		</record>
+
+
+		<record id="view_affiliate_request_filter" model="ir.ui.view">
+            <field name="name">affiliate.request.select</field>
+            <field name="model">affiliate.request</field>
+            <field name="priority">1</field>
+            <field name="arch" type="xml">
+				<search string="Search Request">
+					<field name="state"/>
+					<field name="name"/>
+                    <filter name="group_register_request" string="Pending For Approval" domain="[('state','=','register')]" help="Register Request"/>
+				</search>
+            </field>
+        </record>
+
+		<record model="ir.actions.act_window" id="affiliate_request_action">
+			<field name="name">Affiliate Request</field>
+			<field name="path">affiliate-requests</field>
+			<field name="res_model">affiliate.request</field>
+			<field name="view_mode">list,form</field>
+			<field name="context">{'search_default_group_register_request': 1}</field>
+		</record>
+
+		<menuitem name="Pending Requests"
+			id="affiliate_report_sub_request_menu"
+			parent="affiliate_management.affiliate_program_base_root"
+			action='affiliate_request_action'
+			sequence = "1"
+			groups="base.group_system,affiliate_management.affiliate_security_manager_group"
+		/>
+	</data>
+</odoo>

@@ -1,0 +1,415 @@
+<odoo>
+      <data noupdate="1">
+            <!-- set constant in ir.default -->
+
+            <record id="affiliate_image_1" model="affiliate.image">
+                  <field name="image" type="base64"
+                        file="affiliate_management/static/src/img/ban1.png" />
+                  <field name="title">Banner</field>
+                  <field name="name">image1</field>
+            </record>
+
+            <record id="affiliate_image_2" model="affiliate.image">
+                  <field name="image" type="base64" file="affiliate_management/static/src/img/ban2.png" />
+                  <field name="title">Banner</field>
+                  <field name="name">image2</field>
+            </record>
+
+            <record id="affiliate_image_3" model="affiliate.image">
+                  <field name="image" type="base64" file="affiliate_management/static/src/img/ban3.png" />
+                  <field name="title">Banner</field>
+                  <field name="name">image3</field>
+            </record>
+
+            <record id="affiliate_image_4" model="affiliate.image">
+                  <field name="image" type="base64"
+                        file="affiliate_management/static/src/img/but1.png" />
+                  <field name="title">Button</field>
+                  <field name="name">image4</field>
+            </record>
+
+            <record id="affiliate_image_5" model="affiliate.image">
+                  <field name="image" type="base64" file="affiliate_management/static/src/img/but2.png" />
+                  <field name="title">Button</field>
+                  <field name="name">image5</field>
+            </record>
+
+            <record id="affiliate_image_6" model="affiliate.image">
+                  <field name="image" type="base64" file="affiliate_management/static/src/img/but3.png" />
+                  <field name="title">Button</field>
+                  <field name="name">image6</field>
+            </record>
+
+
+            <!-- res_partner -->
+            <record id="res_partner_1" model="res.partner">
+                  <field name="name">Demo1</field>
+                  <field name="is_company">1</field>
+                  <field name="city">DemoCity1</field>
+                  <field name="zip">106</field>
+                  <field name="country_id" ref="base.tw" />
+                  <field name="street">31 Demo city street</field>
+                  <field name="email">Demo@example.com</field>
+                  <field name="phone">(+886) (02) 4162 2023</field>
+                  <field name="website">http://www.DemoUser.com</field>
+                  <field name="is_affiliate">True</field>
+                  <field name="res_affiliate_key">123OxPzL</field>
+            </record>
+
+            <record id="res_partner_2" model="res.partner">
+                  <field name="name">Demo2</field>
+                  <field name="is_company">1</field>
+                  <field name="city">DemoCity2</field>
+                  <field name="zip">106367</field>
+                  <field name="country_id" ref="base.tw" />
+                  <field name="street">313 Demo2 city2 street2</field>
+                  <field name="email">Demo2@example.com</field>
+                  <field name="phone">(+886) (02) 4162 2023</field>
+                  <field name="website">http://www.DemoUser2.com</field>
+                  <field name="is_affiliate">True</field>
+                  <field name="res_affiliate_key">223OxPzL</field>
+            </record>
+
+            <record id="res_partner_3" model="res.partner">
+                  <field name="name">Demo3</field>
+                  <field name="is_company">1</field>
+                  <field name="city">DemoCity3</field>
+                  <field name="zip">106345</field>
+                  <field name="country_id" ref="base.tw" />
+                  <field name="street">313 Demo3 city3 street3</field>
+                  <field name="email">Demo3@example.com</field>
+                  <field name="phone">(+886) (02) 4162 2023</field>
+                  <field name="website">http://www.DemoUser3.com</field>
+                  <field name="is_affiliate">True</field>
+                  <field name="res_affiliate_key">323OxPzL</field>
+            </record>
+
+            <record model="res.users" id="affiliate_demouser_res_partner_1"
+                  context="{'no_reset_password': True}">
+                  <field name="login">Demo1@example.com</field>
+                  <field name="password">webkul</field>
+                  <field name="groups_id" eval="[(6,0,[ref('base.group_portal'),ref('affiliate_security_user_group')])]" />
+                  <field name="partner_id" ref="res_partner_1" />
+                  <field name="company_id" ref="base.main_company" />
+                  <field name="company_ids" eval="[(4, ref('base.main_company'))]" />
+            </record>
+
+            <record model="res.users" id="affiliate_demouser_res_partner_2"
+                  context="{'no_reset_password': True}">
+                  <field name="login">Demo2@example.com</field>
+                  <field name="password">webkul</field>
+                  <field name="groups_id" eval="[(6,0,[ref('base.group_portal'),ref('affiliate_security_user_group')])]" />
+                  <field name="partner_id" ref="res_partner_2" />
+                  <field name="company_id" ref="base.main_company" />
+                  <field name="company_ids" eval="[(4, ref('base.main_company'))]" />
+            </record>
+
+            <record model="res.users" id="affiliate_demouser_res_partner_3"
+                  context="{'no_reset_password': True}">
+                  <field name="login">Demo3@example.com</field>
+                  <field name="password">webkul</field>
+                  <field name="groups_id" eval="[(6,0,[ref('base.group_portal'),ref('affiliate_security_user_group')])]" />
+                  <field name="partner_id" ref="res_partner_3" />
+                  <field name="company_id" ref="base.main_company" />
+                  <field name="company_ids" eval="[(4, ref('base.main_company'))]" />
+            </record>
+
+
+            <!-- create a request for the user  in register stage -->
+            <record id="affiliate_request_1" model="affiliate.request">
+                  <field name="password">webkul</field>
+                  <field name="name">Demo1@example.com</field>
+                  <field name="partner_id" ref="res_partner_1" />
+                  <field name="state">aproove</field>
+                  <field name="user_id" ref="affiliate_demouser_res_partner_1" />
+            </record>
+
+            <record id="affiliate_request_2" model="affiliate.request">
+                  <field name="password">webkul</field>
+                  <field name="name">Demo2@example.com</field>
+                  <field name="partner_id" ref="res_partner_2" />
+                  <field name="state">aproove</field>
+                  <field name="user_id" ref="affiliate_demouser_res_partner_2" />
+            </record>
+
+            <record id="affiliate_request_3" model="affiliate.request">
+                  <field name="password">webkul</field>
+                  <field name="name">Demo3@example.com</field>
+                  <field name="partner_id" ref="res_partner_3" />
+                  <field name="state">aproove</field>
+                  <field name="user_id" ref="affiliate_demouser_res_partner_3" />
+            </record>
+
+            <!-- pending state request -->
+            <record id="res_partner_4" model="res.partner">
+                  <field name="name">Demo4</field>
+                  <field name="is_company">1</field>
+                  <field name="city">DemoCity4</field>
+                  <field name="zip">106345</field>
+                  <field name="country_id" ref="base.tw" />
+                  <field name="street">313 Demo4 city4 street4</field>
+                  <field name="email">Demo4@example.com</field>
+                  <field name="phone">(+886) (02) 4162 2023</field>
+                  <field name="website">http://www.DemoUser4.com</field>
+            </record>
+            <record model="res.users" id="affiliate_demouser_res_partner_4"
+                  context="{'no_reset_password': True}">
+                  <field name="login">Demo4@example.com</field>
+                  <field name="password">webkul</field>
+                  <field name="groups_id"
+                        eval="[(6,0,[ref('base.group_portal'),ref('affiliate_security_user_group')])]" />
+                  <field name="partner_id" ref="res_partner_4" />
+                  <field name="company_id" ref="base.main_company" />
+                  <field name="company_ids" eval="[(4, ref('base.main_company'))]" />
+            </record>
+
+            <record id="affiliate_request_4" model="affiliate.request">
+                  <field name="password">webkul</field>
+                  <field name="name">Demo4@example.com</field>
+                  <field name="partner_id" ref="res_partner_4" />
+                  <field name="state">register</field>
+                  <field name="user_id" ref="affiliate_demouser_res_partner_4" />
+            </record>
+
+            <record id="res_partner_5" model="res.partner">
+                  <field name="name">Demo5</field>
+                  <field name="is_company">1</field>
+                  <field name="city">DemoCity5</field>
+                  <field name="zip">106345</field>
+                  <field name="country_id" ref="base.tw" />
+                  <field name="street">313 Demo5 city5 street5</field>
+                  <field name="email">Demo4@example.com</field>
+                  <field name="phone">(+886) (02) 4162 2023</field>
+                  <field name="website">http://www.DemoUser5.com</field>
+            </record>
+
+            <record model="res.users" id="affiliate_demouser_res_partner_5"
+                  context="{'no_reset_password': True}">
+                  <field name="login">Demo5@example.com</field>
+                  <field name="password">webkul</field>
+                  <field name="groups_id" eval="[(6,0,[ref('base.group_portal'),ref('affiliate_security_user_group')])]" />
+                  <field name="partner_id" ref="res_partner_5" />
+                  <field name="company_id" ref="base.main_company" />
+                  <field name="company_ids" eval="[(4, ref('base.main_company'))]" />
+            </record>
+            <record id="affiliate_request_5" model="affiliate.request">
+                  <field name="password">webkul</field>
+                  <field name="name">Demo5@example.com</field>
+                  <field name="partner_id" ref="res_partner_5" />
+                  <field name="state">register</field>
+                  <field name="user_id" ref="affiliate_demouser_res_partner_5" />
+            </record>
+
+            <!-- draft state request -->
+            <record id="affiliate_request_6" model="affiliate.request">
+                  <field name="name">Demo6@example.com</field>
+                  <field name="state">draft</field>
+                  <field name="signup_token">CJyPAvexmav0Bar8C456</field>
+            </record>
+
+            <record id="affiliate_request_7" model="affiliate.request">
+                  <field name="name">Demo7@example.com</field>
+                  <field name="state">draft</field>
+                  <field name="signup_token">CJyPAvex1230Bar8C456</field>
+            </record>
+
+
+            <record id="order_id_1" model="sale.order">
+                  <field name="partner_id" ref="res_partner_1" />
+            </record>
+
+            <record id="order_id_2" model="sale.order">
+                  <field name="partner_id" ref="res_partner_2" />
+            </record>
+
+            <record id="sol_id_1" model="sale.order.line">
+                  <field name="name">Zed+ Antivirus</field>
+                  <field name="product_id" ref="product.product_order_01" />
+                  <field name="product_uom_qty">1</field>
+                  <field name="order_partner_id" ref="res_partner_1" />
+                  <field name="order_id" ref="order_id_1" />
+                  <field name="price_unit">2950.00</field>
+            </record>
+
+            <record id="sol_id_2" model="sale.order.line">
+                  <field name="name">Antivirus</field>
+                  <field name="product_id" ref="product.product_order_01" />
+                  <field name="product_uom_qty">1</field>
+                  <field name="order_partner_id" ref="res_partner_1" />
+                  <field name="order_id" ref="order_id_2" />
+                  <field name="price_unit">950.00</field>
+            </record>
+
+
+            <record id="affiliate_visit_1" model="affiliate.visit">
+                  <field name="affiliate_method">ppc</field>
+                  <field name="affiliate_type">product</field>
+                  <field name="type_id">15</field>
+                  <field name="type_name">iMac</field>
+                  <field name="is_converted">False</field>
+                  <field name="affiliate_key">123OxPzL</field>
+                  <field name="affiliate_partner_id" ref="res_partner_1" />
+                  <field name="url">/shop/product/e-com09-imac-15?aff_key=123OxPzL</field>
+                  <field name="affiliate_program_id" ref="affiliate_program_1" />
+                  <field name="state">draft</field>
+            </record>
+
+            <record id="affiliate_visit_2" model="affiliate.visit">
+                  <field name="affiliate_method">ppc</field>
+                  <field name="affiliate_type">product</field>
+                  <field name="type_id">15</field>
+                  <field name="type_name">iPad</field>
+                  <field name="is_converted">False</field>
+                  <field name="affiliate_key">223OxPzL</field>
+                  <field name="affiliate_partner_id" ref="res_partner_2" />
+                  <field name="url">/shop/product/e-com09-ipad-10?aff_key=223OxPzL</field>
+                  <field name="affiliate_program_id" ref="affiliate_program_1" />
+                  <field name="state">draft</field>
+            </record>
+
+            <record id="affiliate_visit_3" model="affiliate.visit">
+                  <field name="affiliate_method">pps</field>
+                  <field name="affiliate_type">product</field>
+                  <field name="type_id">6</field>
+                  <field name="type_name">Zed+ Antivirus</field>
+                  <field name="is_converted">True</field>
+                  <field name="sales_order_line_id" ref="sol_id_1" />
+                  <field name="affiliate_key">123OxPzL</field>
+                  <field name="affiliate_partner_id" ref="res_partner_1" />
+                  <field name="url">/shop/product/prod-order-zed-antivirus-6?aff_key=123OxPzL</field>
+                  <field name="affiliate_program_id" ref="affiliate_program_1" />
+                  <field name="state">draft</field>
+                  <field name="product_quantity">1</field>
+            </record>
+
+            <record id="affiliate_visit_4" model="affiliate.visit">
+                  <field name="affiliate_method">pps</field>
+                  <field name="affiliate_type">product</field>
+                  <field name="type_id">6</field>
+                  <field name="type_name">Antivirus</field>
+                  <field name="is_converted">True</field>
+                  <field name="sales_order_line_id" ref="sol_id_2" />
+                  <field name="affiliate_key">223OxPzL</field>
+                  <field name="affiliate_partner_id" ref="res_partner_2" />
+                  <field name="url">/shop/product/prod-antivirus-6?aff_key=223OxPzL</field>
+                  <field name="affiliate_program_id" ref="affiliate_program_1" />
+                  <field name="state">draft</field>
+                  <field name="product_quantity">1</field>
+            </record>
+
+
+            <record id="affiliate_visit_5" model="affiliate.visit">
+                  <field name="affiliate_method">ppc</field>
+                  <field name="affiliate_type">product</field>
+                  <field name="type_id">20</field>
+                  <field name="type_name">Bosh Speaker</field>
+                  <field name="is_converted">False</field>
+                  <field name="affiliate_key">323OxPzL</field>
+                  <field name="affiliate_partner_id" ref="res_partner_3" />
+                  <field name="url">/shop/product/e-com09-ipad-20?aff_key=323OxPzL</field>
+                  <field name="affiliate_program_id" ref="affiliate_program_1" />
+                  <field name="state">draft</field>
+            </record>
+
+            <record id="affiliate_visit_6" model="affiliate.visit">
+                  <field name="affiliate_method">ppc</field>
+                  <field name="affiliate_type">product</field>
+                  <field name="type_id">25</field>
+                  <field name="type_name">Xemberg Shoes</field>
+                  <field name="is_converted">False</field>
+                  <field name="affiliate_key">323OxPzL</field>
+                  <field name="affiliate_partner_id" ref="res_partner_3" />
+                  <field name="url">/shop/product/e-com09-ipad-40?aff_key=323OxPzL</field>
+                  <field name="affiliate_program_id" ref="affiliate_program_1" />
+                  <field name="state">draft</field>
+            </record>
+
+            <record id="advance_commision_1" model="advance.commision">
+                  <field name="name">Advance Commission</field>
+                  <field name="active_adv_comsn">True</field>
+            </record>
+
+
+            <record id="affiliate_product_pricelist_item_1" model="affiliate.product.pricelist.item">
+                  <field name="name">product</field>
+                  <field name="advance_commision_id" ref="advance_commision_1" />
+                  <field name="applied_on">1_product</field>
+                  <field name="product_tmpl_id">10</field>
+                  <field name="compute_price">fixed</field>
+                  <field name="fixed_price">10</field>
+                  <field name="sequence">1</field>
+            </record>
+
+            <record id="affiliate_product_pricelist_item_2" model="affiliate.product.pricelist.item">
+                  <field name="name">product</field>
+                  <field name="advance_commision_id" ref="advance_commision_1" />
+                  <field name="applied_on">2_product_category</field>
+                  <field name="categ_id">4</field>
+                  <field name="compute_price">fixed</field>
+                  <field name="fixed_price">10</field>
+                  <field name="sequence">1</field>
+            </record>
+
+            <record id="affiliate_product_pricelist_item_3" model="affiliate.product.pricelist.item">
+                  <field name="name">product</field>
+                  <field name="advance_commision_id" ref="advance_commision_1" />
+                  <field name="applied_on">3_global</field>
+                  <field name="compute_price">fixed</field>
+                  <field name="fixed_price">10</field>
+                  <field name="sequence">1</field>
+            </record>
+
+
+            <record id="advance_commision_2" model="advance.commision">
+                  <field name="name">Advance Commission2</field>
+                  <field name="active_adv_comsn">True</field>
+            </record>
+
+
+            <record id="affiliate_product_pricelist_item_4" model="affiliate.product.pricelist.item">
+                  <field name="name">product</field>
+                  <field name="advance_commision_id" ref="advance_commision_2" />
+                  <field name="applied_on">1_product</field>
+                  <field name="product_tmpl_id">20</field>
+                  <field name="compute_price">fixed</field>
+                  <field name="fixed_price">100</field>
+                  <field name="sequence">1</field>
+            </record>
+
+            <record id="affiliate_product_pricelist_item_5" model="affiliate.product.pricelist.item">
+                  <field name="name">product</field>
+                  <field name="advance_commision_id" ref="advance_commision_2" />
+                  <field name="applied_on">2_product_category</field>
+                  <field name="categ_id">9</field>
+                  <field name="compute_price">fixed</field>
+                  <field name="fixed_price">100</field>
+                  <field name="sequence">1</field>
+            </record>
+
+            <record id="affiliate_product_pricelist_item_6" model="affiliate.product.pricelist.item">
+                  <field name="name">product</field>
+                  <field name="advance_commision_id" ref="advance_commision_2" />
+                  <field name="applied_on">3_global</field>
+                  <field name="compute_price">fixed</field>
+                  <field name="fixed_price">100</field>
+                  <field name="sequence">1</field>
+            </record>
+
+
+      </data>
+</odoo>
+
+
+<!--
+
+
+Visitor clicks on affiliate links posted on your website/blogs.
+
+A cookie is placed in their browser for tracking purposes. The visitor browses our site and may
+decide to order.
+
+The visitor browses our site and may decide to order. If the visitor orders, the order will be
+registered as a sale for you and you will receive a commission for this sale.
+
+If the visitor orders, the order will be registered as a sale for you and you will receive a
+commission for this sale. -->

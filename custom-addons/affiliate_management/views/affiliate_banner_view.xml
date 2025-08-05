@@ -1,0 +1,19 @@
+<odoo>
+	<data>
+		<record model="ir.ui.view" id="affiliate_banner_view_form">
+			<field name="name">affiliate banner form</field>
+			<field name="model">affiliate.banner</field>
+			<field name="arch" type="xml">
+				<form create="false">
+					<sheet>
+						<group>
+							<field name="banner_title"/>
+							<field name="banner_image" widget="image" class="" help="Banner for sellers landing page. Banner size must be 1298 x 400 px for perfect view." options='{"size": [325, 100]}'/>
+						</group>
+					</sheet>
+				</form>
+			</field>
+		</record>
+
+	</data>
+</odoo>

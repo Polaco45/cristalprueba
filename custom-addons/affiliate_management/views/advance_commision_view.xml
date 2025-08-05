@@ -1,0 +1,67 @@
+<odoo>
+	<data>
+		<record model="ir.ui.view" id="advance_commision_view_form">
+			<field name="name">advance.commission.form</field>
+			<field name="model">advance.commision</field>
+			<field name="arch" type="xml">
+				<form>
+					<sheet>
+						<div class="oe_button_box" name="button_box">
+							<button name="toggle_active_button" type="object" class="oe_stat_button" icon="fa-archive">
+								<field string="active_adv_comsn" name="active_adv_comsn" invisible="True"/>
+								<span  invisible="active_adv_comsn == True" class="o_field_widget">Inactive</span>
+								<span invisible="not active_adv_comsn" style="color:green" class="o_field_widget" >Active</span>
+							</button>
+						</div>
+						<group>
+							<h1>
+								<field name="name" default_focus="1" nolabel="1" placeholder="Name" />
+							</h1>
+							<group>
+								
+							</group>
+						</group>
+						
+						<separator string="Pricelist Items"/>
+							<field name="pricelist_item_ids" nolabel="1">
+								<list string="Pricelist Items">
+									<field name="name" />
+									<field name="compute_price" />
+									<field name="fixed_price" invisible="compute_price == 'percentage'" />
+									<field name="percent_price" invisible="compute_price == 'fixed'"  />
+									<field name="sequence" />
+								</list>
+                            </field>
+					</sheet>
+				</form>
+			</field>
+		</record>
+
+		<record model="ir.ui.view" id="advance_commision_view_tree">
+			<field name="name">advance.commission.list</field>
+			<field name="model">advance.commision</field>
+			<field name="arch" type="xml">
+				<list>
+					<field name="name"/>
+					<field name="active_adv_comsn"/>
+				</list>
+			</field>
+		</record>
+
+		<record model="ir.actions.act_window" id="advance_commision_action">
+			<field name="name">Affiliate Advance Commission</field>
+			<field name="path">advance-commissions</field>
+			<field name="res_model">advance.commision</field>
+			<field name="view_mode">list,form</field>
+		</record>
+
+
+		<menuitem name="Advance Computation"
+			id="advance_commision_sub_menu"
+			parent="affiliate_management.configuration_submenu_root"
+			action='advance_commision_action'
+			groups="base.group_system"
+			sequence = "2"
+		/>
+	</data>
+</odoo>

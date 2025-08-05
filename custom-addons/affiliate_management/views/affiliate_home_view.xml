@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="portal_my_affiliate_home" name="My Affiliate">
+        <t t-call="portal.portal_layout">
+            <t t-set="no_breadcrumbs" t-value="True" />
+            <div class="o_portal_my_home mt-4">
+                <div class="oe_structure" id="oe_structure_portal_my_affiliate_home_2" />
+                <div class="row dashboard-row justify-content-center">
+                    <div class="col-xl-3 col-sm-6 col-12 mt-3">
+                        <div class="card text-bg-info">
+                            <div class="card-body pb-0">
+                                <div class="d-flex justify-content-between">
+                                    <div class="text-start">
+                                        <h5 class="text-info"><span t-esc="clicks" /></h5>
+                                        <span class="text-info fw-bold">Clicks</span>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fa fa-hand-pointer-o text-info card-icons"></i>
+                                    </div>
+                                </div>
+                                <div class="border-top text-center mt-1">
+                                    <a t-attf-href="/my/traffic" class="text-decoration-none text-info">More Info &amp;nbsp; <i class="fa fa-arrow-circle-right" /></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-3 col-sm-6 col-12 mt-3">
+                        <div class="card text-bg-success">
+                            <div class="card-body pb-0">
+                                <div class="d-flex justify-content-between">
+                                    <div class="text-start">
+                                        <h5 class="text-success"><span t-esc="orders" /></h5>
+                                        <span class="text-success fw-bold">Orders</span>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fa fa-shopping-bag text-success card-icons"></i>
+                                    </div>
+                                </div>
+                                <div class="border-top text-center mt-1">
+                                    <a t-attf-href="/my/order" class="text-decoration-none text-success">More Info &amp;nbsp; <i class="fa fa-arrow-circle-right" /></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-sm-6 col-12 mt-3">
+                        <div class="card text-bg-primary">
+                            <div class="card-body pb-0">
+                                <div class="d-flex justify-content-between">
+                                    <div class="text-start">
+                                        <h5 class="text-primary"><span t-esc="currency_id.symbol" /><span t-esc="commission_earned" /></h5>
+                                        <span class="text-primary fw-bold">Commissions Earned</span>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fa fa-usd text-primary card-icons"></i>
+                                    </div>
+                                </div>
+                                <div class="border-top text-center mt-1">
+                                    <a t-attf-href="/my/commissions" class="text-decoration-none text-primary">More Info &amp;nbsp; <i class="fa fa-arrow-circle-right" /></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-sm-6 col-12 mt-3">
+                        <div class="card text-bg-dark">
+                            <div class="card-body pb-0">
+                                <div class="d-flex justify-content-between">
+                                    <div class="text-start">
+                                        <h5 class="text-dark"><span t-esc="currency_id.symbol" /><span t-esc="commission_cleared" /></h5>
+                                        <span class="text-dark fw-bold">Commissions Cleared</span>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fa fa-usd text-dark card-icons"></i>
+                                    </div>
+                                </div>
+                                <div class="border-top text-center mt-1">
+                                    <a t-attf-href="/affiliate/payment" class="text-decoration-none text-dark">More Info &amp;nbsp; <i class="fa fa-arrow-circle-right" /></a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex flex-column flex-lg-row flex-column-reverse my-4 justify-content-between">
+                    <div class="o_portal_content col-lg-8">
+                        <div class="o_portal_docs row g-1 g-md-2">
+                            <div class="o_portal_doc_spinner spinner-border text-o-color-2 align-self-center mt-5"/>
+                            <p class="o_portal_no_doc_message d-none">No Menus to display</p>
+                            <div class="o_portal_category row g-2 mt-3 px-0" id="portal_affiliate_client_category">
+                                <div t-att-class="'o_portal_index_card col-md-6 order-2'">
+                                    <a t-attf-href="/affiliate/summary" title="Summary" t-attf-class="d-flex gap-2 gap-md-3 py-3 pe-2 px-md-3 h-100 rounded text-decoration-none bg-100">
+                                        <div class="o_portal_icon">
+                                            <img t-attf-src="/affiliate_management/static/src/img/summary.png" style="height:64px;width:64px;"/>
+                                        </div>
+                                        <div>
+                                            <div t-attf-class="mt-0 mb-1 fs-5 fw-normal lh-1">
+                                                <span t-out="'Summary'"/>
+                                            </div>
+                                            <div class="opacity-75">
+                                                <t t-out="'View Your Affiliate Summary'"/>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div t-att-class="'o_portal_index_card col-md-6 order-2'">
+                                    <a t-attf-href="/affiliate/about" title="Affiliate Program" t-attf-class="d-flex gap-2 gap-md-3 py-3 pe-2 px-md-3 h-100 rounded text-decoration-none bg-100">
+                                        <div class="o_portal_icon">
+                                            <img t-attf-src="/affiliate_management/static/src/img/program.png" style="height:64px;width:64px;"/>
+                                        </div>
+                                        <div>
+                                            <div t-attf-class="mt-0 mb-1 fs-5 fw-normal lh-1">
+                                                <span t-out="'Affiliate Program'"/>
+                                            </div>
+                                            <div class="opacity-75">
+                                                <t t-out="'Details About Affiliate Program'"/>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div t-att-class="'o_portal_index_card col-md-6 order-2'">
+                                    <a t-attf-href="/affiliate/statistics" title="Statistics" t-attf-class="d-flex gap-2 gap-md-3 py-3 pe-2 px-md-3 h-100 rounded text-decoration-none bg-100">
+                                        <div class="o_portal_icon">
+                                            <img t-attf-src="/affiliate_management/static/src/img/statistics.png" style="height:64px;width:64px;"/>
+                                        </div>
+                                        <div>
+                                            <div t-attf-class="mt-0 mb-1 fs-5 fw-normal lh-1">
+                                                <span t-out="'Statistics'"/>
+                                            </div>
+                                            <div class="opacity-75">
+                                                <t t-out="'View Your Affiliate Statistics'"/>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div t-att-class="'o_portal_index_card col-md-6 order-2'">
+                                    <a t-attf-href="/affiliate/report" title="Reports" t-attf-class="d-flex gap-2 gap-md-3 py-3 pe-2 px-md-3 h-100 rounded text-decoration-none bg-100">
+                                        <div class="o_portal_icon">
+                                            <img t-attf-src="/affiliate_management/static/src/img/report.png" style="height:64px;width:64px;"/>
+                                        </div>
+                                        <div>
+                                            <div t-attf-class="mt-0 mb-1 fs-5 fw-normal lh-1">
+                                                <span t-out="'Reports'"/>
+                                            </div>
+                                            <div class="opacity-75">
+                                                <t t-out="'View Your Affiliate Reports'"/>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div t-att-class="'o_portal_index_card col-md-6 order-2'">
+                                    <a t-attf-href="/affiliate/payment" title="Payments" t-attf-class="d-flex gap-2 gap-md-3 py-3 pe-2 px-md-3 h-100 rounded text-decoration-none bg-100">
+                                        <div class="o_portal_icon">
+                                            <img t-attf-src="/affiliate_management/static/src/img/payments.png" style="height:64px;width:64px;"/>
+                                        </div>
+                                        <div>
+                                            <div t-attf-class="mt-0 mb-1 fs-5 fw-normal lh-1">
+                                                <span t-out="'Payments'"/>
+                                            </div>
+                                            <div class="opacity-75">
+                                                <t t-out="'View Your Affiliate Payments'"/>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div t-att-class="'o_portal_index_card col-md-6 order-2'">
+                                    <a t-attf-href="/affiliate/tool" title="Tools" t-attf-class="d-flex gap-2 gap-md-3 py-3 pe-2 px-md-3 h-100 rounded text-decoration-none bg-100">
+                                        <div class="o_portal_icon">
+                                            <img t-attf-src="/affiliate_management/static/src/img/tools.png" style="height:64px;width:64px;"/>
+                                        </div>
+                                        <div>
+                                            <div t-attf-class="mt-0 mb-1 fs-5 fw-normal lh-1">
+                                                <span t-out="'Tools'"/>
+                                            </div>
+                                            <div class="opacity-75">
+                                                <t t-out="'Use Our Affiliate Tools'"/>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                                <div t-att-class="'o_portal_index_card col-md-6 order-2'" t-if="partner_aff_program and partner_aff_program.pps_type=='a' and partner_aff_program.advance_commision_id.pricelist_item_ids.filtered(lambda pl: pl.applied_on=='2_product_category' or pl.applied_on=='1_product')">
+                                    <a t-attf-href="/affiliate/program/commission" title="Affiliate Program Commissions" t-attf-class="d-flex gap-2 gap-md-3 py-3 pe-2 px-md-3 h-100 rounded text-decoration-none bg-100">
+                                        <div class="o_portal_icon">
+                                            <img t-attf-src="/affiliate_management/static/src/img/commission.png" style="height:64px;width:64px;"/>
+                                        </div>
+                                        <div>
+                                            <div t-attf-class="mt-0 mb-1 fs-5 fw-normal lh-1">
+                                                <span t-out="'Affiliate Program Commissions'"/>
+                                            </div>
+                                            <div class="opacity-75">
+                                                <t t-out="'View Program Commission Rates'"/>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 ms-md-3">
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div id="affiliate_code_inp">
+                                    <form >
+                                        <label for="usr_aff_code" class="ms-md-2 fw-bold">
+                                            Your Referral Code
+                                        </label>
+                                        <br />
+                                        <br />
+                                        <div class="input-group mb-3">
+                                            <input type="text" class="form-control ms-md-2 inp_style text-center" id="usr_aff_code" name="code" t-att-value="affiliate_key" readonly="1" aria-label="Affiliate Key" aria-describedby="Affiliate Key" />
+                                            <button class="btn btn-primary" type="copy" data-bs-title="Click to Copy" data-bs-toggle="tooltip" id="cpy_cde" data-bs-placement="top"><i class="fa fa-copy" />&amp;nbsp;Copy</button>
+                                        </div>
+                                    </form>
+                                    <br />
+                                </div>
+                            </div>
+                            <div class="col-md-12">
+                                <div id="affiliate_url_inp">
+                                    <form>
+                                        <label for="usr_aff_url" class="ms-md-2 fw-bold">
+                                            Your Referral Link
+                                        </label>
+                                        <br />
+                                        <br />
+                                        <div class="input-group mb-3">
+                                            <input type="text" class="form-control ms-md-2 inp_style" id="usr_aff_url" name="aff_link" t-att-value="url" readonly="1" aria-label="Affiliate Link" aria-describedby="Affiliate Link" />
+                                            <button class="btn btn-primary" type="copy" data-bs-title="Click to Copy" data-bs-toggle="tooltip" id="cpy_url" data-bs-placement="top"><i class="fa fa-copy" />&amp;nbsp;Copy</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </t>
+    </template>
+
+    <template id="affiliate_portal_breadcrumbs" name="Affiliate Portal Breadcrumbs">
+        <ol t-if="page_name != 'affiliate_home'"
+            class="o_portal_submenu breadcrumb mb-0 flex-grow-1 px-0">
+            <li class="breadcrumb-item ms-1">
+                <a href="/my/affiliate" aria-label="Affiliate Home" title="Affiliate Home">
+                    <i class="fa fa-home" />
+                </a>
+            </li>
+        </ol>
+    </template>
+
+
+    <template name="Affiliate Portal Search Bar" id="affiliate_portal_searchbar">
+        <nav
+            t-attf-class="navbar navbar-expand-lg flex-wrap py-0 px-0 mb-4 o_portal_navbar {{classes if classes else ''}} {{'' if affiliate_breadcrumbs_searchbar else '' }}">
+            <!--  Navbar breadcrumb or title  -->
+            <t t-if="affiliate_breadcrumbs_searchbar">
+                <t t-call="affiliate_management.affiliate_portal_breadcrumbs" />
+            </t>
+            <span t-else="" class="navbar-brand mb-0 h1 me-auto" t-esc="title or 'No title'" />
+        </nav>
+    </template>
+
+
+    <template id="portal_my_home_menu_affiliate" name="Affiliate Portal Layout : Affiliate Menus"
+        inherit_id="affiliate_management.affiliate_portal_breadcrumbs">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+
+            <li t-if="page_name=='affiliate_about'" class="breadcrumb-item active">
+                <strong class="text-dark">About Affiliate Program</strong>
+            </li>
+
+            <li t-if="page_name=='summary'" class="breadcrumb-item active">
+                <strong class="text-dark">Summary</strong>
+            </li>
+
+            <li t-if="page_name=='affiliate_statistics'" class="breadcrumb-item active">
+                <strong class="text-dark">Statistics</strong>
+            </li>
+
+            <li t-if="page_name == 'reports' or traffic or traffic_detail or order_visit_detail or page_name == 'ppc_reports' or page_name == 'pps_reports'"
+                t-attf-class="breadcrumb-item #{'active ' if page_name=='reports' else ''}">
+                <a t-if="traffic or traffic_detail or order_visit_detail or page_name == 'ppc_reports' or page_name == 'pps_reports'"
+                    t-attf-href="/affiliate/report?{{keep_query()}}">Reports</a>
+                <t t-else="">
+                    <strong class="text-dark">Your Reports</strong>
+                </t>
+            </li>
+
+            <li t-if="page_name == 'ppc_reports' or traffic_detail"
+                t-attf-class="breadcrumb-item #{'active ' if page_name=='ppc_reports' else ''}">
+                <a t-if="traffic_detail" t-attf-href="/my/traffic?{{keep_query()}}">Traffic Earnings</a>
+                <t t-else="">
+                    <strong class="text-dark">Your Traffic Earnings</strong>
+                </t>
+            </li>
+
+            <li t-if="traffic_detail" class="breadcrumb-item active">
+                <strong class="text-dark" t-esc="traffic_detail.name" />
+            </li>
+
+            <li t-if="page_name == 'pps_reports' or order_visit_detail"
+                t-attf-class="breadcrumb-item #{'active ' if page_name=='pps_reports' else ''}">
+                <a t-if="order_visit_detail" t-attf-href="/my/order?{{keep_query()}}">Order Earnings</a>
+                <t t-else="">
+                    <strong class="text-dark">Your Order Earnings</strong>
+                </t>
+            </li>
+
+            <li t-if="order_visit_detail" class="breadcrumb-item active">
+                <strong class="text-dark" t-esc="order_visit_detail.name" />
+            </li>
+
+            <li t-if="page_name == 'affiliate_payments' or invoice"
+                t-attf-class="breadcrumb-item #{'active ' if page_name=='affiliate_payments' else ''}">
+                <a t-if="invoice" t-attf-href="/affiliate/payment?{{keep_query()}}">Payments</a>
+                <t t-else="">
+                    <strong class="text-dark">Your Payments</strong>
+                </t>
+            </li>
+
+            <li t-if="invoice" class="breadcrumb-item active"> <strong class="text-dark">Invoice <t t-esc="invoice.name" /></strong>
+            </li>
+
+            <li
+                t-if="page_name == 'affiliate_tools' or page_name == 'affiliate_link_generator' or page_name == 'affiliate_product_link'"
+                t-attf-class="breadcrumb-item #{'active ' if page_name=='affiliate_tools' else ''}">
+                <a
+                    t-if="page_name == 'affiliate_link_generator' or page_name == 'affiliate_product_link'"
+                    t-attf-href="/affiliate/tool?{{keep_query()}}">Tools</a>
+                <t t-else="">
+                    <strong class="text-dark">Your Tools</strong>
+                </t>
+            </li>
+
+            <li t-if="page_name == 'affiliate_link_generator'" class="breadcrumb-item active">
+                <strong class="text-dark">Affiliate Link Generator</strong>
+            </li>
+
+            <li t-if="page_name == 'affiliate_product_link'" class="breadcrumb-item active">
+                <strong class="text-dark">Generate Product Link</strong>
+            </li>
+
+            <li t-if="page_name=='affiliate_program_commission'" class="breadcrumb-item active">
+                <strong class="text-dark">Affiliate Program Commission</strong>
+            </li>
+
+            <li t-if="page_name=='earned_commissions'" class="breadcrumb-item active">
+                <strong class="text-dark">Earned Commissions</strong>
+            </li>
+        </xpath>
+    </template>
+</odoo>

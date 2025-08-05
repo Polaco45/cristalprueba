@@ -1,0 +1,206 @@
+.affiliate_loader {
+    position: fixed;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    background: url(/affiliate_management/static/src/img/affiliateLoder.gif) center no-repeat rgba(255, 255, 255, 0.5);
+    text-shadow: 0 1px 1px white;
+}
+
+.form_container {
+    border: solid grey 6px;
+}
+
+.inp_style {
+    border: 1px solid #584854;
+    /* border: 2px solid #3aadaa; */
+    /* border-radius: 22px; */
+}
+
+.cpy_cde {
+    border-radius: 22px;
+}
+
+.cpy_url {
+    border-radius: 22px;
+}
+
+.img_banner {
+    position: absolute;
+    top: 0px;
+    height: 100%;
+    width: 100%;
+}
+
+.banner_text {
+    text-align: center;
+    font-style: normal;
+    font-family: arial;
+    color: white;
+    font-size: 50px;
+}
+/*
+.affiliate_banner{
+ background-image: url("/affiliate_management/static/src/img/cover-banner.jpg"),
+}
+.banner_detail {
+    position: absolute;
+    top: 100px;
+    width: 100%;
+    height: 100%;
+
+}*/
+.aff_box{
+  text-align: center;
+  /*padding:20px;*/
+}
+.img_container {
+    border: solid;
+    position: absolute;
+    top: 50%;
+    width: 60%;
+    height: 46%;
+    left: 25%;
+}
+
+span.step {
+  background: #cccccc;
+  border-radius: 0.8em;
+  -moz-border-radius: 0.8em;
+  -webkit-border-radius: 0.8em;
+  color: #ffffff;
+  display: inline-block;
+  font-weight: bold;
+  line-height: 1.6em;
+  margin-right: 5px;
+  text-align: center;
+  width: 1.6em;
+}
+
+span.step1 {
+  /* background: green; */
+  background: #584854;
+  border-radius: 0.8em;
+  -moz-border-radius: 0.8em;
+  -webkit-border-radius: 0.8em;
+  color: #ffffff;
+  display: inline-block;
+  font-weight: bold;
+  line-height: 1.6em;
+  margin-right: 5px;
+  text-align: center;
+  width: 1.6em;
+}
+a {
+    text-decoration: none !important;
+}
+
+.button_image_generate_url{
+    width: 284px;
+    height: 284px;
+    display: inline;
+    position: relative;
+    top: 3%;
+}
+
+.product_image{
+  width: 284px;
+  height: 284px;
+  display: inline;
+  position: relative;
+  top: 3%;
+}
+
+.alert_msg_banner{
+  background: rgba(0, 0, 0, 0.5);
+    width: 44%;
+    height: 16%;
+    padding: 1%;
+    position: relative;
+    left: 30%;
+    display: none;
+    top:6%;
+}
+.alert_msg_banner_1{
+  background: rgba(0, 0, 0, 0.5);
+    width: 70%;
+    height: 20%;
+    padding: 1%;
+    position: relative;
+    left: 15%;
+    top: 6%;
+}
+.alert_msg_banner_signup{
+  background: rgba(0, 0, 0, 0.5);
+    width: 70%;
+    height: 18%;
+    padding: 1%;
+    position: relative;
+    left: 15%;
+    /*display: none;*/
+    top:6%;
+}
+.card_large_product{
+  position:relative !important;
+  bottom:80px !important;
+}
+#wrapwrap
+{
+  border : none !important;
+
+}
+
+@media screen and (max-width: 574px) {
+    .cpy_cde {
+        margin-top: 36px;
+    }
+    /* .cpy_url {
+        margin-left: 50px;
+    } */
+}
+
+
+
+/* New Styles */
+
+.card-icons{
+  font-size: 3.5rem !important;
+}
+
+.dashboard-row .card {
+  transition: all 0.3s ease;
+}
+
+.dashboard-row .card:hover {
+  transform: scale(1.025);
+  box-shadow: rgba(0, 0, 0, 0.24) 0px 5px 10px;
+}
+
+.prod_search {
+  text-align:center;
+  width:58%;
+}
+
+@media screen and (max-width: 768px) {
+  .cpy_cde {
+      margin-top: 36px;
+  }
+  .prod_search {
+    text-align:center;
+    width:100%;
+  }
+}
+
+/* CSS for Stats Nav Pills */
+
+.stats-nav .nav-link.active {
+  color: #FFF;
+  background-color: #714B67;
+}
+
+.stats-nav .nav-link {
+  color: #714B67;
+}
+

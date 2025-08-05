@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data noupdate="0">
+
+    <record id="affiliate_security_category" model="ir.module.category">
+        <field name="name">Affiliate Category</field>
+    </record>
+
+    <record id="affiliate_security_user_group" model="res.groups">
+        <field name="name">User</field>
+        <field name="category_id" ref= "affiliate_security_category"/>
+    </record>
+
+    <record id="affiliate_security_manager_group" model="res.groups">
+        <field name="name">Manager</field>
+        <field name="users" eval="[(4, ref('base.user_root')),(4, ref('base.user_admin'))]"/>
+        <field name="category_id" ref= "affiliate_security_category"/>
+        <field name="implied_ids" eval= "[(4,ref('affiliate_security_user_group'))]"/>
+    </record>
+
+
+    <record id="base.group_public" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('affiliate_management.affiliate_security_user_group'))]"/>
+    </record>
+
+    <record id="base.group_portal" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('affiliate_management.affiliate_security_user_group'))]"/>
+    </record>
+
+    <record id="base.group_user" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('affiliate_management.affiliate_security_user_group'))]"/>
+    </record>
+
+</data>
+
+<data>
+
+
+    <record id="affiliate_management_user_visit_rule" model="ir.rule">
+        <field name="name">Affiliate managemnt visits for User</field>
+        <field name="model_id" ref="affiliate_management.model_affiliate_visit"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_user_group'))]"/>
+        <field name="domain_force">[("affiliate_partner_id", '=',user.partner_id.id)]</field>
+
+    </record>
+    <record id="affiliate_management_user_account_invoice_rule" model="ir.rule">
+        <field name="name">Affiliate managemnt account invoice for User</field>
+        <field name="model_id" ref="affiliate_management.model_account_move"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_user_group'))]"/>
+        <field name="domain_force">[("partner_id", '=',user.partner_id.id)]</field>
+
+    </record>
+
+    <record id="affiliate_management_user_aff_image_rule" model="ir.rule">
+        <field name="name">Affiliate managemnt Image for User</field>
+        <field name="model_id" ref="affiliate_management.model_affiliate_image"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_user_group'))]"/>
+        <field name="domain_force">[(1, '=',1)]</field>
+    </record>
+
+
+   <!-- manager rule -->
+    <record id="affiliate_management_manager_visit_rule" model="ir.rule">
+        <field name="name">Affiliate managemnt visits for Manager</field>
+        <field name="model_id" ref="affiliate_management.model_affiliate_visit"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_manager_group'))]"/>
+        <field name="domain_force">[(1, '=',1)]</field>
+
+    </record>
+
+    <record id="affiliate_management_manager_request_rule" model="ir.rule">
+        <field name="name">Affiliate managemnt request for Manager</field>
+        <field name="model_id" ref="affiliate_management.model_affiliate_request"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_manager_group'))]"/>
+        <field name="domain_force">[(1, '=',1)]</field>
+
+    </record>
+
+    <record id="affiliate_management_manager_account_invoice_rule" model="ir.rule">
+        <field name="name">Affiliate managemnt account invoice for Manager</field>
+        <field name="model_id" ref="affiliate_management.model_account_move"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_manager_group'))]"/>
+        <field name="domain_force">[(1, '=',1)]</field>
+
+    </record>
+    <record id="affiliate_management_res_partner_manager_rule" model="ir.rule">
+        <field name="name">manager managemnt Records for manager</field>
+        <field name="model_id" ref="affiliate_management.model_res_partner"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_manager_group'))]"/>
+        <field name="domain_force">[(1, '=',1)]</field>
+    </record>
+
+
+    <record id="affiliate_management_manager_rule" model="ir.rule">
+        <field name="name">manager advance commision for manager</field>
+        <field name="model_id" ref="affiliate_management.model_advance_commision"/>
+        <field name="groups" eval="[(4,ref('affiliate_security_manager_group'))]"/>
+        <field name="domain_force">[(1, '=',1)]</field>
+    </record>
+
+
+</data>
+
+
+
+
+</odoo>

@@ -1,0 +1,99 @@
+<odoo>
+
+	<record model="ir.ui.view" id="affiliate_program_view_form">
+		<field name="name">Affiliate Program Form</field>
+		<field name="model">affiliate.program</field>
+		<field name="type">form</field>
+		<field name="priority" eval="1" />
+		<field name="arch" type="xml">
+			<form>
+				<sheet>
+					<div class="oe_title">
+						<h1>
+							<field name="name" default_focus="1" placeholder="Name" />
+						</h1>
+					</div>
+					<group name="website" class="mt-2">
+						<group>
+							<field name="website_id" />
+						</group>
+					</group>
+					<group col="2" string="Rate For PPC" invisible="context.get('hide_ppc')">
+
+						<group>
+
+							<field name="ppc_type" readonly="1" />
+
+							<field name="amount_ppc_fixed" widget="monetary"
+								options="{'currency_field': 'currency_id'}" />
+						</group>
+					</group>
+					<group>
+						<group col="2" string="Rate For PPS">
+							<field name="pps_type" />
+							<field name="matrix_type" invisible="pps_type == 'a' or not pps_type" />
+
+							<label for="amount"
+								invisible="not matrix_type or not pps_type or pps_type == 'a'" />
+							<div invisible="not matrix_type or not pps_type or pps_type == 'a'">
+								<field name="amount" class="oe_inline" />&#x2063; 
+									<span invisible="matrix_type=='p'">
+										<field name="currency_id" readonly="1" class="oe_inline" />
+									</span>
+									<span invisible="matrix_type=='f'">
+										<b>%</b>
+									</span>
+							</div>
+
+							<field name="advance_commision_id" string="Advance Computation"
+								invisible="pps_type == 's' or not pps_type"
+								required="pps_type == 'a'" />
+
+						</group>
+					</group>
+					<notebook>
+						<page name="howitworks" string="How Does It Work?">
+							<group>
+								<field name="work_title" />
+								<field name="work_text" />
+							</group>
+						</page>
+
+						<page name="TandC" string="Terms And Condition">
+							<group>
+								<field name="term_condition" string="Terms and Conditions" />
+							</group>
+						</page>
+					</notebook>
+				</sheet>
+			</form>
+		</field>
+	</record>
+	<record model="ir.ui.view" id="affiliate_program__view_list">
+		<field name="name">affiliate.program.list</field>
+		<field name="model">affiliate.program</field>
+		<field name="arch" type="xml">
+			<list>
+
+				<field name="name" />
+				<field name="website_id" />
+				<field name="ppc_type" />
+				<field name="amount_ppc_fixed" />
+				<field name="pps_type" />
+				<field name="matrix_type" />
+				<field name="amount" />
+
+
+			</list>
+		</field>
+	</record>
+	<record id="affiliate_program_form_action" model="ir.actions.act_window">
+		<field name="name">Affiliate Program</field>
+		<field name="type">ir.actions.act_window</field>
+		<field name="path">affiliate-program</field>
+		<field name="res_model">affiliate.program</field>
+		<field name="view_mode">list,form</field>
+	</record>
+
+
+</odoo>

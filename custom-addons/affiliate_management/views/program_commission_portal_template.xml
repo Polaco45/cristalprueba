@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <template id="portal_my_affiliate_program_commission" name="Affiliate Program Commission">
+        <t t-call="portal.portal_layout">
+
+            <t t-set="no_breadcrumbs" t-value="True"/>
+            <t t-set="affiliate_breadcrumbs_searchbar" t-value="True"/>
+
+
+            <t t-call="affiliate_management.affiliate_portal_searchbar">
+                <t t-set="title">Affiliate Program Commission</t>
+            </t>
+
+            <div class='o_portal_wrap my-3'>
+                <div class="oe_structure" id="oe_structure_portal_affiliate_program_commission_page" />
+                <div class="container">
+                    <div class="row justify-content-center">
+                        
+                        <t t-set="global_commissions" t-value="adv_commission.pricelist_item_ids.filtered(lambda pl: pl.applied_on=='3_global')"/>
+                        <t t-set="prod_cat_commissions" t-value="adv_commission.pricelist_item_ids.filtered(lambda pl: pl.applied_on=='2_product_category')"/>
+                        <t t-set="prod_commissions" t-value="adv_commission.pricelist_item_ids.filtered(lambda pl: pl.applied_on=='1_product')"/>
+                        
+                        <div class="col-md-10" t-if="global_commissions">
+                            <h5 class="text-center">Global Standard Commission Income Rates</h5>
+                            <table class="table mt-3 table-bordered">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">Applied On</th>
+                                        <th scope="col">Income Rates</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="global_commissions" t-as="pricelist">     
+                                        <tr t-if="pricelist.applied_on=='3_global'">
+                                            <td><span t-field="pricelist.applied_on"/></td>
+                                            <td>
+                                                <t t-if="pricelist.compute_price=='fixed'">
+                                                    <t t-esc="currency_id.symbol" /><span t-esc="pricelist.fixed_price" />
+                                                </t>
+                                                <t t-else="">
+                                                    <span t-esc="pricelist.percent_price" />%
+                                                </t>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-10" t-if="prod_cat_commissions">
+                            <h5 class="text-center">Standard Commission Income Rates for Specific Product Categories</h5>
+                            <table class="table mt-3 table-bordered">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">Product Category</th>
+                                        <th scope="col">Income Rates</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="prod_cat_commissions" t-as="pricelist">     
+                                        <tr t-if="pricelist.applied_on=='2_product_category'">
+                                            <td><span t-field="pricelist.categ_id"/></td>
+                                            <td>
+                                                <t t-if="pricelist.compute_price=='fixed'">
+                                                    <t t-esc="currency_id.symbol" /><span t-esc="pricelist.fixed_price" />
+                                                </t>
+                                                <t t-else="">
+                                                    <span t-esc="pricelist.percent_price" />%
+                                                </t>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-10 mt-3" t-if="prod_commissions">
+                            <h5 class="text-center">Standard Commission Income Rates for Specific Products</h5>
+                            <table class="table mt-3 table-bordered">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">Products</th>
+                                        <th scope="col">Income Rates</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="prod_commissions" t-as="pricelist">     
+                                        <tr>
+                                            <td><span t-field="pricelist.product_tmpl_id"/></td>
+                                            <td>
+                                                <t t-if="pricelist.compute_price=='fixed'">
+                                                    <t t-esc="currency_id.symbol" /><span t-esc="pricelist.fixed_price" />
+                                                </t>
+                                                <t t-else="">
+                                                    <span t-esc="pricelist.percent_price" />%
+                                                </t>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

@@ -1,0 +1,243 @@
+<!-- <?xml version="1.0" encoding="utf-8"?> -->
+<odoo>
+	<data>
+
+
+
+		<!-- res.partner new form -->
+		<record id="view_partner_form2" model="ir.ui.view">
+			<field name="name">res.partner.form</field>
+			<field name="model">res.partner</field>
+			<field name="priority" eval="1"/>
+			<field name="arch" type="xml">
+				<form string="Partners" >
+					<sheet>
+						<div class="oe_button_box" name="button_box">
+							<button class="oe_stat_button" type="object" name="show_affiliate_visits" icon="fa-book" string="Visits" />
+						</div>
+						<field name="image_1920" widget='image' class="oe_avatar" options='{"preview_image": "image_128", "size": [90, 90]}'/>
+						<div class="oe_title">
+							<field name="is_company" invisible="True"/>
+							<field name="company_type" widget="radio" class="oe_edit_only" options="{'horizontal': true}"/>
+							<h1>
+								<field name="name" default_focus="1" placeholder="Name" required="type == 'contact'"/>
+							</h1>
+						</div>
+
+						<group>
+							<group>
+								<field name="type" invisible="not parent_id"/>
+								<label for="street" string="Address"/>
+								<div class="o_address_format">
+									<field name="street" placeholder="Street..." class="o_address_street" readonly="type == 'contact' and parent_id"/>
+									<field name="street2" placeholder="Street 2..." class="o_address_street" readonly="type == 'contact' and parent_id"/>
+									<field name="city" placeholder="City" class="o_address_city" readonly="type == 'contact' and parent_id"/>
+									<field name="state_id" class="o_address_state" placeholder="State" options='{"no_open": True}' readonly="type == 'contact' and parent_id" context="{'country_id': country_id, 'zip': zip}"/>
+									<field name="zip" placeholder="ZIP" class="o_address_zip" readonly="type == 'contact' and parent_id" />
+									<field name="country_id" placeholder="Country" class="o_address_country" options='{"no_open": True, "no_create": True}'	readonly="type == 'contact' and parent_id"/>
+								</div>
+							</group>
+							<group>
+								<field name="phone" widget="phone"/>
+								<field name="mobile" widget="phone"/>
+								<field name="user_ids" invisible="True"/>
+								<field name="email" widget="email" required="user_ids != []"/>
+								<field name="title" options='{"no_open": True}' invisible="is_company"/>
+								<field name="lang"/>
+							</group>
+						</group>
+						<notebook colspan="4">
+							<page name="affilite_detail" string="Affiliate Details">
+								<group>
+									<group string="Affiliate" name="affiliate">
+										<field name="is_affiliate" string="Is a Affiliate" groups="base.group_system,affiliate_management.affiliate_security_manager_group"/>
+										<label for="res_affiliate_key" />
+										<div>
+											<field name="res_affiliate_key" string="Affiliate Key" readonly="1" />
+											<button
+												name="generate_key"
+												type="object"
+												string="generate"
+												invisible="res_affiliate_key"
+												class="oe_link oe_edit_only oe_inline" colspan='1'
+												groups="base.group_system,affiliate_management.affiliate_security_manager_group"
+											/>
+										</div>
+										<field name="affiliate_website_id" readonly="1" />
+										<field name="pending_amt" />
+										<field name="approved_amt" />
+									</group>
+								</group>
+							</page>
+							<page name="internal_note" string="Internal Notes">
+								<field name="comment" placeholder="Internal Notes..." />
+							</page>
+						</notebook>
+					</sheet>
+				</form>
+			</field>
+		</record>
+
+
+		<record  model="ir.ui.view" id="affiliate_manager_kanban_view">
+			<field name="name">res.partner.inherit.affiliate.kanban</field>
+			<field name="model">res.partner</field>
+			<field name="type">kanban</field>
+			<field name="arch" type="xml">
+				<kanban class="o_res_partner_kanban">
+					<field name="id"/>
+					<field name="color"/>
+					<field name="display_name"/>
+					<field name="title"/>
+					<field name="email"/>
+					<field name="parent_id"/>
+					<field name="is_company"/>
+					<field name="function"/>
+					<field name="phone"/>
+					<field name="street"/>
+					<field name="street2"/>
+					<field name="zip"/>
+					<field name="city"/>
+					<field name="country_id"/>
+					<field name="mobile"/>
+					<field name="state_id"/>
+					<field name="category_id"/>
+					<field name="image_128"/>
+					<field name="type"/>
+					<templates>
+					<t t-name="card" class="flex-row">
+                            <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                            <aside class="o_kanban_aside_full">
+                                <t t-if="!record.is_company.raw_value">
+                                    <div class="o_kanban_image_fill position-relative w-100">
+                                        <field name="avatar_128" alt="Contact image" class="h-100" widget="image" options="{'img_class': 'object-fit-cover'}"/>
+                                        <field t-if="record.parent_id.raw_value" name="parent_id" class="position-absolute bottom-0 end-0 w-25 bg-light" widget="image" options="{'preview_image': 'image_128', 'img_class': 'object-fit-contain'}"/>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <field name="avatar_128" class="w-100" widget="image" options="{'img_class': 'object-fit-contain w-100 h-100'}"/>
+                                </t>
+                            </aside>
+                            <main class="ps-2 ps-md-0">
+                                <div class="mb-1">
+                                    <field name="display_name" class="mb-0 fw-bold fs-5"/> 
+									<br />
+									<span>
+										<b>Key : </b>
+										<field name="res_affiliate_key"/>
+									</span><br />
+									<span>
+										<b>Website : </b>
+										<field name="affiliate_website_id"/>
+									</span>
+                                </div>
+                                <footer><div/></footer>
+                            </main>
+                        </t>
+					</templates>
+				</kanban>
+			</field>
+		</record>
+
+		<!-- Tree view of re.partner or affiliate manager -->
+		<record model="ir.ui.view" id="affiliate_manager_view_tree">
+			<field name="name">res.partner.list</field>
+			<field name="model">res.partner</field>
+			<field name="arch" type="xml">
+				<list >
+					<field name="name"/>
+					<field name="phone"/>
+					<field name="email"/>
+				</list>
+			</field>
+		</record>
+
+		<!-- close tree view -->
+		<record id="affiliate_view_search" model="ir.ui.view">
+			<field name="name">Affiliate Manager Search</field>
+			<field name="model">res.partner</field>
+			<field name="inherit_id" ref="base.view_res_partner_filter"/>
+			<field name="arch" type="xml">
+				<filter name="type_company" position="after">
+					<filter string="Affiliate Customer" name="is_affiliate" domain="[('is_affiliate','=',True)]"/>
+				</filter>
+			</field>
+		</record>
+		
+		<!--inherit res.partner form view-->
+		<record id="view_Affiliate_partner_inherit_detail_form" model="ir.ui.view">
+            <field name="name">res.partner.property.form.inherit</field>
+            <field name="model">res.partner</field>
+            <field name="priority">2</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+                <page name="sales_purchases" position="after">
+					<page name="affilite_detail" string="Affiliate Details">
+						<group>
+							<group string="Affiliate" name="affiliate">
+								<field name="is_affiliate" string="Is a Affiliate" groups="base.group_system,affiliate_management.affiliate_security_manager_group"/>
+								<label for="res_affiliate_key" />
+								<div>
+									<field name="res_affiliate_key" string="Affiliate Key" readonly="1" />
+									<button
+										name="generate_key"
+										type="object"
+										string="generate"
+										invisible="res_affiliate_key"
+										class="oe_link oe_edit_only oe_inline" colspan='1'
+										groups="base.group_system,affiliate_management.affiliate_security_manager_group"
+									/>
+								</div>
+								<field name="affiliate_website_id" readonly="1" />
+								<field name="pending_amt" />
+								<field name="approved_amt" />
+							</group>
+						</group>
+					</page>
+                </page>
+            </field>
+		</record>
+
+		<record id="affiliate_partner_view" model="ir.actions.act_window">
+            <field name="name">Affiliate Customers</field>
+            <field name="type">ir.actions.act_window</field>
+			<field name="path">affiliate-customers</field>
+            <field name="res_model">res.partner</field>
+            <field name="view_mode">kanban,form,list</field>
+			<field name="view_ids" eval="[(5, 0, 0),
+				(0, 0, {'view_mode': 'kanban', 'view_id': ref('affiliate_manager_kanban_view')}),
+				(0, 0, {'view_mode': 'form', 'view_id': ref('view_partner_form2')}),
+				(0, 0, {'view_mode': 'list', 'view_id': ref('affiliate_manager_view_tree')})
+				]"
+			/>
+            <field name="context">
+                {"search_default_is_affiliate":1,"default_is_affiliate":True,"is_customer":False}
+            </field>
+			<field name="search_view_id" ref="base.view_res_partner_filter"/>
+		</record>
+
+
+		<menuitem 
+			name="Affiliate Manager"
+			id="affiliate_manager_menu_base_root"
+			sequence="4"
+			groups="affiliate_management.affiliate_security_manager_group"
+			web_icon="affiliate_management,static/description/icon.png"
+		/>
+
+		<menuitem name="Affiliate Program" id="affiliate_program_base_root" parent="affiliate_manager_menu_base_root" sequence='1' />
+				<menuitem id="affiliate_submenu_user_root"
+					parent="affiliate_program_base_root"
+					name="All Affiliates"
+					action="affiliate_partner_view"
+					groups='affiliate_management.affiliate_security_user_group'
+					sequence = "2"
+		/>
+
+        <menuitem 
+			id="configuration_submenu_root"
+			parent="affiliate_manager_menu_base_root"
+            name="Configuration"
+		/>
+	</data>
+</odoo>

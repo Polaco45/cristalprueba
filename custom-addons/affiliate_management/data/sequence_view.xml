@@ -1,0 +1,11 @@
+<odoo>
+      <data noupdate="1">
+            <record id="seq_visit_order" model="ir.sequence">
+                  <field name="name">Affiliate Visit No</field>
+                  <field name="code">affiliate.visit</field>
+                  <field name="prefix">VST</field>
+                  <field name="padding">6</field>
+                  <field name="company_id" eval="False" />
+            </record>
+      </data>
+</odoo>

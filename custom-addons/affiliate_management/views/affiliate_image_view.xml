@@ -1,0 +1,63 @@
+<odoo>
+	<data>
+		<record model="ir.ui.view" id="affiliate_image_view_form">
+			<field name="name">affiliate.image.form</field>
+			<field name="model">affiliate.image</field>
+			<field name="arch" type="xml">
+				<form create="false">
+					<sheet>
+						<div class="oe_button_box" name="button_box">
+							<button name="toggle_active_button" type="object" class="oe_stat_button" icon="fa-archive">
+								<field string="Active" name="image_active" invisible="True"/>
+								<span  invisible="image_active == True" class="o_field_widget">Inactive</span>
+								<span invisible="not image_active" style="color:green" class="o_field_widget" >Active</span>
+							</button>
+						</div>
+
+						<h1>
+							<field name="name" default_focus="1" placeholder="Name" />
+						</h1>
+
+						<group col="2" >
+							<group>
+								<field name="title"/>
+								<field name="banner_height"/>
+								<field name="bannner_width"/>
+								<field name="image"  widget="image" />
+							</group>
+						</group>	      
+					</sheet>
+				</form>
+			</field>
+		</record>
+
+		<record model="ir.ui.view" id="affiliate_image__view_tree">
+			<field name="name">affiliate.image.list</field>
+			<field name="model">affiliate.image</field>
+			<field name="arch" type="xml">
+				<list>
+					<field name="name"/>
+					<field name="title"/>
+					<field name="image_active"/>
+				</list>
+			</field>
+		</record>
+
+		<record model="ir.actions.act_window" id="affiliate_image_action">
+			<field name="name">Affiliate Image</field>
+			<field name="path">affiliate-images</field>
+			<field name="res_model">affiliate.image</field>
+			<field name="view_mode">list,form</field>
+		</record>
+
+
+		<menuitem 
+			name="Affiliate Images"
+			id="affiliate_report_sub_image_menu"
+			parent="affiliate_management.configuration_submenu_root"
+			action='affiliate_image_action'
+			groups='affiliate_management.affiliate_security_user_group'
+			sequence = "3"
+		/>
+	</data>
+</odoo>

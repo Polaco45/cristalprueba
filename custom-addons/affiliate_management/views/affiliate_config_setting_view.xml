@@ -1,0 +1,179 @@
+<!-- <?xml version="1.0" encoding="utf-8"?> -->
+<odoo>
+        <record id="view_affiliate_config_form" model="ir.ui.view">
+            <field name="name">res.config.view</field>
+            <field name="model">res.config.settings</field>
+            <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//form" position="inside">
+                    <app data-string="Affiliate Management" string="Affiliate Management" name="affiliate_management" groups="affiliate_management.affiliate_security_manager_group">
+                        <block title="Affiliate Management Configuration" name="affiliate_management_configuration">
+                            <setting id="affiliate_program_id">
+                                <span class="fw-bold">Affiliate Program</span><br />
+                                <div class="text-muted">
+                                    Configure your Affiliate Program data
+                                </div>
+                                <div class="content-group">
+                                    <div class="mt8">
+                                        <button type="object" name="open_program" string="Configure" class="btn-link"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="ppc_setting" help="Manage your PPC">
+                                <field name="enable_ppc"/>
+                                <div class="content-group" invisible="not enable_ppc">
+                                    <div class="row mt16">
+                                        <div class="col-lg-4">
+                                            <label class="o_light_label" string="PPC Maturity" for="ppc_maturity"/>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <field name="ppc_maturity"/>
+                                        </div>
+                                        <div class="col-lg-5">
+                                            <field name="ppc_maturity_period"/>
+                                        </div>
+                                    </div>
+                                    <div class="row mt16">
+                                        <label class="col-lg-4 o_light_label" string="Unique PPC For Product" for="unique_ppc_traffic"/>
+                                        <field class="col-lg-4" name="unique_ppc_traffic"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="cookie_setting">
+                                <strong><label string="Cookie Expiration" for="cookie_expire" /></strong>
+                                <div class="text-muted">
+                                    Manage your Cookie expiry
+                                </div>
+                                <div class="content-group">
+                                    <div class="row mt16">
+                                        <div class="col-lg-2">
+                                            <label class="o_light_label" string="Expiry" for="cookie_expire"/>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <field name="cookie_expire"/>
+                                        </div>
+                                        <div class="col-lg-5">
+                                            <field name="cookie_expire_period"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="auto_approve_setting">
+                                <field name="auto_approve_request"/>
+                            </setting>
+                            <setting id="aff_product_setting">
+                                <strong><label string="Affiliate product (optional)" for="aff_product_id"/></strong>
+                                <div class="mt16">
+                                    <label class="col-lg-2 o_light_label" string="Product" for="aff_product_id"/>
+                                    <field name="aff_product_id"/>
+                                </div>
+                            </setting>
+                            <setting id="auto_confirm_visit" help="If enabled, it will automatically confirm affiliate visits which are in draft state.">
+                                <field name="auto_confirm_visit"/>
+                            </setting>
+                        </block>
+                        <block title="Payment Configuration" name="affiliate_payment_configuration">
+                            <setting id="payment_day_setting">
+                                <strong><label string="Payment Day" for="payment_day"/></strong>
+                                <div class="content-group">
+                                    <div class="row mt16">
+                                        <div class="col-lg-2">
+                                            <label class="o_light_label" string="Day" for="payment_day"/>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <field name="payment_day"/>
+                                        </div>
+                                        <div class="col-lg-7">
+                                            <span class="col-lg-5">Day of Every Month</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="payout_balance_setting">
+                                <strong><label string="Minimum Payout Balance" for="minimum_amt"/></strong>
+                                <div class="content-group">
+                                    <div class="row mt16">
+                                        <div class="col-lg-2">
+                                            <label class="o_light_label" string="Balance" for="minimum_amt"/>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <field name="minimum_amt"/>
+                                        </div>
+                                        <div class="col-lg-2">
+                                            <field name="currency_id" readonly="1"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+                        <block title="Website Configuration" name="affiliate_payment_configuration">
+                            <setting id="enable_signup_setting">
+                                <field name="enable_signup"/>
+                            </setting>
+                            <setting id="enable_login_setting">
+                                <field name="enable_login"/>
+                            </setting>
+                            <setting id="affiliate_banner_setting">
+                                <span class="fw-bold">Affiliate Banner</span>
+                                <div class="text-muted">
+                                    Configure your Affiliate Banner
+                                </div>
+                                <div class="content-group">
+                                    <button type="object" name="open_banner" string="Configure" class="btn-link"/>
+                                </div>
+                            </setting>
+                            <setting id="enable_forget_pwd_setting">
+                                <field name="enable_forget_pwd"/>
+                            </setting>
+                        </block>
+                        <block title="Email Configuration" name="affiliate_email_configuration">
+                            <setting id="welcome_mail_template_setting">
+                                <label string="Approved Request Mail" for="welcome_mail_template"/>
+                                <div class="text-muted">
+                                    Configure your Approved Request Mail
+                                </div>
+                                <div class="mt8">
+                                    <field name="welcome_mail_template"/>
+                                </div>
+                            </setting>
+                            <setting id="Invitation_mail_template_setting">
+                                <label string="Invitation Request Mail" for="Invitation_mail_template"/>
+                                <div class="text-muted">
+                                    Configure your Invitation Request Mail
+                                </div>
+                                <div class="mt8">
+                                    <field name="Invitation_mail_template"/>
+                                </div>
+                            </setting>
+                            <setting id="reject_mail_template_setting">
+                                <label string="Reject Request Mail" for="reject_mail_template"/>
+                                <div class="text-muted">
+                                    Configure your Reject Request Mail
+                                </div>
+                                <div class="mt8">
+                                    <field name="reject_mail_template"/>
+                                </div>
+                            </setting>
+                        </block>
+                    </app>
+                </xpath>
+
+            </field>
+        </record>
+
+        <record id="affiliate_config_form_action" model="ir.actions.act_window">
+            <field name="name">Settings</field>
+            <field name="type">ir.actions.act_window</field>
+            <field name="path">affiliate-settings</field>
+            <field name="res_model">res.config.settings</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="affiliate_management.view_affiliate_config_form"/>
+            <field name="target">inline</field>
+            <field name="context">{'module' : 'affiliate_management'}</field>
+        </record>
+
+
+        <menuitem id="setting_submenu_root" name="Settings" parent="affiliate_management.configuration_submenu_root"
+            sequence="0" action="affiliate_config_form_action"
+            groups="base.group_system"/>
+</odoo>

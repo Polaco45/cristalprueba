@@ -1,0 +1,4 @@
+*.pyc
+.idea/
+controller/__pycache__
+models/__pycache__

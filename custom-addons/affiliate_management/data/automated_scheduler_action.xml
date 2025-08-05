@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1" >
+
+        <record id="affiliate_ppc_maturity_scheduler_call" model="ir.cron">
+            <field name="name">Automated ppc maturity Scheduler</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="model_id" ref="model_affiliate_visit"/>
+            <field name="state">code</field>
+            <field name="code">model.process_ppc_maturity_scheduler_queue()</field>
+        </record>
+
+
+
+
+        <!-- generate invoice by crone according to settings day of date -->
+    
+        <record id="affiliate_visit_scheduler_call" model="ir.cron">
+            <field name="name">Automated invoice Scheduler</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="model_id" ref="model_affiliate_visit"/>
+            <field name="state">code</field>
+            <field name="code">model.process_scheduler_queue()</field>
+        </record>
+
+
+        <!-- confirm draft affiliate visits by cron -->
+    
+        <record id="affiliate_visit_confirmation_cron" model="ir.cron">
+            <field name="name">Automated Visits Confirmation Cron</field>
+            <field name="active" eval="True"/>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="model_id" ref="model_affiliate_visit"/>
+            <field name="state">code</field>
+            <field name="code">model.process_automatic_confirmation()</field>
+        </record>
+
+
+        <record model="ir.actions.server" id="open_invoice_server_action">
+            <field name="name">Create Visits Invoice</field>
+            <field name="model_id" ref="model_affiliate_visit"/>
+            <field name="binding_model_id" ref="model_affiliate_visit" />
+            <field name="state">code</field>
+            <field name="code">
+                    if records:
+                        action = records.create_invoice()
+            </field>
+        </record>
+
+    </data>
+</odoo>

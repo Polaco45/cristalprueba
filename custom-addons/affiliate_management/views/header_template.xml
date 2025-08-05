@@ -1,0 +1,75 @@
+<odoo>
+
+	<template id="show_sign_in" customize_show="True" inherit_id="website.layout" name="Show Sign In">
+		<xpath expr="//header" position="attributes">
+			<attribute name="t-att-style">
+				'display: none;' if affiliate_website and website.user_id == user_id else 'display:;'
+			</attribute>
+		</xpath>
+		<xpath expr="//header" position="after">
+			<t t-if="affiliate_website">
+				<header class=" o_affix_enabled" id="head_tem">
+					<t t-if="website.user_id == user_id">
+						<div class="navbar navbar-expand-md navbar-light bg-light">
+							<div class="container">
+								<div class="row" style="width:100%">
+									<div class="col-lg-6">
+										<div class="navbar-header">
+											<a href="/" class="navbar-brand logo">
+												<!-- <img src="/logo.png" t-att-alt="'Logo of %s' % res_company.name" t-att-title="res_company.name" /> -->
+												<span t-field="website.logo" t-options="{'widget': 'image', 'width': 95, 'height': 40}" role="img" t-att-aria-label="'Logo of %s' % website.name" t-att-title="website.name"/>
+											</a>
+											<div style="margin-top:-29px;">
+												<span class="" style="margin-right: 15px;margin-left: 15px;">
+													<a href="/" class="">
+														Home
+													</a>
+												</span>
+												<span class="" style="margin-right: 15px;margin-left: 15px;">
+													<a href="/shop" class="">
+														Shop
+													</a>
+												</span>
+											</div>
+										</div>
+									</div>
+									<div class="col-lg-6">
+										<t t-if="enable_login">
+											<form  role="form" t-attf-action="/web/login" method="post" onsubmit="this.action = this.action + location.hash">
+												<input type="hidden" name="csrf_token" t-att-value="request.csrf_token()" />
+												<input type="hidden" name="affiliate_login_form" value="True" />
+												<div class="row">
+													<ul class="navbar-nav ms-auto" id="wk_top_menu" style="padding:10px;">
+														<li class="nav-link field-login pe-1 ps-1 me-0">
+															<input type="text" name="login" t-att-value="login if test else '' " id="login" class="form-control" required="required" autofocus="autofocus" placeholder="Email Id" />
+														</li>
+														<li class="nav-link field-password ps-1 ms-0">
+															<input type="password" name="password" id="password" class="form-control" required="required" t-att-autofocus="'autofocus' if login else None" placeholder="Password" />
+														</li>
+														<input type="hidden" name="redirect" t-att-value="redirect" />
+														<li class="clearfix oe_login_buttons mt-2">
+															<button type="submit" class="btn btn-primary">
+																Log in
+															</button>
+														</li>
+													</ul>
+												</div>
+											</form>
+											<t t-if="enable_forget_pwd">
+												<span style="margin-bottom: 5px;margin-top: -4px;">
+													<a href="/web/reset_password">
+														Forgot Password?
+													</a>
+												</span>
+											</t>
+										</t>
+									</div>
+								</div>
+							</div>
+						</div>
+					</t>
+				</header>
+			</t>
+		</xpath>
+	</template>
+</odoo>
