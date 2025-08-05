@@ -1,0 +1,3083 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* wk_wizard_messages
+# 	* affiliate_management
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-08-05 13:44+0000\n"
+"PO-Revision-Date: 2025-08-05 13:44+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: affiliate_management
+#: model:mail.template,subject:affiliate_management.join_affiliate_email
+msgid " Invitation to connect on Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_product_pricelist_item__applied_on__2_product_category
+msgid " Product Category"
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,subject:affiliate_management.reject_affiliate_email
+msgid " Reject your request on Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,subject:affiliate_management.welcome_affiliate_email
+msgid " Welcome on Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid "(* Reports whose states are confirmed or invoiced but not paid)"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid "(* Reports whose states are paid)"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_banner
+msgid "(size"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_manager_kanban_view
+msgid "<b>Key : </b>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_manager_kanban_view
+msgid "<b>Website : </b>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_inherit_template
+msgid ""
+"<br/>\n"
+"                                        <br/>\n"
+"                                        <strong class=\"mt-3\">Product Referral Link</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid ""
+"<br/>\n"
+"                                    <strong class=\"mt-2\">Generate Product Banner</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid ""
+"<br/><br/>\n"
+"                                    <strong class=\"mt-3\">Your Referral Link</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,body_html:affiliate_management.reject_affiliate_email
+msgid ""
+"<div style=\"padding:0px;width:600px;margin:auto;background: #FFFFFF repeat top /100%;color:#777777\">\n"
+"              <p>Dear <t t-out=\"object.partner_id.name or object.name or ''\">Marc Demo</t>,</p>\n"
+"              <p>\n"
+"                  Sorry your Affiliate Program request is rejected.\n"
+"              </p>\n"
+"              Best regards,<br/>\n"
+"              <t t-if=\"user.signature\" data-o-mail-quote-container=\"1\">\n"
+"                  <br/>\n"
+"                  <t t-out=\"user.signature or ''\" data-o-mail-quote=\"1\">--<br data-o-mail-quote=\"1\"/>Mitchell Admin</t>\n"
+"              </t>\n"
+"          </div>\n"
+"\n"
+"          "
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,body_html:affiliate_management.welcome_affiliate_email
+msgid ""
+"<div style=\"padding:0px;width:600px;margin:auto;background: #FFFFFF repeat top /100%;color:#777777\">\n"
+"              <p>Dear <t t-out=\"object.partner_id.name or object.name or ''\">Marc Demo</t>,</p>\n"
+"              <p>\n"
+"                  Welcome to Affiliate Program, In order to get access to your Account please Log In .\n"
+"              </p>\n"
+"              <p>\n"
+"                   Click on the following link for Log In:\n"
+"              </p>\n"
+"              <div style=\"text-align: center; margin-top: 16px;\">\n"
+"                   <a t-attf-href=\"#{object.website_id.domain}/affiliate?db={{ object.env.cr.dbname }}\" style=\"padding: 5px 10px; font-size: 12px; line-height: 18px; color: #FFFFFF; border-color:#875A7B; text-decoration: none; display: inline-block; margin-bottom: 0px; font-weight: 400; text-align: center; vertical-align: middle; cursor: pointer; white-space: nowrap; background-image: none; background-color: #875A7B; border: 1px solid #875A7B; border-radius:3px\">For Log In to Affiliate Program</a>\n"
+"              </div>\n"
+"              Best regards,<br/>\n"
+"              <t t-if=\"user.signature\" data-o-mail-quote-container=\"1\">\n"
+"                  <br/>\n"
+"                  <t t-out=\"user.signature or ''\" data-o-mail-quote=\"1\">--<br data-o-mail-quote=\"1\"/>Mitchell Admin</t>\n"
+"              </t>\n"
+"          </div>\n"
+"\n"
+"          "
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,body_html:affiliate_management.join_affiliate_email
+msgid ""
+"<div style=\"padding:0px;width:600px;margin:auto;background:#FFFFFF repeat top /100%;color:#777777;\">\n"
+"                <p>Dear <t t-out=\"object.partner_id.name or object.name or ''\">Marc Demo</t>,</p>\n"
+"                <p>\n"
+"                    You have been invited to connect to Affiliate Program in order to get access to your Account please complete your sign up process.\n"
+"                </p>\n"
+"                <p>\n"
+"                    To accept the invitation, click on the following link:\n"
+"                </p>\n"
+"                <div style=\"text-align: center; margin-top: 16px;\">\n"
+"                     <a t-attf-href=\"#{object.website_id.domain}/affiliate/signup?db={{ object.env.cr.dbname }}&amp;token={{ object.signup_token or 'testtoken'}}\" style=\"padding: 5px 10px; font-size: 12px; line-height: 18px; color: #FFFFFF; border-color:#875A7B; text-decoration: none; display: inline-block; margin-bottom: 0px; font-weight: 400; text-align: center; vertical-align: middle; cursor: pointer; white-space: nowrap; background-image: none; background-color: #875A7B; border: 1px solid #875A7B; border-radius:3px\">Accept invitation to Affiliate Program</a>\n"
+"                </div>\n"
+"                Best regards,<br/>\n"
+"                <t t-if=\"user.signature\" data-o-mail-quote-container=\"1\">\n"
+"                    <br/>\n"
+"                    <t t-out=\"user.signature or ''\" data-o-mail-quote=\"1\">--<br data-o-mail-quote=\"1\"/>Mitchell Admin</t>\n"
+"                </t>\n"
+"            </div>\n"
+"\n"
+"          "
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "<em><u><strong>Terms and Conditions</strong></u></em>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:affiliate.program,work_text:affiliate_management.affiliate_program_1
+msgid "<font style=\"vertical-align: inherit;\">quée</font>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_inherit_template
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid "<i class=\"fa fa-copy\"/>&amp;nbsp;Copy"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.my_affiliate_link
+msgid ""
+"<i class=\"fa fa-user-circle-o fa-fw me-1 small text-muted\"/> My Affiliate"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid "<option selected=\"selected\">All Categories</option>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid "<option>All Categories</option>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<span class=\" col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tCommission Matrix :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<span class=\" col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tCommission On:\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "<span class=\"col-lg-5\">Day of Every Month</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+msgid ""
+"<span class=\"col-md-10 col-9 text-end\">\n"
+"                  <strong>Total :</strong>\n"
+"                </span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tCommission Amt :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tCommission Matrix :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tCommission On :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tCommission Value :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tIP Address :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tOrder Value :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tOrder value :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tProduct Detail :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tProgram :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tQuantity :\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<span class=\"col-md-2\">\n"
+"\t\t\t\t\t\t\t\t\t<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tUnit price:\n"
+"\t\t\t\t\t\t\t\t\t</strong>\n"
+"\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "<span class=\"fw-bold\">Affiliate Banner</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "<span class=\"fw-bold\">Affiliate Program</span><br/>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_button_link
+msgid ""
+"<span class=\"step\" style=\"background: #584854;\">✓</span>\n"
+"                    <span class=\"step1-text\" style=\"color:grey;\">\n"
+"                        Choose Product\n"
+"                    </span>  \n"
+"                    <span class=\"step\" style=\"background:  #584854;\">✓</span>\n"
+"                    <span class=\"step1-text\" style=\"color:grey;\">\n"
+"                        Choose your Image\n"
+"                    </span>  \n"
+"                    <span class=\"step\" id=\"step3\">3</span>\n"
+"                    <span class=\"step1-text\" style=\"display:inline-block;border-bottom:1px solid black;padding-bottom:2px;\">\n"
+"                        Copy Generated Code\n"
+"                    </span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_banner
+msgid ""
+"<span class=\"step\" style=\"background: #584854;\">✓</span>\n"
+"                    <span class=\"step1-text\" style=\"color:grey;\">Choose Product</span>\n"
+"                        \n"
+"                    <span class=\"step\">2</span>\n"
+"                    <span class=\"step1-text\" style=\"display:inline-block;border-bottom:1px solid black;padding-bottom:2px;\">\n"
+"                        Choose your Image\n"
+"                    </span>\n"
+"                        \n"
+"                    <span class=\"step\">3</span>\n"
+"                    <span class=\"step1-text\" style=\"color:grey;\">\n"
+"                        Copy Generated Code\n"
+"                    </span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid ""
+"<span class=\"step\">1</span>\n"
+"                            <span class=\"step1-text\" style=\"display:inline-block;border-bottom:1px solid black;padding-bottom:2px;\">\n"
+"                Choose Product\n"
+"                </span>    <span class=\"step\">2</span>\n"
+"                            <span class=\"step1-text\" style=\"color:grey;\">\n"
+"                  Choose your Image\n"
+"                </span>\n"
+"                   <span class=\"step\">3</span>\n"
+"                            <span class=\"step1-text\" style=\"color:grey;\">\n"
+"                  Copy Generated Code\n"
+"                </span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "<span class=\"text-dark fw-bold\">Commissions Cleared</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "<span class=\"text-info fw-bold\">Clicks</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "<span class=\"text-primary fw-bold\">Commissions Earned</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "<span class=\"text-success fw-bold\">Orders</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_inherit_template
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid "<span id=\"check_label2\">Affiliate</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.advance_commision_view_form
+msgid ""
+"<span invisible=\"active_adv_comsn == True\" class=\"o_field_widget\">Inactive</span>\n"
+"\t\t\t\t\t\t\t\t<span invisible=\"not active_adv_comsn\" style=\"color:green\" class=\"o_field_widget\">Active</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_image_view_form
+msgid ""
+"<span invisible=\"image_active == True\" class=\"o_field_widget\">Inactive</span>\n"
+"\t\t\t\t\t\t\t\t<span invisible=\"not image_active\" style=\"color:green\" class=\"o_field_widget\">Active</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+msgid ""
+"<span invisible=\"matrix_type=='f'\">\n"
+"\t\t\t\t\t\t\t\t\t\t<b>%</b>\n"
+"\t\t\t\t\t\t\t\t\t</span>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_inherit_template
+msgid "<strong class=\"mt-3\">Generate Banner</strong><br/>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">About Affiliate Program</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Affiliate Link Generator</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Affiliate Program Commission</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Earned Commissions</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Generate Product Link</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Statistics</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Summary</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Your Order Earnings</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Your Payments</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Your Reports</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Your Tools</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "<strong class=\"text-dark\">Your Traffic Earnings</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tApproved Amount:\n"
+"\t\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tInvoice State :\n"
+"\t\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\t\tPending Amount:\n"
+"\t\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\tDate :\n"
+"\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\tDate:\n"
+"\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\tOrder :\n"
+"\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\tOrder State :\n"
+"\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\tTraffic :\n"
+"\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid ""
+"<strong>\n"
+"\t\t\t\t\t\t\t\t\tTraffic State :\n"
+"\t\t\t\t\t\t\t\t</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+msgid "<strong>Date :</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+msgid "<strong>Invoice State :</strong>"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "About Our Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_account_payment
+msgid "Account Payment Inherit Model"
+msgstr "Pagos"
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__act_invoice_id
+msgid "Act Invoice id"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_needaction
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_needaction
+msgid "Action Needed"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__active_adv_comsn
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__image_active
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__is_active
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_image_view_form
+msgid "Active"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_ids
+msgid "Activities"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_exception_decoration
+msgid "Activity Exception Decoration"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_state
+msgid "Activity State"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_type_icon
+msgid "Activity Type Icon"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Address"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_program__ppc_type__a
+msgid "Advance"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__advance_commision_id
+msgid ""
+"Advance Affiliate Commission of the PPS commission for this Affiliate "
+"Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__advance_commision_id
+msgid "Advance Commision"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.advance_commision_sub_menu
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+msgid "Advance Computation"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_program__pps_type__a
+msgid "Advanced"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__affiliate_partner_id
+#: model_terms:ir.ui.view,arch_db:affiliate_management.my_account_link
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_inherit_template
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_Affiliate_partner_inherit_detail_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Affiliate"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+msgid "Affiliate About"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.advance_commision_action
+msgid "Affiliate Advance Commission"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_affiliate_banner
+msgid "Affiliate Banner Model"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.module.category,name:affiliate_management.affiliate_security_category
+msgid "Affiliate Category"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_advance_commision
+msgid "Affiliate Commision Model"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_res_config_settings
+msgid "Affiliate Configuration Model"
+msgstr "Ajustes de configuración"
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_view_search
+msgid "Affiliate Customer"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.affiliate_partner_view
+msgid "Affiliate Customers"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_Affiliate_partner_inherit_detail_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Affiliate Details"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_banner
+msgid "Affiliate Generate Banner"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_button_link
+msgid "Affiliate Generate Banner Button"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_portal_breadcrumbs
+msgid "Affiliate Home"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.affiliate_image_action
+msgid "Affiliate Image"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_affiliate_image
+msgid "Affiliate Image Model"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.affiliate_report_sub_image_menu
+msgid "Affiliate Images"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.action_move_out_affiliate_invoice_type
+msgid "Affiliate Invoices"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_Affiliate_partner_inherit_detail_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Affiliate Key"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_partner__res_affiliate_key
+#: model:ir.model.fields,help:affiliate_management.field_res_users__res_affiliate_key
+msgid "Affiliate Key for the affiliate partner"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "Affiliate Link"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.link_generator
+msgid "Affiliate Link Generate"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.link_generator
+#: model_terms:ir.ui.view,arch_db:affiliate_management.tool
+msgid "Affiliate Link Generator"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Affiliate Management"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Affiliate Management Configuration"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid ""
+"Affiliate Management is a program where you can earn commission just by advertising our products on your website/blog .\n"
+"\t\t\t\t\t\t\t\t\tCommission will be earned by you everytime when a user makes a purchase by visiting us through you (means through the product link which you publish on your website/blog).\n"
+"\t\t\t\t\t\t\t\t\tThere is zero cost involvement in joining the affiliate program which makes it distinct, low risk and high reward marketing and sales strategy as compared to others."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.affiliate_manager_menu_base_root
+msgid "Affiliate Manager"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_affiliate_program
+msgid "Affiliate Model"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+msgid "Affiliate Payment Details"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_tree
+msgid "Affiliate Payments"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__aff_product_id
+msgid "Affiliate Product"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid "Affiliate Product Link"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_affiliate_product_pricelist_item
+msgid "Affiliate Product Pricelist Item Model"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.affiliate_program_form_action
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__affiliate_program_id
+#: model:ir.ui.menu,name:affiliate_management.affiliate_program_base_root
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Affiliate Program Commission"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "Affiliate Program Commissions"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__affiliate_program_id
+msgid ""
+"Affiliate Program from which the commission will calculated for this "
+"affiliate visit"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.affiliate_request_action
+msgid "Affiliate Request"
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,name:affiliate_management.join_affiliate_email
+msgid "Affiliate Request Connection"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_affiliate_request
+msgid "Affiliate Request Model"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_statistics
+msgid "Affiliate Statistics"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Affiliate Summary"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Affiliate Tool"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.tool
+msgid "Affiliate Tools"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__affiliate_type
+msgid "Affiliate Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_affiliate_visit
+msgid "Affiliate Visit"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_partner__affiliate_website_id
+#: model:ir.model.fields,field_description:affiliate_management.field_res_users__affiliate_website_id
+msgid "Affiliate Website"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_partner__res_affiliate_key
+msgid "Affiliate key"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Affiliate product (optional)"
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,name:affiliate_management.reject_affiliate_email
+msgid "Affiliate reject mail Connection"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__affiliate_banner_id
+msgid "Affiliate that will be visible on the affiliate website"
+msgstr ""
+
+#. module: affiliate_management
+#: model:mail.template,name:affiliate_management.welcome_affiliate_email
+msgid "Affiliate welcome mail Connection"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.affiliate_submenu_user_root
+msgid "All Affiliates"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+msgid "All Earnings"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__amount
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_tree
+msgid "Amount"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__amount_ppc_fixed
+msgid "Amount Fixed"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_product_pricelist_item__fixed_price
+msgid "Amount for the fixed advance affiliate commission"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Applied On"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_banner
+msgid "Apply"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__applied_on
+msgid "Apply On"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_request_view_form
+msgid "Approve"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_request__state__aproove
+msgid "Approved"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_partner__approved_amt
+#: model:ir.model.fields,field_description:affiliate_management.field_res_users__approved_amt
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Approved Amount"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_partner__approved_amt
+#: model:ir.model.fields,help:affiliate_management.field_res_users__approved_amt
+msgid "Approved Amount for the affiliate partner"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__welcome_mail_template
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Approved Request Mail"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Approved Sales"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_manager_kanban_view
+msgid "Archived"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_attachment_count
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_attachment_count
+msgid "Attachment Count"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__auto_approve_request
+msgid "Auto Approve Request"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.server,name:affiliate_management.affiliate_visit_confirmation_cron_ir_actions_server
+msgid "Automated Visits Confirmation Cron"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.server,name:affiliate_management.affiliate_visit_scheduler_call_ir_actions_server
+msgid "Automated invoice Scheduler"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.server,name:affiliate_management.affiliate_ppc_maturity_scheduler_call_ir_actions_server
+msgid "Automated ppc maturity Scheduler"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__auto_confirm_visit
+msgid "Automatic Confirm Visits"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_banner__banner_image
+msgid "Background Image for the affiliate banner."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Balance"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__affiliate_banner_id
+msgid "Banner"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__banner_image
+msgid "Banner Image"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__banner_title
+msgid "Banner Text"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_banner_view_form
+msgid ""
+"Banner for sellers landing page. Banner size must be 1298 x 400 px for "
+"perfect view."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__state__cancel
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+msgid "Cancel"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__affiliate_type__category
+msgid "Category"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "City"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+msgid "Click To Check Details"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Clicks"
+msgstr ""
+
+#. modules: affiliate_management, wk_wizard_messages
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+#: model_terms:ir.ui.view,arch_db:wk_wizard_messages.form_wizard_message
+msgid "Close"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Comment:"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__commission_amt
+msgid "Commission Amt"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+msgid "Commission Details"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__amt_type
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+msgid "Commission Matrix"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__amt_type
+msgid "Commission Matrix on which commission value calculated"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Commission Rates"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+msgid "Commission Value"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__compute_price
+#: model_terms:ir.ui.view,arch_db:affiliate_management.aaffiliate_product_pricelist_item_view_form
+msgid "Compute Price"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.configuration_submenu_root
+msgid "Configuration"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Configure"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Configure your Affiliate Banner"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Configure your Affiliate Program data"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Configure your Approved Request Mail"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Configure your Invitation Request Mail"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Configure your Reject Request Mail"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__state__confirm
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+msgid "Confirm"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Confirm Password"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_res_partner
+msgid "Contact"
+msgstr "Contacto"
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_manager_kanban_view
+msgid "Contact image"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Continue Shopping"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+msgid "Conversion Date"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+msgid "Convert Date"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.webkul_employees_view_search
+msgid "Converted"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Cookie Expiration"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__cookie_expire_period
+msgid "Cookie Expire Period"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__cookie_expire_period
+msgid "Cookie Expiry Period"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__cookie_expire
+msgid "Cookie Expiry Time"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__cookie_expire
+msgid "Cookie expiration"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_button_link
+#: model_terms:ir.ui.view,arch_db:affiliate_management.link_generator
+msgid "Copy"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid ""
+"Copy\n"
+"                                              to Clipboard"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_button_link
+msgid "Copy the HTML code and paste it to your website source"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_button_link
+msgid "Copy the Html Code and paste it into your website"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.link_generator
+msgid "Copy the generated link and paste it into your website"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Country"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.server,name:affiliate_management.open_invoice_server_action
+msgid "Create Visits Invoice"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.actions.act_window,help:affiliate_management.action_move_out_affiliate_invoice_type
+msgid "Create an affiliate invoice"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.actions.act_window,help:affiliate_management.action_move_out_affiliate_invoice_type
+msgid ""
+"Create invoices, register payments and keep track of the discussions with "
+"your affiliates."
+msgstr ""
+
+#. modules: affiliate_management, wk_wizard_messages
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__create_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__create_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__create_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__create_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__create_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__create_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__create_uid
+#: model:ir.model.fields,field_description:wk_wizard_messages.field_wk_wizard_message__create_uid
+msgid "Created by"
+msgstr ""
+
+#. modules: affiliate_management, wk_wizard_messages
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__create_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__create_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__create_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__create_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__create_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__create_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__create_date
+#: model:ir.model.fields,field_description:wk_wizard_messages.field_wk_wizard_message__create_date
+msgid "Created on"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__currency_id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__currency_id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__currency_id
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__currency_id
+msgid "Currency"
+msgstr "Moneda"
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__currency_id
+msgid "Currency set in the current company"
+msgstr "Moneda principal de la empresa."
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__user_id
+msgid "Current User"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__convert_date
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit__view_tree
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_tree
+msgid "Date"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Day"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__res_config_settings__cookie_expire_period__days
+#: model:ir.model.fields.selection,name:affiliate_management.selection__res_config_settings__ppc_maturity_period__days
+msgid "Days"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__is_default_program
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__affiliate_program_id
+msgid "Default Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__work_text
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__work_text
+msgid ""
+"Description Text for the How Does It Work section of this Affiliate Program "
+"for the affiliate Website"
+msgstr ""
+
+#. modules: affiliate_management, wk_wizard_messages
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__display_name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__display_name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__display_name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__display_name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__display_name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__display_name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__display_name
+#: model:ir.model.fields,field_description:wk_wizard_messages.field_wk_wizard_message__display_name
+msgid "Display Name"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__state__draft
+msgid "Draft"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Earn commission"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid ""
+"Earning by\n"
+"\t\t\t\t\t\t\t\t\t\t\tTraffic(Pay Per Click)"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid "Earning by Orders(Pay Per Sale)"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__name
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Email"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Email Configuration"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.show_sign_in
+msgid "Email Id"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__name
+msgid "Email of the requested affiliate user"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__enable_forget_pwd
+msgid "Enable Forget Password"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__enable_login
+msgid "Enable Log In"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__enable_ppc
+msgid "Enable PPC"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__enable_signup
+msgid "Enable Sign Up"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__enable_forget_pwd
+msgid ""
+"Enabling this will enable frorgetting the password from the affiliate "
+"website"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__enable_login
+msgid "Enabling this will enable the login from the affiliate website"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__enable_signup
+msgid "Enabling this will enable the signup from the affiliate website"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Enter Your Email"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Enter Your Password"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Enter Your Phone No."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid "Enter the Product and select a category of it below"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Expiry"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid "Fetch"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_partner__is_affiliate
+#: model:ir.model.fields,help:affiliate_management.field_res_users__is_affiliate
+msgid "Field to check that the partner is affilate or not"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_product_pricelist_item__compute_price__fixed
+msgid "Fix Price"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_program__matrix_type__f
+msgid "Fixed"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__amount_ppc_fixed
+msgid "Fixed Commission Amount of the PPC for this Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__fixed_price
+msgid "Fixed Price"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__amount
+msgid ""
+"Fixed/Percentage amount of the Simple PPS commission for this Affiliate "
+"Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_follower_ids
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_follower_ids
+msgid "Followers"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_partner_ids
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_partner_ids
+msgid "Followers (Partners)"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__activity_type_icon
+msgid "Font awesome icon e.g. fa-tasks"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.show_sign_in
+msgid "Forgot Password?"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.link_generator
+msgid "Generate"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid ""
+"Generate\n"
+"                                                Banner"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_inherit_template
+msgid "Generate Banner"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Generate Links &amp; Banners"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.tool
+msgid "Generate Product Link"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_product_pricelist_item__applied_on__3_global
+msgid "Global"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Global Standard Commission Income Rates"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.webkul_employees_view_search
+msgid "Group By"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__has_message
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__has_message
+msgid "Has Message"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__banner_height
+msgid "Height"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__banner_height
+msgid "Height of the affiliate image"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.show_sign_in
+msgid "Home"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__res_config_settings__cookie_expire_period__hours
+msgid "Hours"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__work_text
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__work_text
+msgid "How Does It Work Text"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__work_title
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__work_title
+msgid "How Does It Work Title"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+msgid "How Does It Work?"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "How Does it Work?"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "I agree to all"
+msgstr ""
+
+#. modules: affiliate_management, wk_wizard_messages
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__id
+#: model:ir.model.fields,field_description:wk_wizard_messages.field_wk_wizard_message__id
+msgid "ID"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+msgid "IP Address"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_exception_icon
+msgid "Icon"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__activity_exception_icon
+msgid "Icon to indicate an exception activity."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__type_id
+msgid "Id of product template on which ppc or pps traffic create"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__message_needaction
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__message_has_error
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__message_has_sms_error
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__message_has_error
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__auto_confirm_visit
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid ""
+"If enabled, it will automatically confirm affiliate visits which are in "
+"draft state."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__enable_ppc
+msgid ""
+"If enabled, the PPC commssions will be provided to the affiliates otherwise "
+"only PPS commissions will be provided."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__image
+msgid "Image"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Income Rates"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Internal Notes"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Internal Notes..."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Invitation Request Mail"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__Invitation_mail_template
+msgid "Invitation Request Mail "
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.affiliate_invoice_visit_menu
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "Invoice"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_tree
+msgid "Invoice Number"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__act_invoice_id
+msgid "Invoice for the provided affiliate commission"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__state__invoice
+msgid "Invoiced"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.affiliate_invoicing_visit_menu
+msgid "Invoicing"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__ip_address
+msgid "Ip Address"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_partner__is_affiliate
+#: model:ir.model.fields,field_description:affiliate_management.field_res_users__is_affiliate
+msgid "Is Affiliate"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__is_converted
+msgid "Is Converted"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_is_follower
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_is_follower
+msgid "Is Follower"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_Affiliate_partner_inherit_detail_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Is a Affiliate"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__pricelist_item_ids
+msgid "Item"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+msgid "Item Name"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+msgid "Item Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "JOIN NOW FOR FREE"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_account_move
+msgid "Journal Entry"
+msgstr "Asiento contable"
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__affiliate_key
+msgid "Key"
+msgstr ""
+
+#. modules: affiliate_management, wk_wizard_messages
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__write_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__write_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__write_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__write_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__write_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__write_uid
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__write_uid
+#: model:ir.model.fields,field_description:wk_wizard_messages.field_wk_wizard_message__write_uid
+msgid "Last Updated by"
+msgstr ""
+
+#. modules: affiliate_management, wk_wizard_messages
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__write_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_banner__write_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__write_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__write_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__write_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__write_date
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__write_date
+#: model:ir.model.fields,field_description:wk_wizard_messages.field_wk_wizard_message__write_date
+msgid "Last Updated on"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_advance_commision__pricelist_item_ids
+msgid "List of Affiliate Product Pricelist Items"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.show_sign_in
+msgid "Log in"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__welcome_mail_template
+msgid "Mail Template for the approved affiliate request"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__reject_mail_template
+msgid "Mail Template for the rejected affiliate request"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__Invitation_mail_template
+msgid "Mail template for the affiliate joining request"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Manage your Cookie expiry"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Manage your PPC"
+msgstr ""
+
+#. module: affiliate_management
+#: model:res.groups,name:affiliate_management.affiliate_security_manager_group
+msgid "Manager"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__auto_approve_request
+msgid ""
+"Marking this field to True will automatically approve the affiliate request"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__matrix_type
+msgid "Matrix Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__matrix_type
+msgid ""
+"Matrix Type for the Simple type of the PPS commission for this Affiliate "
+"Program"
+msgstr ""
+
+#. module: wk_wizard_messages
+#: model:ir.model.fields,field_description:wk_wizard_messages.field_wk_wizard_message__text
+#: model_terms:ir.ui.view,arch_db:wk_wizard_messages.form_wizard_message
+msgid "Message"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_has_error
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_has_error
+msgid "Message Delivery error"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_ids
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_ids
+msgid "Messages"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.webkul_employees_view_search
+msgid "Method"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__minimum_amt
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Minimum Payout Balance"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__minimum_amt
+msgid "Minimum Payout Balance for the confirmed affiliate commissions"
+msgstr ""
+
+#. module: wk_wizard_messages
+#: model:ir.model,name:wk_wizard_messages.model_wk_wizard_message
+msgid ""
+"Model is designed for displaying text-based messages and notifications "
+"within the application, typically in a pop-up window or new context, "
+"facilitating user interaction and communication"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_statistics
+msgid "Monthly"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__res_config_settings__cookie_expire_period__months
+#: model:ir.model.fields.selection,name:affiliate_management.selection__res_config_settings__ppc_maturity_period__months
+msgid "Months"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "More Info &amp;nbsp; <i class=\"fa fa-arrow-circle-right\"/>"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__my_activity_date_deadline
+msgid "My Activity Deadline"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_advance_commision__name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__name
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__name
+#: model_terms:ir.ui.view,arch_db:affiliate_management.advance_commision_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_image_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Name"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__name
+msgid "Name of the Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_advance_commision__name
+msgid "Name of the advance affiliate commission"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__name
+msgid "Name of the affiliate image"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__type_name
+msgid "Name of the product"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_calendar_event_id
+msgid "Next Activity Calendar Event"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_date_deadline
+msgid "Next Activity Deadline"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_summary
+msgid "Next Activity Summary"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_type_id
+msgid "Next Activity Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid "No Item Search In this Category"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "No Menus to display"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.webkul_employees_view_search
+msgid "Not Invoiced"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_needaction_counter
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_needaction_counter
+msgid "Number of Actions"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_has_error_counter
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_has_error_counter
+msgid "Number of errors"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__message_needaction_counter
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__message_has_error_counter
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+msgid "Order"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+msgid "Order Details"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "Order Earnings"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.affiliate_pps_visit_action
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__affiliate_method
+#: model:ir.ui.menu,name:affiliate_management.affiliate_order_report_visit_menu
+msgid "Order Report"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid "Order Report Detail"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Over All Record"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__ppc_maturity
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "PPC Maturity"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__state__paid
+msgid "Paid"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__parent_aff_key
+msgid "Parent Affiliate Key"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__parent_aff_key
+msgid "Parent affiliate key of the requested affiliate user"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__partner_id
+#: model_terms:ir.ui.view,arch_db:affiliate_management.webkul_employees_view_search
+msgid "Partner"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_users__res_affiliate_key
+msgid "Partner Affiliate Key"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__partner_id
+msgid "Partner of the affiliate request"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Partners"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.show_sign_in
+msgid "Password"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__password
+msgid "Password of the requested affiliate user"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__affiliate_method__ppc
+msgid "Pay Per Click"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__affiliate_method__pps
+msgid "Pay Per Sale"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Payment Configuration"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Payment Day"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__payment_day
+msgid "Payment Day for the confirmed affiliate commissions"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__payment_day
+msgid "Payment day"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "Payments"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_partner__pending_amt
+#: model:ir.model.fields,field_description:affiliate_management.field_res_users__pending_amt
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Pending Amount"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_partner__pending_amt
+#: model:ir.model.fields,help:affiliate_management.field_res_users__pending_amt
+msgid "Pending Amount for the affiliate partner"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_request__state__register
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_request_filter
+msgid "Pending For Approval"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.affiliate_report_sub_request_menu
+msgid "Pending Requests"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Pending Sales"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Per Click"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Per Sale(<strong>Simple</strong>)"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_program__matrix_type__p
+msgid "Percentage"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_product_pricelist_item__compute_price__percentage
+msgid "Percentage (discount)"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__percent_price
+msgid "Percentage Price"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Please indicate that you accept with the Terms and conditions."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__ppc_maturity_period
+msgid "Ppc Maturity Period"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__ppc_type
+msgid "Ppc Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__pps_type
+msgid "Pps Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.aaffiliate_product_pricelist_item_view_form
+msgid "Price Computation"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__advance_commision_id
+msgid "Pricelist"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_product_pricelist_item__applied_on
+msgid "Pricelist Item applicable on selected option"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.aaffiliate_product_pricelist_item_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.advance_commision_view_form
+msgid "Pricelist Items"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_product_pricelist_item__applied_on__1_product
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_visit__affiliate_type__product
+#: model_terms:ir.ui.view,arch_db:affiliate_management.aaffiliate_product_pricelist_item_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Product"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__categ_id
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Product Category"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__product_quantity
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_visit_view_form
+msgid "Product Quantity"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__product_tmpl_id
+msgid "Product Template"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__unit_price
+msgid "Product Unit Price"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__aff_product_id
+msgid "Product used in Invoicing"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Products"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__affiliate_program_id
+msgid "Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__product_quantity
+msgid "Purchased Product Quantity for the affiliate visit"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+msgid "Rate For PPC"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+msgid "Rate For PPS"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__rating_ids
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__rating_ids
+msgid "Ratings"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Register"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_request_filter
+msgid "Register Request"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_request_view_form
+msgid "Reject"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Reject Request Mail"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__reject_mail_template
+msgid "Reject Request Mail "
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_request__state__cancel
+msgid "Rejected"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_account_bank_statement_line__aff_visit_id
+#: model:ir.model.fields,field_description:affiliate_management.field_account_move__aff_visit_id
+msgid "Report"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.ui.menu,name:affiliate_management.affiliate_report_visit_menu
+#: model_terms:ir.ui.view,arch_db:affiliate_management.invoice_supplier_inherit_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid "Reports"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_request__state__draft
+msgid "Requested"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__user_id
+msgid "Requested affiliate user"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__activity_user_id
+msgid "Responsible User"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Root Traffic To \""
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__message_has_sms_error
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__price_total
+msgid "Sale value"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__sales_order_line_id
+msgid "Sales Order Line"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.webkul_employees_view_search
+msgid "Search Employees"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_request_filter
+msgid "Search Request"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_banner
+msgid "Select a image from the below and hit Apply"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__website_id
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__website_id
+msgid "Select a website form the list of websites"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__image
+msgid "Select the image for the affiliate image"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_product_pricelist_item__sequence
+msgid "Sequence"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.affiliate_config_form_action
+#: model:ir.ui.menu,name:affiliate_management.setting_submenu_root
+msgid "Settings"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.show_sign_in
+msgid "Shop"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__signup_expiration
+msgid "Signup Expiration Time"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__signup_expiration
+msgid "Signup Expiration Time for the affiliate request"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__signup_type
+msgid "Signup Token Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__signup_valid
+msgid "Signup Token is Valid"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__signup_type
+msgid "Signup token type of the affiliate request i.e. 'signup'"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__signup_token
+msgid "Signup token used during the signup of new affiliate user"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_program__ppc_type__s
+#: model:ir.model.fields.selection,name:affiliate_management.selection__affiliate_program__pps_type__s
+msgid "Simple"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid ""
+"Sorry to say! your request to become an affiliate for us is rejected by "
+"Admin."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_product_pricelist_item__categ_id
+msgid ""
+"Specify a product category if this rule only applies to products belonging "
+"to this eccmmerce website category or its children categories. Keep empty "
+"otherwise."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_product_pricelist_item__product_tmpl_id
+msgid ""
+"Specify a template if this rule only applies to one product template. Keep "
+"empty otherwise."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Standard Commission Income Rates for Specific Product Categories"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_program_commission
+msgid "Standard Commission Income Rates for Specific Products"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_tree
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "State"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_request__state
+msgid "State of the affiliate request"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "Statistics"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Stats Management"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__state
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__state
+msgid "Status"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__activity_state
+msgid ""
+"Status based on activities\n"
+"Overdue: Due date is already passed\n"
+"Today: Activity date is today\n"
+"Planned: Future activities."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_button_link
+msgid "Step  3: Copy Generated Code"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+msgid ""
+"Step 1: Choose\n"
+"                Product"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.generate_banner
+msgid "Step 2: Choose your Image"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Street 2..."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Street..."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "Summary"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__term_condition
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__term_condition
+msgid "Term & condition Text"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+msgid "Terms And Condition"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_program_view_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "Terms and Conditions"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__term_condition
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__term_condition
+msgid "Terms and Conditions of this Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.link_generator
+msgid "Text Link created below."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_banner__banner_title
+msgid "Text for the affiliate banner."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__commission_amt
+msgid "The commission amount for this affiliate visit"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_product_pricelist_item__percent_price
+msgid "The percentage amount for advance affiliate commission"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_product_pricelist_item__sequence
+msgid ""
+"The sequence field is used to define order in which the pricelist item are "
+"applied."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid ""
+"There are currently no earnings for your\n"
+"\t\t\t\t\t\t\t\t\t\t\taccount."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_order
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_all_reports
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid "There are currently no earnings for your account."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.payment_tree
+msgid "There are currently no invoices for your account."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__unique_ppc_traffic
+msgid ""
+"This field is used to enable unique traffic on product for an Affiliate for "
+"a specific browser."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid ""
+"Through our specially designed Affiliate Tools namely \"Affiliate Link Generator\" and \"Product Link Generator\" user can easily manage his affiliate program.\n"
+"\t\t\t\t\t\t\t\tThrough our tools, its easy to build  the affiliate product links and banners and earn money."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__ppc_maturity
+msgid ""
+"Time Interval of the cron that will provide PPC commission to the "
+"affiliates."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__ppc_maturity_period
+msgid ""
+"Time Period of the cron that will provide PPC commission to the affiliates."
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__title
+msgid "Title"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__work_title
+#: model:ir.model.fields,help:affiliate_management.field_res_config_settings__work_title
+msgid ""
+"Title for the How Does It Work section of this Affiliate Program for the "
+"affiliate Website"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__title
+msgid "Title of the affiliate image"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__signup_token
+msgid "Token"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "Tools"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__price_total
+msgid "Total sale value of product"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_traffic
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_home_menu_affiliate
+msgid "Traffic Earnings"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_statistics
+msgid "Traffic Graph"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.actions.act_window,name:affiliate_management.affiliate_ppc_visit_action
+#: model:ir.ui.menu,name:affiliate_management.affiliate_traffic_report_visit_menu
+msgid "Traffic Report"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid "Traffic Report Detail"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.webkul_employees_view_search
+msgid "Type"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__type_id
+msgid "Type Id"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__type_name
+msgid "Type Name"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__ppc_type
+msgid "Type of the PPC commission for this Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_program__pps_type
+msgid "Type of the PPS commission for this Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_product_pricelist_item__compute_price
+msgid "Type of the advance affiliate commission computation"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__activity_exception_decoration
+msgid "Type of the exception activity on record."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+msgid "Unique Clicks"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Unique PPC For Product"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_res_config_settings__unique_ppc_traffic
+msgid "Unique ppc for product"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__url
+msgid "Url"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model,name:affiliate_management.model_res_users
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__user_id
+#: model:res.groups,name:affiliate_management.affiliate_security_user_group
+msgid "User"
+msgstr "Usuario"
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "User Name"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "View My Affiliate Account"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "View Tools"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "View Your Stats"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "Visits"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_program__website_id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__website_id
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__website_id
+msgid "Website"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_affiliate_config_form
+msgid "Website Configuration"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__website_message_ids
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_visit__website_message_ids
+msgid "Website Messages"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__website_message_ids
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__website_message_ids
+msgid "Website communication history"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_statistics
+msgid "Weekly"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields.selection,name:affiliate_management.selection__res_config_settings__ppc_maturity_period__weeks
+msgid "Weeks"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid "Welcome To Affiliate Program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_image__bannner_width
+msgid "Width"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_image__bannner_width
+msgid "Width of the affiliate image"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid ""
+"With Pay Per Click Program of Affiliate\n"
+"\t\t\t\t\t\t\t\t\t\t\tMangement, publisher will get paid\n"
+"\t\t\t\t\t\t\t\t\t\t\t(certain amount of commission) for <b>\n"
+"\t\t\t\t\t\t\t\t\t\t\tDirecting Traffic\n"
+"\t\t\t\t\t\t\t\t\t\t\t</b>\n"
+"\t\t\t\t\t\t\t\t\t\t\tto advertiser website from the ad which\n"
+"\t\t\t\t\t\t\t\t\t\t\the advertise on his site."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.report
+msgid ""
+"With Pay Per Sale Program of Affiliate Management, publisher will get paid \n"
+"\t\t\t\t\t\t\t\t\t\t(certain amount of commission) for every <strong>Sale Generated</strong>\n"
+"\t\t\t\t\t\t\t\t\t\tby the advertisement which he published on his website."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.about
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid ""
+"With our Affiliate Program, one will able to instantly see all the "
+"information related to his earnings from Pay Per Sale and Pay Per Click, "
+"which would be highly valuable in making decisions. Reports generated by our"
+" Stats Management saves time and gives a more clear picture of your "
+"Affiliate Program profit and loss and what to focus on in order to maximize "
+"your profit."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.tool
+msgid ""
+"With our this tool, a link will be generated with key for the publisher just"
+" by entering a valid url and clicking on ‘Generate’  which he can showcase "
+"on his website."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.tool
+msgid ""
+"With our this tool, the publisher can generate a unique product link by "
+"following below three simple steps. First Choose Your Product, Second Choose"
+" your Image and Last Copy Generated Code"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "You already got registered with this link."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_inherit_template
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid "Your Affiliate Code:"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "Your Referral Code"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate_summary
+#: model_terms:ir.ui.view,arch_db:affiliate_management.portal_my_affiliate_home
+msgid "Your Referral Link"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid ""
+"Your Request has been submitted sucessfully. Soon you will be notified by "
+"email."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.affiliate
+msgid ""
+"Your application is currently being reviewed, soon you will receive an "
+"Approval confirmation mail and thereafter you will able to access your "
+"Affiliate account on our website."
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "ZIP"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.advance_commision_view_form
+msgid "active_adv_comsn"
+msgstr ""
+
+#. module: affiliate_management
+#: model:affiliate.program,work_title:affiliate_management.affiliate_program_1
+msgid "asi funcionap ut"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.product_link
+#: model_terms:ir.ui.view,arch_db:affiliate_management.shop_inherit_template
+msgid "eg. Ipad mini"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.link_generator
+msgid "eg. www.localhost:8069/shop/product/e-com10-apple-wireless-keyboard-16"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_Affiliate_partner_inherit_detail_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.view_partner_form2
+msgid "generate"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,field_description:affiliate_management.field_affiliate_request__password
+msgid "password"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+msgid ""
+"per\n"
+"\t\t\t\t\t\t\t\t\titem"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.order_form
+#: model_terms:ir.ui.view,arch_db:affiliate_management.traffic_form
+msgid "per item"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__unit_price
+msgid "price unit of the product"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__affiliate_method
+msgid "state of traffic either ppc or pps"
+msgstr ""
+
+#. module: affiliate_management
+#: model_terms:ir.ui.view,arch_db:affiliate_management.register
+msgid "terms and conditions for affiliate program"
+msgstr ""
+
+#. module: affiliate_management
+#: model:ir.model.fields,help:affiliate_management.field_affiliate_visit__affiliate_type
+msgid "whether the ppc or pps is on product or category"
+msgstr ""
